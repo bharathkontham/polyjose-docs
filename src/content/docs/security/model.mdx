@@ -17,7 +17,7 @@ Pure Rust gives memory safety, not freedom from side channels. How well each pri
 
 ## Dependencies
 
-The core crate depends only on cryptographic primitive crates plus three small support crates: `subtle`, `zeroize` and `getrandom`. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
+The core crate depends only on cryptographic primitive crates and two small support crates. One of the primitive crates is `getrandom`, the operating-system randomness primitive. The two support crates are `subtle` and `zeroize`, which are part of the primitives' own security model. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
 
 A CI check is planned that fails when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
 
