@@ -96,7 +96,7 @@ export function sentences(text) {
 }
 
 const CLAIM_MESSAGE =
-  'claims that polyjose is audited, but no independent audit of polyjose itself has been published. Say what is audited, and by whom, instead.';
+  'reads as a claim that polyjose, or something it is built from, is audited, but no independent audit of polyjose itself has been published. Say what was reviewed, by whom and when, instead.';
 
 /** True when the pre-1.0 notice is rendered with its wording (rule a). */
 function hasNotice(html) {
