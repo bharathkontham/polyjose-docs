@@ -24,6 +24,11 @@
 #     edits to its tracked files discarded.
 #   - pin "registry": the runner installs the published version itself.
 #
+# CI rule. With CI=true, a platform whose pin is git or registry must run:
+# each of its skips above (no runner, a sibling or clone problem, a runner
+# calling samples_skip) is a FAIL with the same reason instead, so CI never
+# goes green on samples that did not run. A "none" pin is still SKIPPED.
+#
 # Runner contract. scripts/samples/platforms/<platform>.sh is sourced in a
 # subshell, from the docs repository root, with `set -euo pipefail` and:
 #   SAMPLES_ROOT         the docs repository (absolute path)
@@ -35,7 +40,7 @@
 #   POLYJOSE_DIR         polyjose at the pinned commit (git mode; empty otherwise)
 # Finishing with status 0 is a PASS; any other status is a FAIL. A runner
 # whose toolchain is missing calls `samples_skip "<reason>"`, which ends it
-# as SKIPPED.
+# as SKIPPED (a FAIL with CI=true). Exiting 77 without samples_skip is a FAIL.
 #
 # Written for bash 3.2 (macOS /bin/bash): no associative arrays, mapfile or
 # ${var,,}.
