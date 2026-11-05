@@ -20,7 +20,8 @@
 #     uncommitted changes and no untracked files other than ones polyjose
 #     ignores (otherwise SKIPPED, also when git status fails). With CI=true,
 #     polyjose is cloned there instead (POLYJOSE_GIT_URL overrides the URL);
-#     a clone kept from an earlier run has its origin reset to that URL.
+#     a clone kept from an earlier run has its origin reset to that URL and
+#     edits to its tracked files discarded.
 #   - pin "registry": the runner installs the published version itself.
 #
 # Runner contract. scripts/samples/platforms/<platform>.sh is sourced in a
@@ -93,7 +94,7 @@ prepare_git() {
       prepare_result=fail; prepare_reason="could not set the polyjose clone's origin to $url"; return
     fi
     if ! git -C "$dest" fetch -q --depth 1 origin "$rev" >/dev/null 2>&1 \
-      || ! git -C "$dest" -c advice.detachedHead=false checkout -q --detach "$rev" >/dev/null 2>&1; then
+      || ! git -C "$dest" -c advice.detachedHead=false checkout -q --force --detach "$rev" >/dev/null 2>&1; then
       prepare_result=fail; prepare_reason="could not fetch polyjose $(short "$rev") from $url"; return
     fi
     head=$(git -C "$dest" rev-parse HEAD 2>/dev/null)
