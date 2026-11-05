@@ -10,8 +10,15 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { parsePin } from '../../src/lib/samples/pins.mjs';
 
 const dist = fileURLToPath(new URL('../../dist/', import.meta.url));
+
+/** The parsed pin in samples/pins/<platform>.json. */
+function pinOf(platform) {
+	const file = fileURLToPath(new URL(`../../samples/pins/${platform}.json`, import.meta.url));
+	return parsePin(JSON.parse(readFileSync(file, 'utf8')), platform);
+}
 
 function load(route) {
 	const file = `${dist}${route}index.html`;
@@ -52,6 +59,16 @@ function linksOf(html) {
 		href: m[1],
 		text: textOf(m[2]),
 	}));
+}
+
+/**
+ * Every href in a whole page (anchors, but also <link> and anything else)
+ * whose host is `host` or a subdomain of it.
+ */
+export function hrefsToHost(html, host) {
+	const escaped = host.replace(/[.]/g, '\\.');
+	const re = new RegExp(`\\bhref\\s*=\\s*["']?(?:https?:)?//(?:[^/"'\\s>]*\\.)?${escaped}(?=[/:"'\\s>?#]|$)[^"'\\s>]*`, 'gi');
+	return [...html.matchAll(re)].map((m) => m[0]);
 }
 
 /** Text split into sentences (and list items, headings, cells). */
@@ -140,6 +157,22 @@ describe('the capability phrasing checks themselves', () => {
 	test('the framing sentence pattern matches only the full sentence', () => {
 		assert.match('This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.', framingSentence);
 		assert.doesNotMatch('This list describes polyjose 0.1.0.', framingSentence);
+	});
+});
+
+describe('the registry-link check itself', () => {
+	test('finds hrefs to the host and its subdomains, in any element', () => {
+		assert.equal(hrefsToHost('<a href="https://docs.rs/polyjose">x</a>', 'docs.rs').length, 1);
+		assert.equal(hrefsToHost('<a class="x" href="https://docs.rs">x</a>', 'docs.rs').length, 1);
+		assert.equal(hrefsToHost("<a href='http://www.javadoc.io/doc/x'>x</a>", 'javadoc.io').length, 1);
+		assert.equal(hrefsToHost('<link rel="preconnect" href="//swiftpackageindex.com/">', 'swiftpackageindex.com').length, 1);
+		assert.equal(hrefsToHost('<a href=https://docs.rs/polyjose>x</a>', 'docs.rs').length, 1);
+	});
+	test('ignores the URL as text and other hosts that only contain the name', () => {
+		assert.equal(hrefsToHost('<code>https://docs.rs/polyjose</code>', 'docs.rs').length, 0);
+		assert.equal(hrefsToHost('<a href="https://notdocs.rs/x">x</a>', 'docs.rs').length, 0);
+		assert.equal(hrefsToHost('<a href="https://docs.rs.example.com/x">x</a>', 'docs.rs').length, 0);
+		assert.equal(hrefsToHost('<a href="/reference/api/#docs.rs">x</a>', 'docs.rs').length, 0);
 	});
 });
 
@@ -335,15 +368,31 @@ describe('Reference › API reference', () => {
 	const text = textOf(body);
 	const links = linksOf(body);
 
-	test('links the Rust, Kotlin and Swift references', () => {
-		for (const href of [
-			'https://docs.rs/polyjose',
-			'https://javadoc.io/doc/dev.polyjose/polyjose-jvm',
-			'https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose',
-		]) {
-			assert.ok(links.some((l) => l.href === href), `no link to ${href}`);
+	// A registry page for a name that isn't published yet could be taken by
+	// someone else, so each one is a link only once the platform's pin is
+	// `registry`. Until then the page shows the URL as text.
+	for (const { platform, host, url } of [
+		{ platform: 'rust', host: 'docs.rs', url: 'https://docs.rs/polyjose' },
+		{ platform: 'kotlin', host: 'javadoc.io', url: 'https://javadoc.io/doc/dev.polyjose/polyjose-jvm' },
+		{
+			platform: 'swift',
+			host: 'swiftpackageindex.com',
+			url: 'https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose',
+		},
+	]) {
+		const pin = pinOf(platform);
+		if (pin.source === 'registry') {
+			test(`links ${url}, because the ${platform} pin is registry`, () => {
+				assert.ok(links.some((l) => l.href === url), `no link to ${url}`);
+			});
+		} else {
+			test(`shows ${url} as text with no link to ${host}, because the ${platform} pin is ${pin.source}`, () => {
+				const shown = new RegExp(`(?<![\\w/.-])${url.replace(/[.?/]/g, '\\$&')}(?![\\w/.-])`);
+				assert.match(text, shown, `${url} is not in the page text`);
+				assert.deepEqual(hrefsToHost(html, host), [], `the page links ${host} before ${platform} is published`);
+			});
 		}
-	});
+	}
 
 	test('names /api/js/ for both JavaScript packages, as plain text until it is generated', () => {
 		assert.match(text, /\/api\/js\//);
