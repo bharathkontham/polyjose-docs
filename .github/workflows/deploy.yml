@@ -6,13 +6,33 @@ on:
 permissions: {}
 concurrency: { group: pages, cancel-in-progress: false }
 jobs:
-  deploy:
+  # Untrusted work (dependency install, build) runs here with a read-only token
+  # and no persisted git credentials. Install scripts are disabled: the build
+  # needs none (native tools ship as prebuilt optional packages).
+  build:
+    name: Build the site
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions: { contents: read, pages: write, id-token: write }
-    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
+    permissions: { contents: read }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: withastro/action@a8b97df764791eb61fbf3338ef713b0e61ae05c5 # v6.1.4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24 }
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with: { path: dist/, include-hidden-files: true }
+
+  # The only job holding Pages and OIDC permissions. It runs no repository code:
+  # it publishes the artifact the build job uploaded.
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions: { pages: write, id-token: write }
+    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
+    steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
