@@ -48,11 +48,9 @@ const labels: Record<Status, string> = {
 							</a>
 						</th>
 						<td>{p.upstream}</td>
-						<td>
-							<code>{p.license}</code>
-						</td>
+						<td>{p.license}</td>
 						<td>{p.purpose}</td>
-						<td>
+						<td class="audit">
 							<strong>{labels[audit.status]}.</strong>{' '}
 							{audit.report && (
 								<a href={audit.report}>
@@ -78,8 +76,11 @@ const labels: Record<Status, string> = {
 		padding-block-end: 0.5rem;
 		color: var(--sl-color-gray-2);
 	}
-	.primitives th[scope='row'] {
-		white-space: nowrap;
+	.primitives :is(th, td) {
+		padding-inline: 0.5rem;
+	}
+	.primitives .audit {
+		min-width: 13rem;
 	}
 	.primitives td p {
 		margin-block-start: 0.25rem;
