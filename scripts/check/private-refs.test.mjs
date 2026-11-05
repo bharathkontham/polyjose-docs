@@ -117,7 +117,9 @@ const SAFE = [
   'non-trivial',
   'a self-test',
   'built-in tools',
-  // Algorithm names, curves, advisories, shrinkers and hashed asset names.
+  // Algorithm names, curves, advisories, shrinkers and hashed asset names. (A
+  // hash can also contain `-T12_`; asset URLs are excluded by path instead, see
+  // the dist tests below.)
   'A256CBC-HS512',
   'ECDH-ES+A256KW',
   'P-384 and P-521',
@@ -125,7 +127,6 @@ const SAFE = [
   'R8 and ProGuard',
   'Code.astro_astro_type_script_index_0_lang.C3fM4Kra.js',
   'common.BoOHtkVB.css',
-  'page.x-T12_ab.js',
   'pagefind.en_e7e6941272.pf_meta',
   'en_b12a3f0.pf_fragment',
   // Words that contain an identifier-like word.
