@@ -312,14 +312,14 @@ describe('About › Why polyjose', () => {
 		assert.doesNotMatch(text, /jsonwebtoken|josekit/i);
 	});
 
-	test('"audited" appears only as "built to be audited", followed by the no-audit sentence', () => {
-		const hits = sentences.map((s, i) => [s, i]).filter(([s]) => /audited/i.test(s));
-		assert.ok(hits.length > 0, 'expected the "built to be audited" sentence');
-		for (const [s, i] of hits) {
-			assert.match(s, /built to be audited/i, s);
-			assert.equal((s.match(/audited/gi) ?? []).length, 1, s);
-			assert.match(sentences[i + 1] ?? '', /no independent audit of polyjose has been published/i, `after: ${s}`);
-		}
+	test('never uses the word "audited", anywhere on the page', () => {
+		assert.doesNotMatch(textOf(html), /audited/i);
+	});
+
+	test('"Built for independent review" is followed by the no-audit sentence', () => {
+		const at = sentences.findIndex((s) => /^Built for independent review\.$/.test(s));
+		assert.ok(at >= 0, `no "Built for independent review." item: ${sentences.filter((s) => /review/i.test(s)).join(' | ')}`);
+		assert.match(sentences[at + 1] ?? '', /^No independent audit of polyjose has been published yet\./);
 	});
 
 	test('contains none of the internal material', () => {
