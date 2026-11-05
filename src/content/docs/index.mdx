@@ -1,12 +1,74 @@
 ---
 title: polyjose
-description: One JOSE implementation, every platform.
+description: One JOSE implementation, every platform. Pure-Rust JWS, JWE, JWK and JWT for Rust, Node.js, the web, Android and Apple platforms.
 template: splash
 hero:
-  tagline: Pure-Rust JWS, JWE, JWK and JWT, with identical behaviour on Rust, Node, the web, Android and Apple platforms.
+  tagline: One JOSE implementation, every platform.
   actions:
     - text: Get started
-      link: start/rust/
+      link: /start/rust/
+      icon: right-arrow
+    - text: Why polyjose
+      link: /about/why-polyjose/
+      variant: minimal
 ---
 
-> **Pre-alpha.** Nothing is published yet.
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT. One core, with bindings for Node.js, WebAssembly, Kotlin and Swift, is designed to give the same results, the same defaults and the same errors on every platform. Each binding is meant to pass the same conformance tests before 0.1.0 is released.
+
+<Aside type="caution" title="Pre-1.0, not published yet">
+polyjose is pre-1.0 and not published yet: there is no release on crates.io, npm or Maven Central and no tagged Swift package, and the APIs may change before 1.0. The get-started pages say what they will cover when 0.1.0 is published.
+</Aside>
+
+## Pick your platform
+
+<CardGrid>
+	<LinkCard
+		title="Rust"
+		href="/start/rust/"
+		description="The polyjose crate, for servers, command-line tools and any other Rust code."
+	/>
+	<LinkCard
+		title="Node.js"
+		href="/start/node/"
+		description="The @polyjose/node package, a native addon that will ship with prebuilt binaries."
+	/>
+	<LinkCard
+		title="Web and edge (WASM)"
+		href="/start/web/"
+		description="The @polyjose/wasm package, for browsers and edge runtimes such as Workers."
+	/>
+	<LinkCard
+		title="Android and JVM (Kotlin)"
+		href="/start/android/"
+		description="An Android library and a desktop JVM jar that share one Kotlin API."
+	/>
+	<LinkCard
+		title="Apple platforms (Swift)"
+		href="/start/apple/"
+		description="A Swift package for iOS, iPadOS, macOS, tvOS, watchOS and visionOS."
+	/>
+</CardGrid>
+
+## Security first
+
+polyjose is designed around RFC 8725: verify and decrypt take an explicit list of allowed algorithms, `none` is never accepted, and keys are bound to their algorithm family. These pages explain what that protects against and what it doesn't.
+
+<CardGrid>
+	<LinkCard
+		title="Security model"
+		href="/security/model/"
+		description="What polyjose defends against, the defaults it enforces and its known limits."
+	/>
+	<LinkCard
+		title="Cryptographic foundations"
+		href="/security/cryptographic-foundations/"
+		description="The primitive libraries polyjose builds on, with their licenses and review status."
+	/>
+	<LinkCard
+		title="What polyjose does not support"
+		href="/security/not-supported/"
+		description="Algorithms and features left out on purpose, and why."
+	/>
+</CardGrid>

@@ -1,0 +1,69 @@
+---
+title: Errors
+description: The stable error codes polyjose reports, how each platform exposes them, and the order in which JWT checks fail.
+---
+
+import ErrorCodes from '../../../components/ErrorCodes.astro';
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+Every polyjose failure carries exactly one error code from a fixed set. The codes are the same strings on every platform, because every package reports the code the Rust core produced and never adds codes of its own. `errorCodes()` returns the full list in JavaScript, Kotlin and Swift, and `Error::CODES` holds it in Rust.
+
+## Reading the code
+
+<table tabindex="0">
+	<caption>How each platform exposes the error code</caption>
+	<thead>
+		<tr>
+			<th scope="col">Platform</th>
+			<th scope="col">Error type</th>
+			<th scope="col">The code</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">Rust</th><td><code>polyjose::Error</code></td><td><code>Error::code()</code></td></tr>
+		<tr><th scope="row">JavaScript (<code>@polyjose/node</code>, <code>@polyjose/wasm</code>)</th><td><code>PolyjoseError</code>, a subclass of <code>Error</code> whose <code>name</code> is <code>"PolyjoseError"</code>; the rejected Promise carries it</td><td><code>PolyjoseError.code</code></td></tr>
+		<tr><th scope="row">Kotlin</th><td><code>PolyjoseException</code>, a sealed class with one subclass per code</td><td><code>PolyjoseException.code()</code></td></tr>
+		<tr><th scope="row">Swift</th><td><code>PolyjoseError</code>, an enum with one case per code</td><td><code>PolyjoseError.code()</code></td></tr>
+	</tbody>
+</table>
+
+In JavaScript, passing an argument of the wrong type (a number where a string belongs, for example) throws the host's own `TypeError` before polyjose runs. That is a programming error, not one of the codes below, so `err.code` is always one of the codes whenever `err instanceof PolyjoseError`. Kotlin and Swift reject the same mistakes at compile time.
+
+## Branch on the code, never on the message
+
+- Decide what to do from the code. Messages are for people reading logs: their wording can change between versions, and they may name the claim or header involved.
+- Messages never contain input. Keys, passwords, tokens, payloads and plaintext stay out of every message and every error's string form, on every platform, so an error is safe to log.
+- New codes may be added in later versions. Keep a default branch for codes you don't handle.
+
+## Codes
+
+<ErrorCodes />
+
+`DecryptionFailed` is deliberately one code for every failure after key management, whatever the internal cause. Reporting which step failed would give an attacker an oracle to probe ciphertexts with.
+
+## The order of JWT checks
+
+A JWT can be wrong in several ways at once. polyjose runs its checks in a fixed order, and **the first failing check decides the error**, so the same token gives the same code on every platform.
+
+1. Size limits and the token's shape: `InvalidFormat`. A JSON serialization is never a JWT, so it fails here too.
+2. base64url of every part: `InvalidBase64`.
+3. The header: `InvalidJson` if it isn't valid JSON, then `InvalidHeader` for structural problems such as a missing `alg`.
+4. `crit` naming a parameter polyjose doesn't understand: `UnknownCritical`.
+5. `alg` that isn't a known JWS algorithm: `UnsupportedAlgorithm`.
+6. `alg` that isn't in your allow-list: `AlgorithmNotAllowed`.
+7. JWT header rules (`b64: false`, `cty: JWT` on a signed JWT, the `typ` policy): `InvalidHeader`.
+8. Choosing the key. With a JWK Set, finding no candidate key, or more candidates than the limit, gives `NoMatchingKey`. With a single key, a key of the wrong family or use gives `KeyAlgorithmMismatch`, and weak key material gives `InvalidKey`.
+9. The signature: `InvalidSignature`. When a JWK Set offers several candidates and all fail, the furthest-reaching failure is reported, ranked `InvalidSignature`, then `InvalidKey`, then `KeyAlgorithmMismatch`.
+10. Parsing the claims: `InvalidJson` (including duplicate claim names), then `InvalidClaim` for a registered claim of the wrong type or a date out of range.
+11. Required claims, in the order `iss`, `sub`, `aud`, `exp`, `nbf`, `iat`, `jti`, then any extra names you require: `InvalidClaim`.
+12. `exp`: `TokenExpired`.
+13. `nbf`: `TokenNotYetValid`.
+14. `iat`, when you set a maximum age: `InvalidClaim`.
+15. `iss`: `InvalidClaim`.
+16. `sub`: `InvalidClaim`.
+17. `aud`, including a token that has an audience when you configured none: `InvalidClaim`.
+
+Claims are read only after the signature verifies, so a tampered payload reports `InvalidSignature`, never a claim error.
+
+For a nested JWT (signed, then encrypted), decryption runs first and reports its own errors, ending in `DecryptionFailed`. Then the outer header's `cty` and `typ` are checked (`InvalidHeader`), then steps 1 to 17 run on the inner signed JWT, and finally any `iss`, `sub` or `aud` copied into the outer header must equal the inner claim (`InvalidClaim`).

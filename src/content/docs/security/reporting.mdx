@@ -1,0 +1,39 @@
+---
+title: Reporting a vulnerability
+description: How to report a security issue in polyjose privately, what is in scope, and what happens after you do.
+---
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+polyjose is a cryptographic library, so security reports are treated as top priority. The project's security policy is [`SECURITY.md`](https://github.com/bharathkontham/polyjose/blob/main/SECURITY.md) in the polyjose repository. This page restates it.
+
+## How to report
+
+Report privately through GitHub's private vulnerability reporting: open [Report a vulnerability](https://github.com/bharathkontham/polyjose/security/advisories/new) on the repository's Security tab. The report stays private to the maintainers and anyone they invite, and you, as its reporter, can follow it there.
+
+**Don't open a public issue, discussion or pull request for a vulnerability.** Doing so tells attackers about it before a fix exists.
+
+A useful report says which polyjose version, platform and package you used, what you did, what happened, and why it's a security problem. A minimal token, key or program that reproduces it helps most. Use keys you generated for the report, never production keys.
+
+## What happens next
+
+As `SECURITY.md` states, reports are acknowledged within 72 hours, and the aim is to publish a fix and an advisory within 30 days.
+
+## In scope
+
+- signature or MAC bypass: a token that verifies when it shouldn't
+- algorithm confusion: a token verified or decrypted with an algorithm or key the caller didn't allow
+- key or plaintext disclosure
+- timing side channels in polyjose's own code
+- panics on untrusted input
+- memory issues in the Node.js, Web, Kotlin or Swift bindings
+
+## Known issues
+
+These are already known and don't need a report.
+
+- **RSA private-key operations.** The `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), and no fixed release exists yet. polyjose therefore supports RSA public-key operations only, and rejects RSA private keys with `UnsupportedAlgorithm`. [What polyjose does not support](/security/not-supported/#rsa-private-keys) explains the details.
+- **No SHA-1 and no `RSA1_5`.** polyjose doesn't implement `RSA-OAEP` (SHA-1) or `RSA1_5`, on purpose. Use `RSA-OAEP-256` or `ECDH-ES`. See [SHA-1](/security/not-supported/#sha-1) and [`RSA1_5`](/security/not-supported/#rsa1_5).
+- **Secrets in host memory.** polyjose wipes the secrets it holds in Rust memory, but it can't wipe JavaScript, JVM or Swift strings, and the Kotlin and Swift bindings leave some un-wiped copies in Rust memory. The [security model](/security/model/#secrets-in-memory) lists exactly what is and isn't wiped.
+
+A report that one of these is worse than described is still welcome.
