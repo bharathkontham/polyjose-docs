@@ -481,3 +481,29 @@ test('a runner that exits 77 without samples_skip is a FAIL, with and without CI
     assert.deepEqual(resultLines(r.out), ['FAIL (js: runner exited with status 77)']);
   }
 });
+
+test('with CI=true a sibling or clone problem is a FAIL, never SKIPPED', () => {
+  // Each sibling state that the local path skips on, with a clone that cannot be fetched.
+  const siblings = {
+    'no sibling': () => {},
+    'sibling at another commit': (sibling) => polyjoseRepo(sibling),
+    'sibling with uncommitted changes': (sibling) => {
+      polyjoseRepo(sibling);
+      writeFileSync(join(sibling, 'README.md'), 'changed\n');
+    },
+    'sibling where git status fails': (sibling) => {
+      polyjoseRepo(sibling);
+      writeFileSync(join(sibling, '.git/index'), 'not an index');
+    },
+  };
+  for (const [name, make] of Object.entries(siblings)) {
+    const { base, docs } = docsTree({ pins: { rust: gitPin('c'.repeat(40)) }, runners: { rust: 'pass' } });
+    make(join(base, 'polyjose'));
+    const r = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${join(base, 'missing')}` } });
+    assert.equal(r.status, 1, `${name}: ${r.out}${r.err}`);
+    const lines = resultLines(r.out);
+    assert.equal(lines.length, 1, name);
+    assert.match(lines[0], /^FAIL \(rust: could not fetch polyjose cccccccccccc from file:\/\//, name);
+    assert.doesNotMatch(r.out, /SKIPPED|PASS|runner ran/, name);
+  }
+});
