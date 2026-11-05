@@ -43,13 +43,15 @@ const AUDIT_CLAIM =
   /polyjose[^.]{0,60}\b(is|has\s+been|was|are)\s+(independently\s+|professionally\s+)?audited\b/gi;
 
 // Claims checked one sentence at a time, with no length window. A word such as
-// "not" or "never" right after the verb makes it a denial, not a claim.
+// "not" or "never" right after the verb makes it a denial, not a claim. A
+// qualifier may use any hyphen, the non-breaking one included.
 const DENIAL = String.raw`(?!(?:not|never)\b)`;
+const WORD = String.raw`[\w\u2010\u2011-]+`;
 const SENTENCE_CLAIMS = [
   // "polyjose 0.1.0 is audited", "The library has been independently audited"
-  new RegExp(String.raw`\b(?:polyjose|(?:the|this)\s+library)\b[\s\S]*\b(?:is|are|was|were|been)\s+(?:${DENIAL}[\w-]+\s+){0,2}audited\b`, 'i'),
+  new RegExp(String.raw`\b(?:polyjose|(?:the|this)\s+library)\b[\s\S]*\b(?:is|are|was|were|been)\s+(?:${DENIAL}${WORD}\s+){0,2}audited\b`, 'i'),
   // "... is fully audited", "... are third-party audited", whatever the subject
-  new RegExp(String.raw`\b(?:is|are|was|were|been)\s+${DENIAL}[\w-]+\s+audited\b`, 'i'),
+  new RegExp(String.raw`\b(?:is|are|was|were|been)\s+${DENIAL}${WORD}\s+audited\b`, 'i'),
   // "polyjose has passed an independent security audit"
   /\bpolyjose\b[\s\S]*\b(?:pass(?:ed|es)?|complet(?:ed|es)|undergo(?:ne|es)|underwent|receive[ds]?)\b[\s\S]*\baudit/i,
   // "An independent audit of polyjose was completed"
