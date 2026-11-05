@@ -147,17 +147,51 @@ test('aes-gcm: NCC Group, 2020, for MobileCoin, no significant findings, the 0.8
   assert.equal(audit.status, 'partial', 'the review does not cover the line polyjose uses');
 });
 
+// The NCC Group report for Entropy names what it reviewed by commit, not by
+// version: section 1, Executive Summary, Scope, on page 2 lists "Commits
+// fde0661 and ad08a7e of github.com/RustCrypto/crypto-bigint" and "Commits
+// 0f27814 and 5c829a4 of github.com/RustCrypto/elliptic-curves/k256".
+// In the upstream repositories, 0f27814 is the commit titled "k256 v0.13.1"
+// and 5c829a4 is the low-S fix made on that line, and fde0661 is the commit
+// titled "v0.5.2" of crypto-bigint. So the review covered the k256 0.13 line
+// and the crypto-bigint 0.5 line, both earlier than the lines polyjose uses
+// (k256 0.14, crypto-bigint 0.7). The commit pages are listed in sources.
+const ENTROPY_REPORT =
+  'https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf';
+const REPORT_SCOPE = /\(report page 2, section 1, Executive Summary, Scope\)/;
+
 test('k256: NCC Group, 2023, for Entropy, two high-severity findings, both fixed', () => {
   const { audit } = byCrate.get('k256');
   assert.equal(audit.by, 'NCC Group');
   assert.equal(audit.year, 2023);
-  assert.equal(
-    audit.report,
-    'https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf',
-  );
+  assert.equal(audit.report, ENTROPY_REPORT);
   assert.match(audit.note, /\bEntropy\b/);
   assert.match(audit.note, /two high-severity findings, both fixed/);
-  assert.equal(audit.status, 'audited');
+});
+
+test('k256: the review covered commits of the 0.13 line, so the status is partial', () => {
+  const { audit, sources } = byCrate.get('k256');
+  assert.equal(audit.status, 'partial', 'the review does not cover the line polyjose uses');
+  assert.match(audit.note, /\bcommits 0f27814 and 5c829a4\b/, 'the reviewed commits, as the report names them');
+  assert.match(audit.note, REPORT_SCOPE, 'where the report says so');
+  assert.match(audit.note, /\bthe 0\.13 line\b/);
+  assert.match(audit.note, /later release line/);
+  assert.ok(
+    sources.includes('https://github.com/RustCrypto/elliptic-curves/commit/0f27814b47f4ea2a43f2958e91d142688c89d89a'),
+    'the commit page that shows 0f27814 is the 0.13 line release commit',
+  );
+});
+
+test('crypto-bigint: the review covered commits of the 0.5 line', () => {
+  const { audit, sources } = byCrate.get('crypto-bigint');
+  assert.match(audit.note, /\bcommits fde0661 and ad08a7e\b/, 'the reviewed commits, as the report names them');
+  assert.match(audit.note, REPORT_SCOPE, 'where the report says so');
+  assert.match(audit.note, /\bthe 0\.5 line\b/);
+  assert.match(audit.note, /later release line/);
+  assert.ok(
+    sources.includes('https://github.com/RustCrypto/crypto-bigint/commit/fde06616bffa9659cd84754706597a42681d9575'),
+    'the commit page that shows fde0661 is the 0.5 line release commit',
+  );
 });
 
 test('curve25519-dalek: Quarkslab, 2019, for Tari, minor issues; x25519/ed25519 only marginally; later fixes', () => {
