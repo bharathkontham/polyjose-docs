@@ -113,12 +113,13 @@ export function collectRegions(files) {
   /** @type {Regions} */
   const regions = /** @type {Regions} */ (Object.fromEntries(PLATFORM_KEYS.map((k) => [k, new Map()])));
   const located = Object.entries(files)
-    .map(([path, text]) => ({ where: locate(path), text }))
-    .filter((f) => f.where !== null)
-    .sort((a, b) => (a.where.relative < b.where.relative ? -1 : a.where.relative > b.where.relative ? 1 : 0));
+    .flatMap(([path, text]) => {
+      const where = locate(path);
+      return where ? [{ ...where, text }] : [];
+    })
+    .sort((a, b) => (a.relative < b.relative ? -1 : a.relative > b.relative ? 1 : 0));
 
-  for (const { where, text } of located) {
-    const { platform, relative, lang } = /** @type {NonNullable<ReturnType<typeof locate>>} */ (where);
+  for (const { platform, relative, lang, text } of located) {
     const map = regions[platform.key];
     for (const region of extractRegions(text, relative)) {
       const previous = map.get(region.id);
