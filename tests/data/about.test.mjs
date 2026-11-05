@@ -69,7 +69,8 @@ export function sentencesOf(text) {
  */
 export function unmeasuredNumberClaims(text) {
 	return sentencesOf(text).filter((s) => {
-		if (!/vector|fuzz|crates?\b|benchmark/i.test(s)) return false;
+		// "crates.io" is the registry's name, not a crate count.
+		if (!/vector|fuzz|crates?\b(?!\.io)|benchmark/i.test(s)) return false;
 		const withoutRfcs = s.replace(/\bRFCs?\s*\d+(?:\s*(?:[–\-/,]|and|to)\s*(?:RFC\s*)?\d+)*/gi, '');
 		return /\d/.test(withoutRfcs);
 	});
@@ -92,6 +93,8 @@ describe('the number-claim check itself', () => {
 		assert.equal(unmeasuredNumberClaims('Every algorithm ships with the RFC 7520 test vectors.').length, 0);
 		assert.equal(unmeasuredNumberClaims('Test vectors from RFC 7515, RFC 7516 and RFC 7520 run everywhere.').length, 0);
 		assert.equal(unmeasuredNumberClaims('It implements RFC 7518 and RFC 9864.').length, 0);
+		assert.equal(unmeasuredNumberClaims('Version 0.1.0 is not on crates.io yet.').length, 0);
+		assert.equal(unmeasuredNumberClaims('Version 0.1.0 is not on crates.io and needs 40 crates.').length, 1);
 	});
 });
 
