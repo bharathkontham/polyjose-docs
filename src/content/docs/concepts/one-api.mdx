@@ -9,23 +9,45 @@ The operation names on this page are fixed for the 0.1.0 release. The packages a
 
 ## Names
 
-| Platform | Functions and fields | Example: verify a compact JWS | Its allow-list field |
-|---|---|---|---|
-| Rust | `snake_case` | `jws_verify_compact` | `allowed_algs` |
-| JavaScript | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
-| Kotlin | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
-| Swift | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
+<table tabindex="0">
+	<caption>How names are written on each platform</caption>
+	<thead>
+		<tr>
+			<th scope="col">Platform</th>
+			<th scope="col">Functions and fields</th>
+			<th scope="col">Example: verify a compact JWS</th>
+			<th scope="col">Its allow-list field</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">Rust</th><td><code>snake_case</code></td><td><code>jws_verify_compact</code></td><td><code>allowed_algs</code></td></tr>
+		<tr><th scope="row">JavaScript</th><td><code>camelCase</code></td><td><code>jwsVerifyCompact</code></td><td><code>allowedAlgs</code></td></tr>
+		<tr><th scope="row">Kotlin</th><td><code>camelCase</code></td><td><code>jwsVerifyCompact</code></td><td><code>allowedAlgs</code></td></tr>
+		<tr><th scope="row">Swift</th><td><code>camelCase</code></td><td><code>jwsVerifyCompact</code></td><td><code>allowedAlgs</code></td></tr>
+	</tbody>
+</table>
 
 Option and result types are `UpperCamelCase` everywhere, such as `JwsVerifyOptions` and `JwsVerified`. In JavaScript they are plain objects with the same field names.
 
 ## Types
 
-| Platform | Bytes | JSON values (JWKs, headers) | Calls |
-|---|---|---|---|
-| JavaScript | `Uint8Array` (a Node `Buffer` works too) | a string or a plain object in; plain objects out | return a Promise |
-| Kotlin | `ByteArray` | strings | synchronous, throwing |
-| Swift | `Data` | strings | synchronous, throwing |
-| Rust | slices (`&[u8]`) and `Vec<u8>` | – | – |
+<table tabindex="0">
+	<caption>Types on each platform</caption>
+	<thead>
+		<tr>
+			<th scope="col">Platform</th>
+			<th scope="col">Bytes</th>
+			<th scope="col">JSON values (JWKs, headers)</th>
+			<th scope="col">Calls</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">JavaScript</th><td><code>Uint8Array</code> (a Node <code>Buffer</code> works too)</td><td>a string or a plain object in; plain objects out</td><td>return a Promise</td></tr>
+		<tr><th scope="row">Kotlin</th><td><code>ByteArray</code></td><td>strings</td><td>synchronous, throwing</td></tr>
+		<tr><th scope="row">Swift</th><td><code>Data</code></td><td>strings</td><td>synchronous, throwing</td></tr>
+		<tr><th scope="row">Rust</th><td>slices (<code>{'&[u8]'}</code>) and <code>{'Vec<u8>'}</code></td><td>–</td><td>–</td></tr>
+	</tbody>
+</table>
 
 Rust callers use the crate's own types, which the [API reference](/reference/api/) documents.
 
