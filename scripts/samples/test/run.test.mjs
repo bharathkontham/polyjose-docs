@@ -245,6 +245,51 @@ test('git mode skips when the sibling has uncommitted changes', () => {
   assert.deepEqual(resultLines(r.out), ['SKIPPED (rust: ../polyjose has uncommitted changes)']);
 });
 
+/** A sibling ../polyjose whose committed .gitignore ignores target/; returns its HEAD. */
+function siblingWithIgnores(base) {
+  const sibling = join(base, 'polyjose');
+  polyjoseRepo(sibling);
+  writeFileSync(join(sibling, '.gitignore'), 'target/\n');
+  git(sibling, 'add', '.gitignore');
+  git(sibling, 'commit', '-q', '-m', 'ignore build output');
+  return { sibling, head: git(sibling, 'rev-parse', 'HEAD') };
+}
+
+test('git mode does not count files the sibling checkout ignores', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'pass' } });
+  const { sibling, head } = siblingWithIgnores(base);
+  mkdirSync(join(sibling, 'target/debug'), { recursive: true });
+  writeFileSync(join(sibling, 'target/debug/build.log'), 'build output\n');
+  writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify({ source: 'git', rev: head, upcoming: '0.1.0' }));
+  const r = run(['rust'], { docs });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['PASS (rust)']);
+});
+
+test('git mode skips when the sibling has untracked files that are not ignored', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'pass' } });
+  const { sibling, head } = siblingWithIgnores(base);
+  writeFileSync(join(sibling, 'extra.rs'), 'pub fn extra() {}\n');
+  writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify({ source: 'git', rev: head, upcoming: '0.1.0' }));
+  const r = run(['rust'], { docs });
+  assert.equal(r.status, 0);
+  assert.deepEqual(resultLines(r.out), ['SKIPPED (rust: ../polyjose has uncommitted changes)']);
+  assert.doesNotMatch(r.out, /runner ran/);
+});
+
+test('git mode skips, never passes, when git status fails in the sibling', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'pass' } });
+  const sibling = join(base, 'polyjose');
+  const { second } = polyjoseRepo(sibling);
+  // A corrupt index: rev-parse HEAD still works, git status exits non-zero.
+  writeFileSync(join(sibling, '.git/index'), 'not an index');
+  writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify({ source: 'git', rev: second, upcoming: '0.1.0' }));
+  const r = run(['rust'], { docs });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['SKIPPED (rust: could not read the state of ../polyjose: git status failed)']);
+  assert.doesNotMatch(r.out, /runner ran|PASS/);
+});
+
 test('with CI=true git mode clones polyjose into samples/.polyjose/polyjose at the pinned commit', () => {
   const { base, docs } = docsTree({ runners: { kotlin: 'pass' } });
   const upstream = join(base, 'upstream');
