@@ -1,0 +1,19 @@
+---
+// <Install platform="rust" /> shows how to add polyjose on one platform:
+// cargo, npm (Node.js or Web), Gradle (Kotlin) or Swift Package Manager.
+// The version comes from the platform's pin in samples/pins/, so no page
+// hand-types a version. Until a version is published, it shows the upcoming
+// version with a "not yet published" badge.
+import InstallView from './InstallView.astro';
+import { pinFor } from './sources';
+import { pinPlatformFor } from '../../lib/samples/pins.mjs';
+
+interface Props {
+	platform: 'rust' | 'node' | 'web' | 'kotlin' | 'swift';
+}
+
+const { platform } = Astro.props;
+const pin = pinFor(pinPlatformFor(platform));
+---
+
+<InstallView platform={platform} pin={pin} />

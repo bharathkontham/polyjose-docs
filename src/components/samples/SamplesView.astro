@@ -1,0 +1,41 @@
+---
+// Renders one five-platform sample from already-extracted regions.
+// Pages use <Samples>, which passes the regions of the real sample files.
+// Throws (and so fails the build) when any platform has neither a region
+// nor an `unavailable` entry.
+import { Tabs, TabItem, Code, Aside } from '@astrojs/starlight/components';
+import { resolveSamples, type Regions } from '../../lib/samples/resolve.mjs';
+import { reasons as siteReasons } from './sources';
+
+interface Props {
+	id: string;
+	regions: Regions;
+	unavailable?: Record<string, string>;
+	title?: string;
+	reasons?: Record<string, string>;
+}
+
+const { id, regions, unavailable, title, reasons = siteReasons } = Astro.props;
+const tabs = resolveSamples({ id, regions, unavailable, reasons });
+
+// Reasons are plain text in which `backticks` mark inline code.
+const parts = (reason: string) => reason.split('`').map((value, i) => ({ value, code: i % 2 === 1 }));
+---
+
+<Tabs syncKey="platform">
+	{
+		tabs.map((tab) => (
+			<TabItem label={tab.label}>
+				{tab.kind === 'code' ? (
+					<Code code={tab.code} lang={tab.lang} title={title} />
+				) : (
+					<Aside type="note" title={`Not available in ${tab.label}`}>
+						<p data-unavailable={tab.reasonKey}>
+							{parts(tab.reason).map((part) => (part.code ? <code>{part.value}</code> : part.value))}
+						</p>
+					</Aside>
+				)}
+			</TabItem>
+		))
+	}
+</Tabs>
