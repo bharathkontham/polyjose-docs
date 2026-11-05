@@ -333,7 +333,7 @@ test('Algorithms: alternatives and the Required set follow the statement', () =>
 	const text = textOf(after);
 	const alternatives = text.indexOf('RSA-OAEP-256');
 	assert.ok(alternatives >= 0, 'alternatives sentence missing');
-	assert.match(text.slice(alternatives - 200, alternatives + 200), /ECDH-ES for new recipients/);
+	assert.match(text.slice(Math.max(0, alternatives - 200), alternatives + 200), /ECDH-ES for new recipients/);
 	assert.match(after, /href="https:\/\/www\.rfc-editor\.org\/rfc\/rfc7518#section-3\.1"/);
 	assert.match(after, /href="https:\/\/www\.rfc-editor\.org\/rfc\/rfc7518#section-5\.1"/);
 	const required = text.slice(text.indexOf('Required'));
