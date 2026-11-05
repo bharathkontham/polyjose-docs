@@ -71,6 +71,19 @@ export function isAssetUrl(url) {
   return segments.every((s) => /^[\w.@~+-]+$/.test(s) && s !== '.' && s !== '..');
 }
 
+// A built asset path where a URL starts in markup or script: after a quote,
+// `=`, `(`, `,`, white space or the start of the text, never mid-path.
+const ASSET_PATH = /(?<![^\s"'=(,])(?:\.{1,2}\/)*\/?_astro\/[^\s"'<>`),]*/g;
+
+/**
+ * `html` with each built asset name (what isAssetUrl accepts) replaced by as
+ * many spaces, so a scan of the whole page source skips hashed file names the
+ * way the URL scan does, and every offset and line stays where it was.
+ */
+export function withoutAssetNames(html) {
+  return html.replace(ASSET_PATH, (url) => (isAssetUrl(url) ? ' '.repeat(url.length) : url));
+}
+
 /** Percent-decodes a URL so `ADR%200019` reads as `ADR 0019`; keeps it as is when malformed. */
 function percentDecoded(url) {
   try {

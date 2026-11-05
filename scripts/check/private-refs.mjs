@@ -17,18 +17,18 @@
 // Two pattern sets (see PATTERNS). Text and source files get all of them.
 // Minified assets (built ones and those in public/) and, as a backstop, the
 // whole source of each built page (comments, inline scripts and styles, other
-// attributes) get only the unmistakable ones: decision record, requirements
-// document and feature numbers, the repository name, local paths, and role and
-// process terms. Short task, batch and fix numbers are everywhere in minified
-// code (`t(19,…)`, `#f00`, `t12` in SVG paths), so they are matched only in
-// text.
+// attributes; hashed /_astro/ names left out) get only the unmistakable ones:
+// decision record, requirements document and feature numbers, the repository
+// name, local paths, and role and process terms. Short task, batch and fix
+// numbers are everywhere in minified code (`t(19,…)`, `#f00`, `t12` in SVG
+// paths), so they are matched only in text.
 
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { htmlText } from './lib/html-text.mjs';
 import { listFiles, readText, lineIndex } from './lib/files.mjs';
-import { htmlUrlText, isAssetFile, listDistFiles } from './lib/dist-files.mjs';
+import { htmlUrlText, isAssetFile, listDistFiles, withoutAssetNames } from './lib/dist-files.mjs';
 import { normalizeForMatch, normalizeWithMap } from './lib/normalize.mjs';
 
 // Identifiers are matched in any case, on text folded by lib/normalize.mjs
@@ -148,7 +148,7 @@ export function scanSite(root) {
       return [
         { text: htmlText(raw), where: '' },
         { text: htmlUrlText(raw), where: ', in a link or asset URL' },
-        { text: raw, where: ', in the page source', asset: true, backstop: true },
+        { text: withoutAssetNames(raw), where: ', in the page source', asset: true, backstop: true },
       ];
     }
     return [{ text: raw, where: '', asset: isAssetFile(file) }];
