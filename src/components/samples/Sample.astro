@@ -1,0 +1,18 @@
+---
+// <Sample platform="rust" id="start/rust-first-sign" /> shows one platform's
+// region, without tabs. It exists for the get-started pages, each of which is
+// about a single platform; everywhere else use <Samples>, so every platform
+// is shown. The sample coverage check rejects <Sample> outside start/.
+import SampleView from './SampleView.astro';
+import { regions } from './sources';
+
+interface Props {
+	platform: 'rust' | 'node' | 'web' | 'kotlin' | 'swift';
+	id: string;
+	title?: string;
+}
+
+const { platform, id, title } = Astro.props;
+---
+
+<SampleView platform={platform} id={id} regions={regions} title={title} />
