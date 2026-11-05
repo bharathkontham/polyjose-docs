@@ -90,6 +90,8 @@ test('stripping keeps line numbers', () => {
 test('blockSeparator marks block boundaries, but not inline tags or line breaks', () => {
   const text = htmlText('<h2>One</h2><p>two <em>three</em><br>four</p><ul><li>five</li></ul>', { blockSeparator: '|' });
   assert.equal(text.replace(/\|+/g, '|').replace(/ +/g, ' '), '|One|two three four|five|');
+  const alt = htmlText('<p>polyjose<img alt="logo">is here</p>', { blockSeparator: '|' });
+  assert.equal(alt.replace(/\|+/g, '|').replace(/ +/g, ' '), '|polyjose|logo|is here|', 'a readable attribute is a block of its own');
   assert.equal(htmlText('<p>a</p><p>b</p>').includes('|'), false);
   assert.match(htmlText('<p>a</p><p>b</p>'), /^ a +b $/, 'the default separator is a space');
 });
