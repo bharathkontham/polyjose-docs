@@ -89,7 +89,7 @@ test('Security model: each fact is stated', async (t) => {
   await t.test('3. algorithm verification', () => {
     assertPhrases(text, 'allow-lists', ['allow-list', 'enc', /empty list/i]);
     assertPhrases(text, 'none', [/`?none`? is never accepted/i]);
-    assertPhrases(text, 'keys', ['2048 bits', /on the curve/i]);
+    assertPhrases(text, 'keys', [/under 2048 bits/, /on the curve/i]);
     assertPhrases(text, 'embedded keys', ['jwk', 'jku', 'x5c', 'kid', /never select/i]);
     assertPhrases(text, 'citations', [
       'RFC 8725 §2.1',
@@ -101,21 +101,21 @@ test('Security model: each fact is stated', async (t) => {
   });
 
   await t.test('4. JWS', () => {
-    assertPhrases(text, 'limits', ['1 MiB', '16 signatures']);
+    assertPhrases(text, 'limits', [/serialized JWS may be at most 1 MiB/, /at most 16 signatures/]);
     assertPhrases(text, 'Ed25519', [/Ed25519[^.]*strict/]);
     assertPhrases(text, 'b64', ['b64', 'crit', 'RFC 7797 §6']);
   });
 
   await t.test('5. JWE', () => {
     assertPhrases(text, 'one decryption error', ['DecryptionFailed', 'padding oracle']);
-    assertPhrases(text, 'PBES2', ['10,000', '1,000,000', 'RFC 7518 §4.8.1.2', 'RFC 8725 §3.5', /high-entropy/i]);
-    assertPhrases(text, 'limits', ['16 recipients']);
-    assertPhrases(text, 'compression', ['250,000 bytes', 'deflate', 'RFC 8725 §3.6']);
+    assertPhrases(text, 'PBES2', [/(?<![\d,])at most 10,000 by default/, /up to 1,000,000(?![\d,])/, 'RFC 7518 §4.8.1.2', 'RFC 8725 §3.5', /high-entropy/i]);
+    assertPhrases(text, 'limits', [/serialized JWE may be at most 1 MiB/, /at most 16 recipients/]);
+    assertPhrases(text, 'compression', [/(?<![\d,])250,000 bytes/, 'deflate', 'RFC 8725 §3.6']);
   });
 
   await t.test('6. JWT defaults', () => {
     assertPhrases(text, 'exp', [/`?exp`? is required/i]);
-    assertPhrases(text, 'leeway', ['60 seconds', '600 seconds']);
+    assertPhrases(text, 'leeway', [/(?<![\d,])60 seconds by default/, /capped at (?<![\d,])600 seconds/]);
     assertPhrases(text, 'aud', ['aud']);
     assertPhrases(text, 'typ', ['typ', 'JWT']);
     assertPhrases(text, 'nesting', [/one level of nesting/i, /separate entry points/i]);
@@ -150,7 +150,7 @@ test('Security model: each fact is stated', async (t) => {
   });
 
   await t.test('10. status', () => {
-    assertPhrases(text, 'status', ['pre-1.0', /independent (security )?review/i, '1.0']);
+    assertPhrases(text, 'status', ['pre-1.0', /independent (security )?review[^.]*\bis planned before 1\.0/i]);
   });
 });
 
