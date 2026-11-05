@@ -56,6 +56,14 @@ These rules apply to every page, data file and sample. `npm run lint:refs` check
 
 **No private references.** Pages stand on their own. Don't cite internal planning documents: no decision-record, requirement or task numbers, internal file paths, or internal tool and role names. Explain a decision in your own words. Public identifiers are fine: RFC sections, IANA names, error codes, advisory ids such as RUSTSEC numbers.
 
+**When `lint:refs` flags ordinary text, reword it.** There is no way to suppress a match. The check matches in any case, reads look-alike characters (fullwidth, styled or Cyrillic letters) as the plain letters they resemble, and allows up to three of space, `-`, `_`, `/`, `#`, `.`, `:`, `(` or "no." between a word and its number. It quotes your original text in the error. Common cases:
+- A lone t, b or f next to a two- or three-digit number (`b12`, `F10`, `t 12`, `f(10)`) reads as an internal task number. Write it out ("function key 10", "a 12-byte block"), or name the thing the number belongs to. These are fine: `b64`, RFC numbers, `P-256`, `A128CBC-HS256`, `RS256`, `ES256K`, `x86_64`, `R8`, RUSTSEC ids and `brainpoolP256r1`.
+- "feature", "task", "bug" or "fix" right before a number ("feature 12", "fix #3"): say what the feature or fix does.
+- Home directories: `~/` and `$HOME/` are allowed only for `~/.cargo`, `~/.gradle`, `~/.npm`, `~/.config` and a bare `cd ~/`. For anything else, use a path relative to the project (`cd my-app`).
+- A lower-case `/users/` is a path too, except after a host in a URL (`https://github.com/users/…`).
+- Hyphenated workflow words ("ready-for-test", "deliver-feature") are flagged; the spaced English phrase ("ready for testing") is not.
+- Built scripts, style sheets and SVG images are checked too, for record and feature numbers, paths, repository, role and process names, but not for short task numbers, which minified code is full of.
+
 **Honesty.**
 - polyjose is pre-1.0. Every page carries the site-wide notice.
 - Never describe polyjose as audited. Credit the libraries it builds on. What review they have had is quoted in their maintainers' own words only in the audit register on Security › Cryptographic foundations: the primitives table and its status legend. The word "audited" appears nowhere else on the site, About included.
