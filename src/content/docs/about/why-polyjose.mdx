@@ -3,7 +3,7 @@ title: Why polyjose
 description: Why polyjose exists, what makes it different, who it is for, and why it is open source.
 ---
 
-**One JOSE implementation, every platform.** polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT, designed to behave identically in Rust, Node.js, browsers and edge runtimes, Android and the JVM, and every Apple platform.
+**One JOSE implementation, every platform.** polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT, designed to behave identically in Rust, Node.js, browsers and edge runtimes, Android and the JVM, and every Apple platform.
 
 polyjose is pre-1.0 and not published yet, and its APIs may change before 1.0. Read the [security policy](/security/reporting/) before you rely on it, and use it to report anything you find.
 
@@ -18,9 +18,11 @@ This isn't a criticism of the existing libraries. panva/jose, Nimbus JOSE + JWT 
 
 ## What makes polyjose different
 
+This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
 1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), browsers and edge runtimes (WebAssembly), Android and the JVM (Kotlin), and Apple platforms (Swift on iOS, iPadOS, macOS, tvOS, watchOS and visionOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.1.0. polyjose is designed so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
 2. **Pure-Rust cryptography.** There is no OpenSSL, ring or aws-lc-rs. The primitives come from the RustCrypto and dalek projects, so polyjose builds with `cargo` alone and no C toolchain enters its supply chain.
-3. **RFC coverage.** polyjose implements:
+3. **RFC coverage.** polyjose 0.1.0 is designed to implement:
    - RFC 7515 (JWS), RFC 7516 (JWE), RFC 7517 (JWK), RFC 7518 (JWA) and RFC 7519 (JWT), with the examples of RFC 7520 (the JOSE Cookbook)
    - RFC 7638 and RFC 9278 (JWK thumbprints and thumbprint URIs)
    - RFC 7797 (unencoded payload)
@@ -30,7 +32,7 @@ This isn't a criticism of the existing libraries. panva/jose, Nimbus JOSE + JWT 
    - RFC 9864 (fully specified algorithms)
 
    Every algorithm is required to ship with the test vectors from its RFC. A few algorithms are left out on purpose, for security reasons: [What polyjose does not support](/security/not-supported/) lists them and explains why, and [Algorithms](/concepts/algorithms/) shows what is offered.
-4. **Misuse-resistant defaults**, following RFC 8725:
+4. **Misuse-resistant defaults.** The API is designed around RFC 8725:
    - verify and decrypt take an explicit list of allowed algorithms and never trust the token's `alg` header on its own
    - keys are typed and bound to their algorithm family, so an HMAC secret can't stand in for an RSA key
    - `none` is never accepted
