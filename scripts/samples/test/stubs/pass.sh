@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Stub platform runner: reports its environment and passes.
 echo "runner ran: $SAMPLES_PLATFORM"
 echo "cwd=$(pwd -P)"

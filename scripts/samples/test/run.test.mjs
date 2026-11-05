@@ -42,7 +42,7 @@ function docsTree({ pins = {}, runners = {} } = {}) {
   mkdirSync(join(docs, 'samples/pins'), { recursive: true });
   mkdirSync(join(docs, 'scripts/samples/platforms'), { recursive: true });
   for (const platform of PLATFORMS) {
-    const pin = pins[platform] ?? NONE;
+    const pin = platform in pins ? pins[platform] : NONE;
     if (pin === null) continue;
     writeFileSync(join(docs, `samples/pins/${platform}.json`), typeof pin === 'string' ? pin : JSON.stringify(pin));
   }
