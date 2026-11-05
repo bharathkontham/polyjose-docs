@@ -17,8 +17,9 @@
 #   - pin "git": polyjose is made available at the pinned commit as
 #     samples/.polyjose/polyjose. Locally that is a link to a sibling
 #     ../polyjose checkout, which must be at the pinned commit with no
-#     uncommitted changes (otherwise SKIPPED). With CI=true, polyjose is
-#     cloned there instead (POLYJOSE_GIT_URL overrides the URL).
+#     uncommitted changes and no untracked files other than ones polyjose
+#     ignores (otherwise SKIPPED, also when git status fails). With CI=true,
+#     polyjose is cloned there instead (POLYJOSE_GIT_URL overrides the URL).
 #   - pin "registry": the runner installs the published version itself.
 #
 # Runner contract. scripts/samples/platforms/<platform>.sh is sourced in a
@@ -107,7 +108,13 @@ prepare_git() {
     prepare_reason="../polyjose is at $(short "$head"), not the pinned $(short "$rev"); check out the pinned commit"
     return
   fi
-  if [ -n "$(git -C "$sibling" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  # Untracked files count (they can change the build), files polyjose ignores
+  # (build output such as target/) do not. If git cannot say, the checkout is
+  # not known to match the pin, so the platform is skipped.
+  if ! changes=$(git -C "$sibling" status --porcelain --untracked-files=normal 2>/dev/null); then
+    prepare_result=skip; prepare_reason="could not read the state of ../polyjose: git status failed"; return
+  fi
+  if [ -n "$changes" ]; then
     prepare_result=skip; prepare_reason="../polyjose has uncommitted changes"; return
   fi
   mkdir -p "$work" || { prepare_result=fail; prepare_reason="could not create samples/.polyjose"; return; }
