@@ -7,19 +7,29 @@
 // term. Public pages explain decisions in their own words, so the fix is always
 // to reword. There is deliberately no way to suppress a match.
 //
-// Scanned as source text: src/content, src/data, src/components, samples,
-// public and astro.config.mjs. Scanned from the built site: the reader-visible
-// text of every dist/**/*.html page, the link and asset URLs of those pages
-// (except built /_astro/ assets), and the other built text files (the sitemap,
-// robots.txt, JSON and web manifests).
+// Scanned as source text: src/content, src/data, src/components, src/lib,
+// samples, public and astro.config.mjs. Scanned from the built site: the
+// reader-visible text of every dist/**/*.html page, the link and asset URLs of
+// those pages (except built /_astro/ asset names), the other built text files
+// (the sitemap, robots.txt, JSON and web manifests), and the content of every
+// built script, style sheet, SVG image and source map, /_astro/ included.
+//
+// Two pattern sets (see PATTERNS). Text and source files get all of them.
+// Minified assets (built ones and those in public/) and, as a backstop, the
+// whole source of each built page (comments, inline scripts and styles, other
+// attributes) get only the unmistakable ones: decision record, requirements
+// document and feature numbers, the repository name, local paths, and role and
+// process terms. Short task, batch and fix numbers are everywhere in minified
+// code (`t(19,…)`, `#f00`, `t12` in SVG paths), so they are matched only in
+// text.
 
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { htmlText } from './lib/html-text.mjs';
 import { listFiles, readText, lineIndex } from './lib/files.mjs';
-import { htmlUrlText, listDistFiles } from './lib/dist-files.mjs';
-import { normalizeWithMap } from './lib/normalize.mjs';
+import { htmlUrlText, isAssetFile, listDistFiles } from './lib/dist-files.mjs';
+import { normalizeForMatch, normalizeWithMap } from './lib/normalize.mjs';
 
 // Identifiers are matched in any case, on text folded by lib/normalize.mjs
 // (NFKC and look-alike letters), so "ＡＤＲ 0019" or a Cyrillic "Т07" counts;
@@ -88,7 +98,7 @@ export const PATTERNS = [
   p(`${L}phase${JOIN}[ab](?:\\s*/\\s*[ab])?${JOIN}(?:security|code)${JOIN}reviews?${R}`, 'internal process term'),
 ];
 
-const SOURCE_ROOTS = ['src/content', 'src/data', 'src/components', 'samples', 'public', 'astro.config.mjs'];
+const SOURCE_ROOTS = ['src/content', 'src/data', 'src/components', 'src/lib', 'samples', 'public', 'astro.config.mjs'];
 const SKIP_NAMES = new Set(['node_modules', 'target', 'build', '.build', '.generated', '.git']);
 // The polyjose checkout the sample runner clones in CI is not our text.
 const SKIP_PATHS = new Set(['samples/.polyjose']);
@@ -132,24 +142,33 @@ export function scanSite(root) {
   const sources = SOURCE_ROOTS.flatMap((d) => listFiles(root, d, { skipNames: SKIP_NAMES, skipPaths: SKIP_PATHS }));
   const dist = listDistFiles(root);
   const pages = new Set(dist.html);
-  // Each file is read as one or more texts, and every text is checked.
+  // Each file is read as one or more views, and every view is checked.
   const views = (file, raw) => {
     if (pages.has(file)) {
       return [
-        [htmlText(raw), ''],
-        [htmlUrlText(raw), ', in a link or asset URL'],
+        { text: htmlText(raw), where: '' },
+        { text: htmlUrlText(raw), where: ', in a link or asset URL' },
+        { text: raw, where: ', in the page source', asset: true, backstop: true },
       ];
     }
-    return [[raw, '']];
+    return [{ text: raw, where: '', asset: isAssetFile(file) }];
   };
   const findings = [];
   let scanned = 0;
-  for (const file of [...sources, ...dist.html, ...dist.text]) {
+  for (const file of [...sources, ...dist.html, ...dist.text, ...dist.assets]) {
     const raw = readText(join(root, file));
     if (raw === null) continue;
     scanned++;
-    for (const [text, where] of views(file, raw)) {
-      for (const f of findPrivateRefs(text)) findings.push({ file, ...f, label: f.label + where });
+    // The page source repeats the page text and URLs: report only what they
+    // did not already report on the same line.
+    const seen = new Set();
+    for (const { text, where, asset = false, backstop = false } of views(file, raw)) {
+      for (const f of findPrivateRefs(text, { asset })) {
+        const key = `${f.line}:${normalizeForMatch(f.match).toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        if (backstop && seen.has(key)) continue;
+        seen.add(key);
+        findings.push({ file, ...f, label: f.label + where });
+      }
     }
   }
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
