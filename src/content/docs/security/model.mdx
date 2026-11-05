@@ -11,7 +11,7 @@ polyjose uses pure-Rust cryptographic primitives from the [RustCrypto](https://g
 
 Pure Rust gives memory safety, not freedom from side channels. How well each primitive resists timing attacks depends on the crate that provides it. [Cryptographic foundations](/security/cryptographic-foundations/) lists every primitive crate and what its maintainers say about it.
 
-**Randomness comes only from the operating system's CSPRNG**, through the `getrandom` crate. That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys and generated keys. In the WebAssembly package the source is `crypto.getRandomValues`. If the system generator is unavailable, the operation fails. There is no fallback generator. ECDSA signatures use RFC 6979 deterministic nonces with added randomness, as RFC 8725 §3.2 recommends, so the nonce never depends on the random source alone.
+**Randomness comes only from the operating system's CSPRNG**, through the `getrandom` crate. That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys and generated keys. In the WebAssembly package the source is `crypto.getRandomValues`. If the system generator is unavailable, the operation fails. There is no fallback generator. ECDSA nonces are derived deterministically as in RFC 6979, which RFC 8725 §3.2 recommends for JWT libraries, so the nonce never depends on the random source alone. polyjose also mixes in added randomness as defence in depth.
 
 ## Dependencies
 
