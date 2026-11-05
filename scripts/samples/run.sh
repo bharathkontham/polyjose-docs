@@ -19,7 +19,8 @@
 #     ../polyjose checkout, which must be at the pinned commit with no
 #     uncommitted changes and no untracked files other than ones polyjose
 #     ignores (otherwise SKIPPED, also when git status fails). With CI=true,
-#     polyjose is cloned there instead (POLYJOSE_GIT_URL overrides the URL).
+#     polyjose is cloned there instead (POLYJOSE_GIT_URL overrides the URL);
+#     a clone kept from an earlier run has its origin reset to that URL.
 #   - pin "registry": the runner installs the published version itself.
 #
 # Runner contract. scripts/samples/platforms/<platform>.sh is sourced in a
@@ -82,9 +83,14 @@ prepare_git() {
     if [ -L "$dest" ]; then rm -f "$dest"; fi
     if [ ! -d "$dest/.git" ]; then
       rm -rf "$dest"
-      if ! git init -q "$dest" || ! git -C "$dest" remote add origin "$url"; then
+      if ! git init -q "$dest"; then
         prepare_result=fail; prepare_reason="could not create a clone of polyjose"; return
       fi
+    fi
+    # A reused clone may point at an older URL; always fetch from this one.
+    if ! git -C "$dest" remote set-url origin "$url" >/dev/null 2>&1 \
+      && ! git -C "$dest" remote add origin "$url" >/dev/null 2>&1; then
+      prepare_result=fail; prepare_reason="could not set the polyjose clone's origin to $url"; return
     fi
     if ! git -C "$dest" fetch -q --depth 1 origin "$rev" >/dev/null 2>&1 \
       || ! git -C "$dest" -c advice.detachedHead=false checkout -q --detach "$rev" >/dev/null 2>&1; then
