@@ -289,7 +289,7 @@ describe('the unbuilt-check check itself', () => {
 			'Yes means the operation is part of the 0.1.0 design.',
 			'polyjose 0.1.0 is designed to implement the JOSE specifications below.',
 			'Verify only, so that tokens from identity providers can be checked.',
-			'polyjose 0.1.0 is designed to pin each library to an exact version.',
+			'Each library will be pinned to an exact version.',
 			"It will be required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.",
 		]) {
 			assert.ok(!OLD_PHRASINGS.some((re) => re.test(now)), now);
