@@ -99,11 +99,49 @@ const notYetTrue = [
 	/\bnative addon with prebuilt binaries\b/i,
 ];
 
+/**
+ * JWS, JWE and JWT are not built yet, so capabilities are written as the 0.1.0
+ * design. These are the present-tense phrasings that said otherwise.
+ */
+const capabilityStatedAsBuilt = [
+	/\bpolyjose is a pure-Rust implementation of\b/i,
+	/\bpolyjose implements\b/i,
+	/\bMisuse-resistant defaults, following RFC 8725\b/i,
+];
+
+/** The sentence that frames the About page's list as the 0.1.0 design. */
+const framingSentence = /This list describes polyjose 0\.1\.0 as designed\. The library is in development and not published yet\./;
+
 const pages = {
 	landing: '',
 	about: 'about/why-polyjose/',
 	reference: 'reference/api/',
 };
+
+describe('the capability phrasing checks themselves', () => {
+	test('match the present-tense phrasings', () => {
+		for (const old of [
+			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
+			'RFC coverage. polyjose implements: RFC 7515 (JWS)',
+			'Misuse-resistant defaults, following RFC 8725:',
+		]) {
+			assert.ok(capabilityStatedAsBuilt.some((re) => re.test(old)), old);
+		}
+	});
+	test('accept the 0.1.0 design phrasings', () => {
+		for (const now of [
+			'polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT.',
+			'RFC coverage. polyjose 0.1.0 is designed to implement: RFC 7515 (JWS)',
+			'Misuse-resistant defaults. The API is designed around RFC 8725:',
+		]) {
+			assert.ok(!capabilityStatedAsBuilt.some((re) => re.test(now)), now);
+		}
+	});
+	test('the framing sentence pattern matches only the full sentence', () => {
+		assert.match('This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.', framingSentence);
+		assert.doesNotMatch('This list describes polyjose 0.1.0.', framingSentence);
+	});
+});
 
 describe('the present-tense check itself', () => {
 	test('flags machinery described as already running', () => {
@@ -151,6 +189,9 @@ for (const [name, route] of Object.entries(pages)) {
 		test('describes unbuilt tests and checks as planned, not running', () => {
 			assert.deepEqual(presentTenseMachineryClaims(text), []);
 			for (const re of notYetTrue) assert.doesNotMatch(text, re);
+		});
+		test('describes capabilities as the 0.1.0 design, not as built', () => {
+			for (const re of capabilityStatedAsBuilt) assert.doesNotMatch(text, re);
 		});
 		test('never describes polyjose as audited', () => {
 			assert.doesNotMatch(
@@ -214,6 +255,14 @@ describe('About › Why polyjose', () => {
 
 	test('opens with the one-line pitch', () => {
 		assert.match(text, /One JOSE implementation, every platform\./);
+	});
+
+	test('frames the "what makes polyjose different" list as the 0.1.0 design', () => {
+		assert.match(text, framingSentence);
+		const framing = text.search(framingSentence);
+		const heading = text.search(/What makes polyjose different/);
+		const firstItem = text.search(/One core for five platforms/);
+		assert.ok(heading >= 0 && heading < framing && framing < firstItem, 'framing sentence must sit between the heading and the list');
 	});
 
 	test('covers the problem, the differences, the audience and the license', () => {
