@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { findPrivateRefs, scanSite } from './private-refs.mjs';
-import { htmlUrlText, isAssetFile, isAssetUrl, listDistFiles } from './lib/dist-files.mjs';
+import { htmlUrlText, isAssetFile, isAssetUrl, listDistFiles, withoutAssetNames } from './lib/dist-files.mjs';
 
 const SCRIPT = new URL('./private-refs.mjs', import.meta.url).pathname;
 
@@ -641,6 +641,31 @@ test('backstop: the whole source of a built page is checked for the unmistakable
   assert.equal(findings.filter((f) => f.match === 'ADR-0007').length, 1);
   assert.doesNotMatch(findings.find((f) => f.match === 'ADR-0007').label, /page source/);
   assert.match(findings.find((f) => f.match === 'ADR-0019').label, /in the page source/);
+});
+
+test('backstop: hashed /_astro/ asset names in the page source are left out, other paths are not', (t) => {
+  const root = tree({
+    'dist/index.html': [
+      '<html><head><link rel="stylesheet" href="/_astro/x.Adr-123.css">',
+      "<script>import('./_astro/feat.Feature-0011.js')</script>",
+      '<link href="/guides/_astro/x.Adr-124.css">',
+      '<script>fetch("/_astro/../adr-0125/")</script>',
+      '</head><body>fine</body></html>',
+    ].join('\n'),
+  });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(
+    scanSite(root).findings.map((f) => `${f.file}:${f.line}:${f.match}`),
+    ['dist/index.html:3:Adr-124', 'dist/index.html:4:adr-0125'],
+  );
+});
+
+test('withoutAssetNames blanks built asset names and keeps every offset', () => {
+  const html = '<a href="/_astro/x.Adr-123.css">x</a> "./_astro/y.js" /guides/_astro/z.js /_astro/%2e%2e/a';
+  const out = withoutAssetNames(html);
+  assert.equal(out.length, html.length);
+  assert.ok(!out.includes('Adr-123') && !out.includes('y.js'), out);
+  assert.ok(out.includes('/guides/_astro/z.js') && out.includes('/_astro/%2e%2e/a'), out);
 });
 
 test('the CLI quotes the original text of a folded match', (t) => {
