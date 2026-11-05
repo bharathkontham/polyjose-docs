@@ -1,6 +1,77 @@
 ---
 title: What polyjose does not support
-description: Algorithms and features polyjose leaves out on purpose.
+description: Algorithms and features polyjose leaves out on purpose, why each one is excluded, and what to use instead.
 ---
 
-This page arrives with the 0.1.0 release and will list the algorithms and features polyjose deliberately leaves out and explain why each one is excluded.
+polyjose leaves some algorithms and features out on purpose. Each section below says what is excluded, why, and what to use instead.
+
+Where you can still ask for an excluded algorithm, for example by passing a token or a key that uses it, polyjose fails with the stable error code `UnsupportedAlgorithm` instead of guessing. Error codes are listed under [Errors](/concepts/errors/), and what polyjose does support is under [Algorithms](/concepts/algorithms/).
+
+## RSA private keys
+
+**Not supported in 0.1.0:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
+
+**Why:** the pure-Rust `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), the Marvin attack: a timing side channel that could allow recovery of the private key. It affects operations that use the private key, which are signing and decryption. No fixed release of `rsa` exists yet.
+
+**Supported, because they use only public keys:** operations that never touch an RSA private key handle no secret, so the advisory doesn't apply to them.
+
+- verifying `RS256`, `RS384`, `RS512`, `PS256`, `PS384` and `PS512` signatures, such as tokens from an identity provider
+- encrypting to an `RSA-OAEP-256` recipient
+- importing RSA public keys, on their own or in a JWK Set
+
+**Instead:** to issue tokens, sign with `ES256` or `Ed25519`, or with `HS256` when both sides share a secret. To receive encrypted data, have senders use `ECDH-ES` with your elliptic-curve key.
+
+RSA signing, RSA decryption and RSA key generation will return once a fixed `rsa` release exists.
+
+## `RSA1_5`
+
+**Not supported:** the `RSA1_5` key management algorithm (RSAES-PKCS1-v1_5), in either direction. polyjose neither encrypts to it nor decrypts it, and a token that uses it fails with `UnsupportedAlgorithm`.
+
+**Why:** RFC 8725 §3.2 ("Use Appropriate Algorithms") tells applications to avoid all RSA-PKCS1 v1.5 encryption algorithms and to prefer RSAES-OAEP. PKCS #1 v1.5 encryption has a long history of padding-oracle attacks. Decrypting it would also need an RSA private key, which polyjose doesn't accept ([see above](#rsa-private-keys)).
+
+**Instead:** encrypt to RSA public keys with `RSA-OAEP-256`, or use `ECDH-ES`.
+
+## SHA-1
+
+**Not supported:** SHA-1 in any form. polyjose contains no SHA-1 code.
+
+- **No `RSA-OAEP`.** RFC 7518 §4.3 defines `RSA-OAEP` with SHA-1 and `RSA-OAEP-256` with SHA-256. polyjose implements only `RSA-OAEP-256`. A header or JWK with `alg` set to `RSA-OAEP` fails with `UnsupportedAlgorithm`.
+- **No SHA-1 thumbprints.** JWK thumbprints (RFC 7638) are computed with SHA-256, SHA-384 or SHA-512. Asking for a SHA-1 thumbprint fails with `UnsupportedAlgorithm`.
+- **`x5t` is carried, never computed.** The `x5t` member holds a SHA-1 certificate thumbprint. polyjose passes it through unchanged but never computes or checks it.
+
+**Why:** SHA-1 isn't practically broken inside OAEP, because OAEP doesn't rely on collision resistance. But SHA-1 has been retired almost everywhere else, and leaving it out entirely means one fewer primitive to trust. `RSA-OAEP` is not a Required algorithm in RFC 7518 §4.1, so omitting it keeps polyjose conformant.
+
+**Instead:** use `RSA-OAEP-256`, or `ECDH-ES` for new recipients. polyjose can't encrypt to a recipient that accepts only `RSA-OAEP`.
+
+## `zip` in bindings
+
+**Not supported in the Node.js, Web, Kotlin and Swift packages:** JWE compression (the `zip` header, RFC 7516 §4.1.3). These packages are built without compression. Decrypting a token with `zip` in its header, or encrypting with `compress: true`, fails with `UnsupportedAlgorithm`.
+
+**Why:** RFC 8725 §3.6 ("Avoid Compression of Encryption Inputs") says data should not be compressed before encryption, because the compressed size often reveals information about the plaintext.
+
+**Instead:** send JWE content uncompressed. If you must accept compressed tokens from an existing sender, the Rust crate supports `zip` behind its opt-in `deflate` cargo feature, with decompressed output capped at 250,000 bytes by default.
+
+## Decode without verify
+
+**Not supported:** reading the payload of a JWS, or the plaintext of a JWE, without verifying the signature or decrypting with your key. polyjose has no operation that does this, under any name.
+
+**Why:** claims read from an unverified token are claims anyone could have written. RFC 8725 §3.3 ("Validate All Cryptographic Operations") requires the entire token to be rejected when any cryptographic check fails. A helper that skips the check makes it easy to act on such claims by mistake.
+
+**Instead:** verify or decrypt first. The verified result includes the headers along with the payload. If you need the `kid` to pick a key, pass the issuer's whole JWK Set and let polyjose select candidates; the [JWK Sets guide](/guides/jwk-sets/) covers this.
+
+## Out of scope
+
+**Not in 0.1.0:**
+
+- **Ed448 and X448.** The pure-Rust implementations are not yet stable releases. Use `Ed25519` and `X25519`.
+- **X.509 certificate chain validation.** The `x5c` and `x5u` members are carried as data. polyjose never validates a certificate chain, and never uses one to pick a key. Validate certificates with your platform's X.509 tools, then pass polyjose the public key you trust.
+- **HPKE**-based JOSE algorithms.
+- **COSE** (CBOR Object Signing and Encryption).
+
+## Java
+
+**Not supported in 0.1.0:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
+
+**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.0.
+
+**Instead:** call polyjose from Kotlin. See [Android and JVM (Kotlin)](/start/android/).
