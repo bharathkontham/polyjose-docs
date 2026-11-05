@@ -293,15 +293,36 @@ test('page: rsa is public-key only, with the advisory and the not-supported page
   assert.match(text, /no patched release/);
 });
 
+/**
+ * The body of the `<h2 id>` section: everything after the heading's wrapper up
+ * to the next heading. The heading text (and its "Section titled" label) is
+ * left out, so it cannot stand in for a sentence the body must say.
+ */
+function sectionBody(html, id) {
+  const start = html.indexOf(`<h2 id="${id}"`);
+  if (start === -1) return '';
+  const bodyStart = html.indexOf('</div>', start) + '</div>'.length;
+  const next = html.slice(bodyStart).search(/<div class="sl-heading-wrapper|<h[1-6]\b/);
+  return next === -1 ? html.slice(bodyStart) : html.slice(bodyStart, bodyStart + next);
+}
+
 test('page: says there is no SHA-1, so no RSA-OAEP, and no RSA1_5, with the alternatives', { skip }, () => {
-  assert.match(text, /\bno SHA-1 anywhere\b/);
-  assert.match(text, /\bno RSA-OAEP\b(?!-256)/, 'names RSA-OAEP (SHA-1) as absent');
-  assert.match(text, /RSA-OAEP-256 or ECDH-ES/, 'gives the alternatives');
-  assert.match(text, /\bno RSA1_5\b/);
-  assert.match(text, /\bsha1 crate is not a dependency\b/, 'explains why the table has no sha1 row');
-  for (const hash of ['sha-1', 'rsa1_5', 'rsa-private-keys']) {
-    assert.ok(main.includes(`href="/security/not-supported/#${hash}"`), `links /security/not-supported/#${hash}`);
+  const body = sectionBody(main, 'no-sha-1-and-no-rsa1_5');
+  assert.ok(body, 'no "No SHA-1 and no RSA1_5" section');
+  const bodyText = textOf(body);
+  assert.match(bodyText, /\bpolyjose has no SHA-1 anywhere\./);
+  assert.match(bodyText, /\bthere is no RSA-OAEP\b(?!-256)/, 'names RSA-OAEP (SHA-1) as absent');
+  assert.match(bodyText, /\buse RSA-OAEP-256 or ECDH-ES\b/, 'gives the alternatives');
+  assert.match(bodyText, /\bThere is also no RSA1_5 ?\./);
+  assert.match(bodyText, /\bThe sha1 crate is not a dependency\b/, 'explains why the table has no sha1 row');
+  for (const hash of ['sha-1', 'rsa1_5']) {
+    assert.ok(body.includes(`href="/security/not-supported/#${hash}"`), `links /security/not-supported/#${hash}`);
   }
+  const rsa = sectionBody(main, 'rsa-public-key-operations-only');
+  assert.ok(
+    rsa.includes('href="/security/not-supported/#rsa-private-keys"'),
+    'the RSA section links /security/not-supported/#rsa-private-keys',
+  );
 });
 
 test('page: shows the subtle review\'s limits next to its entry', { skip }, () => {
