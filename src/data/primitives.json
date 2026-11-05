@@ -1,0 +1,294 @@
+[
+  {
+    "crate": "aes",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/block-ciphers/tree/master/aes",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The AES block cipher beneath AES key wrapping (A128KW, A192KW, A256KW), AES-CBC content encryption (A128CBC-HS256, A192CBC-HS384, A256CBC-HS512) and AES-GCM.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/aes", "https://github.com/RustCrypto/block-ciphers/tree/master/aes"]
+  },
+  {
+    "crate": "aes-gcm",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/AEADs/tree/master/aes-gcm",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "AES-GCM content encryption (A128GCM, A192GCM, A256GCM) and AES-GCM key wrapping (A128GCMKW, A192GCMKW, A256GCMKW).",
+    "audit": {
+      "status": "partial",
+      "by": "NCC Group",
+      "year": 2020,
+      "report": "https://www.nccgroup.com/research/public-report-rustcrypto-aesgcm-and-chacha20pluspoly1305-implementation-review/",
+      "note": "Reviewed by NCC Group in 2020, for MobileCoin, with no significant findings. The review covered the 0.8 line; polyjose uses a later release line."
+    },
+    "sources": [
+      "https://crates.io/crates/aes-gcm",
+      "https://github.com/RustCrypto/AEADs/tree/master/aes-gcm",
+      "https://www.nccgroup.com/research/public-report-rustcrypto-aesgcm-and-chacha20pluspoly1305-implementation-review/"
+    ]
+  },
+  {
+    "crate": "aes-kw",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/key-wraps/tree/master/aes-kw",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "AES key wrapping for A128KW, A192KW and A256KW, also used by ECDH-ES+A128KW, ECDH-ES+A192KW, ECDH-ES+A256KW and the PBES2 algorithms.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/aes-kw", "https://github.com/RustCrypto/key-wraps/tree/master/aes-kw"]
+  },
+  {
+    "crate": "cbc",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/block-modes/tree/master/cbc",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The CBC mode of AES-CBC content encryption with HMAC (A128CBC-HS256, A192CBC-HS384, A256CBC-HS512).",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/cbc", "https://github.com/RustCrypto/block-modes/tree/master/cbc"]
+  },
+  {
+    "crate": "hmac",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/MACs/tree/master/hmac",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "HMAC for HS256, HS384 and HS512 signatures, for the authentication tag of A128CBC-HS256, A192CBC-HS384 and A256CBC-HS512, and inside PBKDF2 for the PBES2 algorithms.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/hmac", "https://github.com/RustCrypto/MACs/tree/master/hmac"]
+  },
+  {
+    "crate": "sha2",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/hashes/tree/master/sha2",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "SHA-256, SHA-384 and SHA-512 for the HS, RS, PS and ES signature algorithms, RSA-OAEP-256, the ECDH-ES key derivation and JWK thumbprints.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/sha2", "https://github.com/RustCrypto/hashes/tree/master/sha2"]
+  },
+  {
+    "crate": "pbkdf2",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "PBKDF2 key derivation for password-based encryption (PBES2-HS256+A128KW, PBES2-HS384+A192KW, PBES2-HS512+A256KW).",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/pbkdf2", "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2"]
+  },
+  {
+    "crate": "p256",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p256",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The P-256 curve for ES256 signatures and ECDH-ES key agreement.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/p256", "https://github.com/RustCrypto/elliptic-curves/tree/master/p256"]
+  },
+  {
+    "crate": "p384",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p384",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The P-384 curve for ES384 signatures and ECDH-ES key agreement.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/p384", "https://github.com/RustCrypto/elliptic-curves/tree/master/p384"]
+  },
+  {
+    "crate": "p521",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p521",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The P-521 curve for ES512 signatures and ECDH-ES key agreement.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/p521", "https://github.com/RustCrypto/elliptic-curves/tree/master/p521"]
+  },
+  {
+    "crate": "k256",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/k256",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The secp256k1 curve for ES256K signatures.",
+    "audit": {
+      "status": "audited",
+      "by": "NCC Group",
+      "year": 2023,
+      "report": "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
+      "note": "Reviewed by NCC Group in 2023, for Entropy: two high-severity findings, both fixed."
+    },
+    "sources": [
+      "https://crates.io/crates/k256",
+      "https://github.com/RustCrypto/elliptic-curves/tree/master/k256",
+      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf"
+    ]
+  },
+  {
+    "crate": "ecdsa",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/signatures/tree/master/ecdsa",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The ECDSA signature algorithm shared by ES256, ES384, ES512 and ES256K.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/ecdsa", "https://github.com/RustCrypto/signatures/tree/master/ecdsa"]
+  },
+  {
+    "crate": "elliptic-curve",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/traits/tree/master/elliptic-curve",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The elliptic-curve arithmetic, key types and Diffie-Hellman shared by the P-256, P-384, P-521 and secp256k1 curves, for ES256, ES384, ES512, ES256K and ECDH-ES.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/elliptic-curve", "https://github.com/RustCrypto/traits/tree/master/elliptic-curve"]
+  },
+  {
+    "crate": "rsa",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/RSA",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "RSA public-key operations only: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures and encrypting to RSA-OAEP-256 recipients.",
+    "audit": {
+      "status": "partial",
+      "by": "Include Security",
+      "year": 2019,
+      "report": "https://public.opentech.fund/documents/1907_OTF_DeltaChat_RPGP_RustRSA_GB_Report_v1.pdf",
+      "note": "Reviewed by Include Security in 2019, with one minor finding. That review predates RUSTSEC-2023-0071 (the Marvin timing attack), and the crate's current rewrite has no published audit. polyjose uses it for public-key operations only."
+    },
+    "sources": [
+      "https://crates.io/crates/rsa",
+      "https://github.com/RustCrypto/RSA",
+      "https://public.opentech.fund/documents/1907_OTF_DeltaChat_RPGP_RustRSA_GB_Report_v1.pdf",
+      "https://rustsec.org/advisories/RUSTSEC-2023-0071.html"
+    ]
+  },
+  {
+    "crate": "crypto-bigint",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/crypto-bigint",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "The big-integer arithmetic beneath the rsa crate and the elliptic curves, for RS256, RS384, RS512, PS256, PS384, PS512, RSA-OAEP-256, ES256, ES384, ES512, ES256K and ECDH-ES.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/crypto-bigint", "https://github.com/RustCrypto/crypto-bigint"]
+  },
+  {
+    "crate": "zeroize",
+    "upstream": "RustCrypto",
+    "repo": "https://github.com/RustCrypto/utils/tree/master/zeroize",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "Clearing private keys, symmetric keys and passwords from memory when they are dropped, for HS256, HS384, HS512, ES256, ES384, ES512, ES256K, EdDSA, ECDH-ES, the AES key-wrap and content-encryption algorithms, dir and PBES2.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/zeroize", "https://github.com/RustCrypto/utils/tree/master/zeroize"]
+  },
+  {
+    "crate": "curve25519-dalek",
+    "upstream": "dalek-cryptography",
+    "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek",
+    "license": "BSD-3-Clause",
+    "purpose": "The Curve25519 arithmetic beneath Ed25519 signatures (EdDSA, Ed25519) and X25519 key agreement (ECDH-ES).",
+    "audit": {
+      "status": "partial",
+      "by": "Quarkslab",
+      "year": 2019,
+      "report": "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html",
+      "note": "Reviewed by Quarkslab in 2019, for Tari, which found minor issues only; x25519-dalek and ed25519-dalek were reviewed only marginally. Fixes came after that review: RUSTSEC-2022-0093 in the 1.x line of ed25519-dalek, and a timing fix in Scalar arithmetic (RUSTSEC-2024-0344). polyjose uses a later release line."
+    },
+    "sources": [
+      "https://crates.io/crates/curve25519-dalek",
+      "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek",
+      "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html",
+      "https://rustsec.org/advisories/RUSTSEC-2022-0093.html",
+      "https://rustsec.org/advisories/RUSTSEC-2024-0344.html"
+    ]
+  },
+  {
+    "crate": "ed25519-dalek",
+    "upstream": "dalek-cryptography",
+    "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek",
+    "license": "BSD-3-Clause",
+    "purpose": "Ed25519 signatures for the EdDSA and Ed25519 algorithms.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found for this crate on its own: Quarkslab's 2019 review of the dalek libraries reviewed it only marginally, and RUSTSEC-2022-0093, which affected its 1.x line, was fixed after that review. It is widely deployed."
+    },
+    "sources": [
+      "https://crates.io/crates/ed25519-dalek",
+      "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek",
+      "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html",
+      "https://rustsec.org/advisories/RUSTSEC-2022-0093.html"
+    ]
+  },
+  {
+    "crate": "x25519-dalek",
+    "upstream": "dalek-cryptography",
+    "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/x25519-dalek",
+    "license": "BSD-3-Clause",
+    "purpose": "X25519 key agreement for ECDH-ES and ECDH-ES+A128KW, ECDH-ES+A192KW and ECDH-ES+A256KW with X25519 keys.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found for this crate on its own: Quarkslab's 2019 review of the dalek libraries reviewed it only marginally. It is widely deployed."
+    },
+    "sources": [
+      "https://crates.io/crates/x25519-dalek",
+      "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/x25519-dalek",
+      "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html"
+    ]
+  },
+  {
+    "crate": "subtle",
+    "upstream": "dalek-cryptography",
+    "repo": "https://github.com/dalek-cryptography/subtle",
+    "license": "BSD-3-Clause",
+    "purpose": "Comparing and selecting secret values inside the primitives and in polyjose, for example when checking HS256, HS384 and HS512 signatures and AES-CBC-HMAC authentication tags.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/subtle", "https://github.com/dalek-cryptography/subtle"]
+  },
+  {
+    "crate": "getrandom",
+    "upstream": "rust-random",
+    "repo": "https://github.com/rust-random/getrandom",
+    "license": "MIT OR Apache-2.0",
+    "purpose": "Reading the operating system's random number generator for key generation, content-encryption keys, initialization vectors, PBES2 salts and ECDH-ES ephemeral keys.",
+    "audit": {
+      "status": "none-found",
+      "note": "No public independent audit found. It is widely deployed."
+    },
+    "sources": ["https://crates.io/crates/getrandom", "https://github.com/rust-random/getrandom"]
+  }
+]
