@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { htmlText, hasAttribute, stripInvisible, visibleTexts } from './lib/html-text.mjs';
+import {
+  htmlText, hasAttribute, stripInvisible, visibleTexts, elementTree, elementChildren, hasClass, isHidden, isRendered, visibleText,
+} from './lib/html-text.mjs';
 
 test('keeps visible text and drops tags', () => {
   assert.equal(htmlText('<p>Sign <strong>and</strong> verify</p>').trim(), 'Sign and verify');
@@ -142,4 +144,120 @@ test('visibleTexts skips elements in a template, hidden or aria-hidden subtree, 
 test('visibleTexts does not see elements written in text, comments or scripts', () => {
   const html = '<p>&lt;div data-n&gt;</p><!-- <div data-n>x</div> --><script>"<div data-n>y</div>"</script>';
   assert.deepEqual(visibleTexts(html, 'data-n'), []);
+});
+
+// The element tree, for checks that depend on where an element sits.
+const first = (node, pred) => {
+  for (const c of elementChildren(node)) {
+    if (pred(c)) return c;
+    const hit = first(c, pred);
+    if (hit) return hit;
+  }
+  return null;
+};
+const byAttr = (root, name) => first(root, (e) => e.attrs.has(name));
+
+test('elementTree nests elements, with void and self-closed elements as leaves', () => {
+  const root = elementTree('<!DOCTYPE html><html><body><main><div data-x><p>a <em>b</em></p></div><img alt="x"><br/><svg><path d="z"/></svg></main></body></html>');
+  const main = first(root, (e) => e.name === 'main');
+  assert.deepEqual(elementChildren(main).map((e) => e.name), ['div', 'img', 'br', 'svg']);
+  const div = byAttr(root, 'data-x');
+  assert.equal(div.parent, main);
+  assert.deepEqual(elementChildren(div).map((e) => e.name), ['p']);
+  assert.equal(elementChildren(first(main, (e) => e.name === 'svg'))[0].name, 'path');
+  assert.equal(root.parent, null);
+});
+
+test('elementTree leaves out comments, scripts and elements written as text', () => {
+  const root = elementTree('<main><!-- <div data-x></div> --><script>"<div data-x>"</script><p>&lt;div data-x&gt;</p></main>');
+  assert.equal(byAttr(root, 'data-x'), null);
+  assert.deepEqual(elementChildren(first(root, (e) => e.name === 'main')).map((e) => e.name), ['script', 'p']);
+});
+
+test('elementTree ignores a stray closing tag, and a closing tag closes the elements left open inside it', () => {
+  const root = elementTree('<main></span><div><p>a</div><section data-x></section></main>');
+  const main = first(root, (e) => e.name === 'main');
+  assert.deepEqual(elementChildren(main).map((e) => e.name), ['div', 'section']);
+});
+
+test('hasClass matches whole class names only', () => {
+  const [el] = elementChildren(elementTree('<div class="a  prerelease-notice\tastro-x"></div>'));
+  assert.ok(hasClass(el, 'prerelease-notice'));
+  assert.ok(hasClass(el, 'a'));
+  assert.ok(!hasClass(el, 'prerelease'));
+  const [other] = elementChildren(elementTree('<div class="prerelease-notice-x" data-class="prerelease-notice"></div>'));
+  assert.ok(!hasClass(other, 'prerelease-notice'));
+});
+
+const HIDDEN_ELEMENTS = [
+  '<div hidden>t</div>',
+  '<div hidden="until-found">t</div>',
+  '<div aria-hidden="true">t</div>',
+  '<div aria-hidden=" TRUE ">t</div>',
+  '<div style="display:none">t</div>',
+  '<div style="color: red; DISPLAY: none !important">t</div>',
+  '<div style="visibility:hidden">t</div>',
+  '<div style="visibility: collapse">t</div>',
+  '<div style="opacity:0">t</div>',
+  '<div style="opacity: 0.0">t</div>',
+  '<div style="opacity:.0">t</div>',
+  '<div style="opacity:0%">t</div>',
+  '<div style="width:0">t</div>',
+  '<div style="height: 0px">t</div>',
+  '<div style="max-height:0;overflow:hidden">t</div>',
+  '<div style="max-width:0.0em">t</div>',
+  '<div style="font-size:0">t</div>',
+  '<div style="content-visibility:hidden">t</div>',
+  '<div class="sr-only">t</div>',
+  '<div class="x visually-hidden">t</div>',
+  '<div class="sl-sr-only">t</div>',
+  '<div class="visuallyhidden">t</div>',
+  '<div class="sl-hidden">t</div>',
+  '<div class="md:sl-hidden">t</div>',
+  '<div class="hidden">t</div>',
+  '<div class="invisible">t</div>',
+  '<details>t</details>',
+  '<details open>t</details>',
+  '<noscript>t</noscript>',
+  '<template>t</template>',
+  '<dialog>t</dialog>',
+];
+
+for (const html of HIDDEN_ELEMENTS) {
+  test(`isHidden: ${html}`, () => {
+    const [el] = elementChildren(elementTree(html));
+    assert.ok(isHidden(el), html);
+    assert.deepEqual(visibleTexts(html.replace(/^<(\w+)/, '<$1 data-n'), 'data-n'), [], 'visibleTexts agrees');
+  });
+}
+
+test('isHidden: elements that are shown', () => {
+  for (const html of [
+    '<div>t</div>',
+    '<div aria-hidden="false">t</div>',
+    '<div style="opacity:0.5; width:100%; min-height:0; min-width: 0; line-height:0">t</div>',
+    '<div style="height:10px">t</div>',
+    '<div class="sr-only-focusable not-hidden sl-flex md:sl-flex">t</div>',
+    '<dialog open>t</dialog>',
+    '<summary>t</summary>',
+  ]) {
+    const [el] = elementChildren(elementTree(html));
+    assert.ok(!isHidden(el), html);
+  }
+});
+
+test('isRendered is false when the element or any element around it is hidden', () => {
+  const html = (outer) => `<html><body>${outer.replace('X', '<p data-x>t</p>')}</body></html>`;
+  assert.ok(isRendered(byAttr(elementTree(html('<main><div>X</div></main>')), 'data-x')));
+  for (const outer of ['<main hidden><div>X</div></main>', '<details><main>X</main></details>', '<div style="opacity:0"><main>X</main></div>', '<noscript>X</noscript>']) {
+    assert.ok(!isRendered(byAttr(elementTree(html(outer)), 'data-x')), outer);
+  }
+  assert.ok(!isRendered(byAttr(elementTree('<p data-x hidden>t</p>'), 'data-x')));
+});
+
+test('visibleText is the shown text of an element, white space collapsed, hidden parts left out', () => {
+  const root = elementTree(
+    '<div data-x aria-label="label"><p><strong>Pre-1.0:</strong> polyjose is not&nbsp;pub&shy;lished <span hidden>x</span><span class="sr-only">y</span>yet</p><p>Next</p><img alt="z"></div>',
+  );
+  assert.equal(visibleText(byAttr(root, 'data-x')), 'Pre-1.0: polyjose is not published yet Next');
 });
