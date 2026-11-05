@@ -4,8 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "check": "astro check",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "lint:refs": "node scripts/check/private-refs.mjs",
+    "lint:honesty": "node scripts/check/honesty.mjs",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\" \"tests/data/*.test.mjs\"",
+    "samples:coverage": "node scripts/samples/check-coverage.mjs",
+    "a11y": "node tests/a11y/run.mjs",
+    "verify": "npm run check && npm run build && npm run lint:refs && npm run lint:honesty && npm run test:scripts && npm run samples:coverage && npm run a11y"
   },
   "dependencies": {
     "@astrojs/starlight": "0.42.9",
