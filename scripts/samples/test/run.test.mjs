@@ -4,7 +4,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, lstatSync, readlinkSync, realpathSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, rmSync, lstatSync, readlinkSync, realpathSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -345,6 +345,23 @@ test('with CI=true a git pin runs the runner even when ../polyjose is dirty and 
   assert.equal(again.status, 0, again.out + again.err);
   assert.deepEqual(resultLines(again.out), ['PASS (js)']);
   assert.match(again.out, new RegExp(`POLYJOSE_HEAD=${first}\n`));
+});
+
+test('with CI=true a reused clone is reset to the pinned commit, discarding edits to tracked files', () => {
+  const { base, docs } = docsTree({ runners: { kotlin: 'pass' } });
+  const upstream = join(base, 'upstream');
+  const { first } = upstreamRepo(upstream);
+  writeFileSync(join(docs, 'samples/pins/kotlin.json'), JSON.stringify({ source: 'git', rev: first, upcoming: '0.1.0' }));
+  const env = { CI: 'true', POLYJOSE_GIT_URL: `file://${upstream}` };
+  const clone = join(docs, 'samples/.polyjose/polyjose');
+  assert.equal(run(['kotlin'], { docs, env }).status, 0);
+
+  writeFileSync(join(clone, 'README.md'), 'edited by an earlier run\n');
+  const r = run(['kotlin'], { docs, env });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['PASS (kotlin)']);
+  assert.equal(readFileSync(join(clone, 'README.md'), 'utf8'), 'one\n');
+  assert.equal(git(clone, 'status', '--porcelain', '--untracked-files=no'), '');
 });
 
 test('with CI=true a reused clone whose origin is stale is pointed at the configured URL', () => {
