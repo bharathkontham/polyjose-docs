@@ -3,7 +3,9 @@ title: Security model
 description: How polyjose builds on its cryptography, the safe defaults it applies to every token, and what remains your responsibility.
 ---
 
-This page describes how polyjose is built and the safe defaults it applies, with the RFC sections behind each rule. The same rules hold on every platform: Rust, Node.js, Web, Android and the JVM, and Apple platforms.
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+It covers how polyjose builds on its cryptography and the safe defaults it applies, with the RFC sections behind each rule. The same rules hold on every platform: Rust, Node.js, Web, Android and the JVM, and Apple platforms.
 
 ## Cryptography
 
@@ -17,7 +19,7 @@ Pure Rust gives memory safety, not freedom from side channels. How well each pri
 
 The core crate depends only on cryptographic primitive crates plus three small support crates: `subtle`, `zeroize` and `getrandom`. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
 
-CI fails if the core's dependency tree contains any crate that isn't on an allowlist, so a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
+A CI check is planned that fails when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
 
 ## Algorithm verification
 
@@ -91,6 +93,6 @@ Every failure carries a stable error code, such as `InvalidSignature`, `Algorith
 
 ## Status
 
-polyjose is pre-1.0 and not yet published. An independent security review of polyjose itself is planned before 1.0. Until then, the protections on this page rest on the RFCs, the tests that check them on every platform, and the libraries listed under [Cryptographic foundations](/security/cryptographic-foundations/).
+polyjose is pre-1.0 and not yet published. An independent security review of polyjose itself is planned before 1.0. Until then, the protections on this page rest on the RFCs and on the libraries listed under [Cryptographic foundations](/security/cryptographic-foundations/). Conformance tests that check them on every platform are planned before release.
 
 To report a problem, see [Reporting a vulnerability](/security/reporting/).
