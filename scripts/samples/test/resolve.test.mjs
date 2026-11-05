@@ -263,7 +263,7 @@ test('a missing Node.js region also leaves Web missing unless samples/web define
 test('an unavailable key missing from the reasons table fails', () => {
   failsWith(
     { id: 'guide/a', regions: collectRegions(allFive('guide/a')), unavailable: { web: 'no-such-reason' } },
-    /"guide\/a".*"no-such-reason".*unavailable\.json/,
+    /"guide\/a".*"no-such-reason".*unavailable\.json/s,
   );
 });
 
@@ -284,7 +284,7 @@ test('an unknown platform name in unavailable fails', () => {
 test('a platform marked unavailable that defines the region fails', () => {
   failsWith(
     { id: 'guide/a', regions: collectRegions(allFive('guide/a')), unavailable: { kotlin: 'zip-bindings' } },
-    /"guide\/a".*Kotlin.*unavailable.*samples\/kotlin\/src\/test\/kotlin\/GuideTest\.kt/,
+    /"guide\/a".*Kotlin.*unavailable.*samples\/kotlin\/src\/test\/kotlin\/GuideTest\.kt/s,
   );
 });
 
