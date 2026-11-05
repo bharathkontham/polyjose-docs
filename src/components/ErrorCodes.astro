@@ -1,6 +1,8 @@
 ---
 // Renders src/data/error-codes.json as a captioned table: one row per stable
 // error code (a row header), its one-sentence meaning and typical causes.
+// The table takes tabindex="0": on narrow screens it scrolls sideways, so
+// keyboard users must be able to focus it.
 import data from '../data/error-codes.json';
 
 interface ErrorCode {
@@ -15,7 +17,7 @@ const codes = (data as unknown as { codes: ErrorCode[] }).codes;
 const parts = (s: string) => s.split('`').map((text, i) => ({ text, code: i % 2 === 1 }));
 ---
 
-<table class="error-codes">
+<table class="error-codes" tabindex="0">
 	<caption>Stable error codes, identical on every platform</caption>
 	<thead>
 		<tr>

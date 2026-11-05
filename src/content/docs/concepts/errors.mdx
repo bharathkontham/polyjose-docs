@@ -9,12 +9,22 @@ Every polyjose failure carries exactly one error code from a fixed set. The code
 
 ## Reading the code
 
-| Platform | Error type | The code |
-|---|---|---|
-| Rust | `polyjose::Error` | `Error::code()` |
-| JavaScript (`@polyjose/node`, `@polyjose/wasm`) | `PolyjoseError`, a subclass of `Error` whose `name` is `"PolyjoseError"`; the rejected Promise carries it | `PolyjoseError.code` |
-| Kotlin | `PolyjoseException`, a sealed class with one subclass per code | `PolyjoseException.code()` |
-| Swift | `PolyjoseError`, an enum with one case per code | `PolyjoseError.code()` |
+<table tabindex="0">
+	<caption>How each platform exposes the error code</caption>
+	<thead>
+		<tr>
+			<th scope="col">Platform</th>
+			<th scope="col">Error type</th>
+			<th scope="col">The code</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">Rust</th><td><code>polyjose::Error</code></td><td><code>Error::code()</code></td></tr>
+		<tr><th scope="row">JavaScript (<code>@polyjose/node</code>, <code>@polyjose/wasm</code>)</th><td><code>PolyjoseError</code>, a subclass of <code>Error</code> whose <code>name</code> is <code>"PolyjoseError"</code>; the rejected Promise carries it</td><td><code>PolyjoseError.code</code></td></tr>
+		<tr><th scope="row">Kotlin</th><td><code>PolyjoseException</code>, a sealed class with one subclass per code</td><td><code>PolyjoseException.code()</code></td></tr>
+		<tr><th scope="row">Swift</th><td><code>PolyjoseError</code>, an enum with one case per code</td><td><code>PolyjoseError.code()</code></td></tr>
+	</tbody>
+</table>
 
 In JavaScript, passing an argument of the wrong type (a number where a string belongs, for example) throws the host's own `TypeError` before polyjose runs. That is a programming error, not one of the codes below, so `err.code` is always one of the codes whenever `err instanceof PolyjoseError`. Kotlin and Swift reject the same mistakes at compile time.
 
