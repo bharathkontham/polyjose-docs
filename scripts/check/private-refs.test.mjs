@@ -266,7 +266,7 @@ test('finds identifiers in link and asset URLs of built pages, but not in /_astr
       '<img alt="" src="/images/b03-diagram.svg" srcset="/_astro/i.t12.webp 1x, /img/t07@2x.webp 2x">',
       "<a href='/x/ADR%200019'>reasons</a>",
       '<a href="https://example.com/home/docs/">external</a> <a href="https://example.com/~/x">x</a>',
-      '<a href="#adr&#45;0019">anchor</a>',
+      '<a href="#adr&#45;0019">anchor</a> <a href="/_astro/../polyjose-brain/">up</a>',
       '</body></html>',
     ].join('\n'),
   });
@@ -281,6 +281,7 @@ test('finds identifiers in link and asset URLs of built pages, but not in /_astr
       'dist/index.html:7:t07',
       'dist/index.html:8:ADR 0019',
       'dist/index.html:10:adr-0019',
+      'dist/index.html:10:brain',
     ],
   );
   assert.ok(findings.every((f) => /in a link or asset URL/.test(f.label)), JSON.stringify(findings));
@@ -328,6 +329,11 @@ test('isAssetUrl matches only built asset paths', () => {
     '//cdn.example/_astro/x',
     '/_astro',
     '/_astrox/a.js',
+    '/_astro/../adr-0019/',
+    '/_astro/./x/../../t07',
+    '/_astro/%2e%2e/b03',
+    '/_astro/a.js?from=t07',
+    '/_astro/a.js#brain',
   ]) {
     assert.equal(isAssetUrl(url), false, url);
   }
