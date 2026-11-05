@@ -76,11 +76,45 @@ export function unmeasuredNumberClaims(text) {
 	});
 }
 
+/**
+ * Sentences that describe testing or checking machinery that doesn't exist yet
+ * (conformance runs, interop tests, CI checks, notices files) in the present
+ * tense. Such a sentence must say it is planned or a design goal.
+ */
+export function presentTenseMachineryClaims(text) {
+	const topic = /conformance|interop|CI check|allow-?list|THIRD-PARTY-NOTICES/i;
+	const planned = /\b(will|planned|plan|designed|meant|aims?|required to)\b|before (0\.1\.0|release)/i;
+	return sentencesOf(text).filter((s) => topic.test(s) && !planned.test(s));
+}
+
+/** Present-tense phrasings that have been used for things not built yet. */
+const notYetTrue = [
+	/\btests interoperability against\b/i,
+	/\bconformance test vectors run on every platform\b/i,
+	/\bconformance tests run on each\b/i,
+	/\bA CI check stops\b/i,
+	/\bEvery algorithm ships with\b/i,
+	/\bnative addon with prebuilt binaries\b/i,
+];
+
 const pages = {
 	landing: '',
 	about: 'about/why-polyjose/',
 	reference: 'reference/api/',
 };
+
+describe('the present-tense check itself', () => {
+	test('flags machinery described as already running', () => {
+		assert.equal(presentTenseMachineryClaims('The same conformance vectors run on every platform.').length, 1);
+		assert.equal(presentTenseMachineryClaims('polyjose tests interop against panva/jose.').length, 1);
+		assert.equal(presentTenseMachineryClaims('A CI check stops the tree from growing.').length, 1);
+	});
+	test('accepts plans and design goals', () => {
+		assert.equal(presentTenseMachineryClaims('It is designed so that every platform runs the same conformance vectors.').length, 0);
+		assert.equal(presentTenseMachineryClaims('Interop tests against them are planned before release.').length, 0);
+		assert.equal(presentTenseMachineryClaims('A CI check will stop the tree from growing.').length, 0);
+	});
+});
 
 describe('the number-claim check itself', () => {
 	test('flags digits next to vectors, fuzzing, crates and benchmarks', () => {
@@ -110,6 +144,10 @@ for (const [name, route] of Object.entries(pages)) {
 		});
 		test('makes no unmeasured number claims', () => {
 			assert.deepEqual(unmeasuredNumberClaims(text), []);
+		});
+		test('describes unbuilt tests and checks as planned, not running', () => {
+			assert.deepEqual(presentTenseMachineryClaims(text), []);
+			for (const re of notYetTrue) assert.doesNotMatch(text, re);
 		});
 		test('never describes polyjose as audited', () => {
 			assert.doesNotMatch(
