@@ -47,7 +47,7 @@ test('upcoming must be SemVer in none and git mode', () => {
 });
 
 test('unknown sources and fields are rejected, so a typo cannot pass silently', () => {
-  assert.throws(() => parsePin({ source: 'npm', version: '0.1.0' }, 'js'), /js: source must be one of none, git, registry/);
+  assert.throws(() => parsePin({ source: 'npm', version: '0.1.0' }, 'js'), /samples\/pins\/js\.json: source must be one of none, git, registry/);
   assert.throws(() => parsePin({ source: 'registry', verison: '0.1.0' }), /verison/);
   assert.throws(() => parsePin({ source: 'registry', version: '0.1.0', rev: REV }), /"rev" is not allowed/);
   assert.throws(() => parsePin({ source: 'none', upcoming: '0.1.0', rev: REV }), /"rev" is not allowed/);
