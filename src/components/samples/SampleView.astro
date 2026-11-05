@@ -1,0 +1,18 @@
+---
+// Renders one platform's region, without tabs, from already-extracted
+// regions. Pages use <Sample>.
+import { Code } from '@astrojs/starlight/components';
+import { resolveSample, type Regions } from '../../lib/samples/resolve.mjs';
+
+interface Props {
+	platform: string;
+	id: string;
+	regions: Regions;
+	title?: string;
+}
+
+const { platform, id, regions, title } = Astro.props;
+const sample = resolveSample({ platform, id, regions });
+---
+
+<Code code={sample.code} lang={sample.lang} title={title} />

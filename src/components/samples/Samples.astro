@@ -1,0 +1,25 @@
+---
+// <Samples id="sign-and-verify/hs256" /> shows one sample in five synced
+// tabs: Rust, Node.js, Web, Kotlin, Swift. The code comes from the region
+// with that id in samples/<platform>/, marked with `// docs:start <id>` and
+// `// docs:end <id>`. The Web tab reuses the Node.js region with the import
+// specifier changed to @polyjose/wasm, unless samples/web defines the id.
+//
+// A platform that deliberately lacks the capability is listed in
+// `unavailable`, with a key from src/data/unavailable.json:
+//   <Samples id="encrypt-and-decrypt/zip" unavailable={{ node: "zip-bindings", web: "zip-bindings", kotlin: "zip-bindings", swift: "zip-bindings" }} />
+//
+// The build fails if any platform has neither the region nor an entry.
+import SamplesView from './SamplesView.astro';
+import { regions } from './sources';
+
+interface Props {
+	id: string;
+	unavailable?: Partial<Record<'rust' | 'node' | 'web' | 'kotlin' | 'swift', string>>;
+	title?: string;
+}
+
+const { id, unavailable, title } = Astro.props;
+---
+
+<SamplesView id={id} regions={regions} unavailable={unavailable} title={title} />
