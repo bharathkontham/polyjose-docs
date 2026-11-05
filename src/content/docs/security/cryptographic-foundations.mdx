@@ -47,7 +47,13 @@ Audit status is given as the reviewers and the libraries' maintainers published 
 
 polyjose uses `rsa` for public-key operations only, because [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) (the Marvin attack) has no patched release. The advisory describes a timing side channel that can leak the private key, so it affects operations that use the private key: signing and decryption.
 
-Public-key operations handle no secret, so polyjose offers them: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures, and encrypting to RSA-OAEP-256 recipients. RSA signing, RSA decryption and RSA key generation are not offered. [What polyjose does not support](/security/not-supported/) lists everything that is left out and why.
+Public-key operations handle no secret, so polyjose offers them: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures, and encrypting to RSA-OAEP-256 recipients. RSA signing, RSA decryption and RSA key generation are not offered; [RSA private keys](/security/not-supported/#rsa-private-keys) explains why and what to use instead.
+
+## No SHA-1 and no RSA1_5
+
+polyjose has no SHA-1 anywhere. So there is no `RSA-OAEP`, which RFC 7518 defines with SHA-1: use `RSA-OAEP-256` or `ECDH-ES` instead. The `sha1` crate is not a dependency, which is why it has no row in the table above. There is also no `RSA1_5`. See [SHA-1](/security/not-supported/#sha-1) and [`RSA1_5`](/security/not-supported/#rsa1_5) for the reasons.
+
+[What polyjose does not support](/security/not-supported/) lists everything that is left out and why.
 
 ## subtle and zeroize
 
