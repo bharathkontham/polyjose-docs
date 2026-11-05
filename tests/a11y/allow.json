@@ -1,0 +1,8 @@
+[
+  {
+    "rule": "label-content-name-mismatch",
+    "selector": "button[data-open-modal=\"\"]",
+    "reason": "Starlight's header search button is named \"Search\" by aria-label, while its visible text also shows the Ctrl/Cmd K shortcut hint. Upstream declined to change it: the hint is supplementary, is exposed through aria-keyshortcuts, and is symbolic text in the sense of the WCAG 2.5.3 Understanding document, so the visible label \"Search\" is contained in the accessible name. The component belongs to Starlight and is not overridden here.",
+    "issue": "https://github.com/withastro/starlight/issues/4260"
+  }
+]
