@@ -9,7 +9,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const RUN = fileURLToPath(new URL('../run.sh', import.meta.url));
 const STUBS = fileURLToPath(new URL('./stubs/', import.meta.url));
 const BASH = existsSync('/bin/bash') ? '/bin/bash' : 'bash';
