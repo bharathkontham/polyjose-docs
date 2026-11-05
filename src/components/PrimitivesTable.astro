@@ -1,0 +1,87 @@
+---
+// The credits table on Security › Cryptographic foundations: one row per
+// cryptographic primitive crate, from src/data/primitives.json.
+//
+// Audit statuses:
+// - "audited": a public independent report covers the crate, and the record
+//   shows no gap for the release line polyjose uses.
+// - "partial": a public independent review exists, but it does not cover the
+//   release line polyjose uses (it reviewed an earlier one, or predates later
+//   fixes or a rewrite). The note says which.
+// - "none-found": no public independent audit of the crate was found.
+//
+// The note carries the reviewer's facts as published; the label only sorts.
+import primitives from '../data/primitives.json';
+
+type Status = 'audited' | 'partial' | 'none-found';
+
+const labels: Record<Status, string> = {
+	audited: 'Audited',
+	partial: 'Audited, earlier release',
+	'none-found': 'No public audit found',
+};
+---
+
+<table class="primitives" data-primitives>
+	<caption>
+		The cryptographic libraries polyjose builds on, with their upstream project, license, what polyjose uses
+		each one for, and its public audit status
+	</caption>
+	<thead>
+		<tr>
+			<th scope="col">Crate</th>
+			<th scope="col">Upstream</th>
+			<th scope="col">License</th>
+			<th scope="col">What polyjose uses it for</th>
+			<th scope="col">Public audit status</th>
+		</tr>
+	</thead>
+	<tbody>
+		{
+			primitives.map((p) => {
+				const audit = p.audit as { status: Status; by?: string; year?: number; report?: string; note: string };
+				return (
+					<tr data-crate={p.crate} data-audit-status={audit.status}>
+						<th scope="row">
+							<a href={p.repo}>
+								<code>{p.crate}</code>
+							</a>
+						</th>
+						<td>{p.upstream}</td>
+						<td>
+							<code>{p.license}</code>
+						</td>
+						<td>{p.purpose}</td>
+						<td>
+							<strong>{labels[audit.status]}.</strong>{' '}
+							{audit.report && (
+								<a href={audit.report}>
+									{audit.by} report ({audit.year})
+								</a>
+							)}
+							<p>{audit.note}</p>
+						</td>
+					</tr>
+				);
+			})
+		}
+	</tbody>
+</table>
+
+<style>
+	.primitives {
+		font-size: var(--sl-text-sm);
+	}
+	.primitives caption {
+		caption-side: top;
+		text-align: start;
+		padding-block-end: 0.5rem;
+		color: var(--sl-color-gray-2);
+	}
+	.primitives th[scope='row'] {
+		white-space: nowrap;
+	}
+	.primitives td p {
+		margin-block-start: 0.25rem;
+	}
+</style>
