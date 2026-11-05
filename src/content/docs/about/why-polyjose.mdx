@@ -1,6 +1,58 @@
 ---
 title: Why polyjose
-description: Why polyjose exists and how it differs from other JOSE libraries.
+description: Why polyjose exists, what makes it different, who it is for, and why it is open source.
 ---
 
-This page arrives with the 0.1.0 release and will explain why polyjose exists, who it is for, and how it compares with other JOSE libraries.
+**One JOSE implementation, every platform.** polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT, designed to behave identically in Rust, Node.js, browsers and edge runtimes, Android and the JVM, and every Apple platform.
+
+polyjose is pre-1.0 and not published yet, and its APIs may change before 1.0. Read the [security policy](/security/reporting/) before you rely on it, and use it to report anything you find.
+
+## The problem
+
+- **Fragmentation.** A team that ships a backend, a web app and mobile apps often signs and encrypts the same tokens with three or four libraries: panva/jose for JavaScript, Nimbus JOSE + JWT for the JVM and Android, JOSESwift for Apple platforms, and one of several crates for Rust. Each makes its own choices about algorithm coverage, defaults and error behaviour. "It works on the server but fails on iOS" is a real class of incident.
+- **No complete pure-Rust option.** The Rust JOSE crates are either partial (JWS and JWT without JWE, for example) or built on OpenSSL. OpenSSL is hard to build for WebAssembly, Android and iOS, and it brings a large body of C code into every app that uses it.
+- **JOSE has known pitfalls.** Accepting `alg: none`, verifying an HMAC signature with an RSA public key as the secret, padding oracles in JWE, invalid-curve attacks on ECDH-ES and unbounded PBES2 iteration counts have all caught out real libraries. RFC 8725, the JSON Web Token best current practices, exists because of them.
+- **Every dependency is review work.** Security teams review every dependency of a crypto library. Many libraries pull in dozens of utility crates, and each one is more code to review and more supply-chain risk.
+
+This isn't a criticism of the existing libraries. panva/jose, Nimbus JOSE + JWT and JOSESwift are excellent: polyjose credits them, and interoperability tests against each of them are planned before release. The gap is that a team needs several of them at once, each with its own behaviour.
+
+## What makes polyjose different
+
+This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), browsers and edge runtimes (WebAssembly), Android and the JVM (Kotlin), and Apple platforms (Swift on iOS, iPadOS, macOS, tvOS, watchOS and visionOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.1.0. polyjose is designed so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
+2. **Pure-Rust cryptography.** There is no OpenSSL, ring or aws-lc-rs. The primitives come from the RustCrypto and dalek projects, so polyjose builds with `cargo` alone and no C toolchain enters its supply chain.
+3. **RFC coverage.** polyjose 0.1.0 is designed to implement:
+   - RFC 7515 (JWS), RFC 7516 (JWE), RFC 7517 (JWK), RFC 7518 (JWA) and RFC 7519 (JWT), with the examples of RFC 7520 (the JOSE Cookbook)
+   - RFC 7638 and RFC 9278 (JWK thumbprints and thumbprint URIs)
+   - RFC 7797 (unencoded payload)
+   - RFC 8037 (EdDSA and X25519)
+   - RFC 8725 (JSON Web Token best current practices)
+   - RFC 8812 (ES256K)
+   - RFC 9864 (fully specified algorithms)
+
+   Every algorithm is required to ship with the test vectors from its RFC. A few algorithms are left out on purpose, for security reasons: [What polyjose does not support](/security/not-supported/) lists them and explains why, and [Algorithms](/concepts/algorithms/) shows what is offered.
+4. **Misuse-resistant defaults.** The API is designed around RFC 8725:
+   - verify and decrypt take an explicit list of allowed algorithms and never trust the token's `alg` header on its own
+   - keys are typed and bound to their algorithm family, so an HMAC secret can't stand in for an RSA key
+   - `none` is never accepted
+   - every decryption failure returns the same error, so a failure doesn't reveal which check failed
+   - PBES2 iteration counts are bounded
+   - key material in the Rust core is designed to be wiped from memory when it is dropped; the [security model](/security/model/) lists where copies can remain in the bindings
+5. **Built to be audited.** No independent audit of polyjose has been published yet. The design aims to make one practical: the core depends only on cryptographic primitive libraries, and polyjose writes its own small utilities (base64url, JSON, error handling, DER and PEM), so a reviewer reads polyjose plus a short, documented list of primitives. A CI check is planned to stop the dependency tree from growing without anyone noticing.
+6. **Honest about its foundations.** Every primitive library polyjose builds on is credited by name, with its license and its review status in its maintainers' own words, on [Cryptographic foundations](/security/cryptographic-foundations/). That page says plainly which libraries have had an independent review and which haven't.
+
+## Who it's for
+
+- Teams with a backend, a web app and mobile apps who want one token implementation everywhere.
+- People building identity and authorization: OAuth 2.0, OpenID Connect, verifiable credentials and digital wallets.
+- Rust developers who want JOSE without OpenSSL, including on WebAssembly.
+- Security reviewers who want a small dependency tree they can explain.
+
+## Why open source, and why MIT
+
+- Security code earns trust only in public: open review, public test vectors, a public issue tracker and, in time, a published independent audit.
+- The maintainer is building polyjose to give developers a dependable, cross-platform JOSE library, and to show in public how a security-sensitive library can be engineered: design decisions recorded and reasoned in the open, code that cites the RFC sections it implements, a plan for one conformance suite on every platform, and honest disclosure of what has and hasn't been independently reviewed.
+- polyjose is MIT-licensed, the same license as panva/jose, so anyone can use it anywhere, in open-source and commercial software alike.
+
+The source and the issue tracker are on [GitHub](https://github.com/bharathkontham/polyjose).
