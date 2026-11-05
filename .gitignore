@@ -1,3 +1,13 @@
 node_modules/
 dist/
 .astro/
+
+# Playwright output from the accessibility check
+test-results/
+playwright-report/
+
+# Sample copies generated for the WebAssembly run
+samples/.generated/
+
+# Local checkout of the polyjose repo used to build and run the samples
+samples/.polyjose

@@ -1,0 +1,39 @@
+---
+title: API reference
+description: Where to find the generated API reference for Rust, JavaScript, Kotlin and Swift.
+---
+
+import { Badge } from '@astrojs/starlight/components';
+import { parsePin, pinRelease } from '../../../lib/samples/pins.mjs';
+import rustPin from '../../../../samples/pins/rust.json';
+import kotlinPin from '../../../../samples/pins/kotlin.json';
+import swiftPin from '../../../../samples/pins/swift.json';
+
+{/*
+  A registry page for a name that isn't published yet could be claimed by
+  someone else, so each reference is a link only once that platform's pin in
+  samples/pins/ is `registry`. Until then the URL is shown as text.
+*/}
+
+export const published = {
+  rust: pinRelease(parsePin(rustPin, 'rust')).published,
+  kotlin: pinRelease(parsePin(kotlinPin, 'kotlin')).published,
+  swift: pinRelease(parsePin(swiftPin, 'swift')).published,
+};
+
+Each platform's API reference is generated from the code and hosted where developers on that platform expect to find it. polyjose is pre-1.0 and not published yet, so these references don't exist yet. Each one becomes available when 0.1.0 is published.
+
+## Where each reference lives
+
+- **Rust:** {published.rust ? <a href="https://docs.rs/polyjose">polyjose on docs.rs</a> : <>polyjose on docs.rs, at <code dir="auto">https://docs.rs/polyjose</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The rustdoc reference for the `polyjose` crate, which docs.rs builds for every release.
+- **JavaScript** (`@polyjose/node` and `@polyjose/wasm`): `/api/js/` on this site <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  One TypeDoc reference for both packages, which share the same API and the same type definitions.
+- **Kotlin:** {published.kotlin ? <a href="https://javadoc.io/doc/dev.polyjose/polyjose-jvm">polyjose-jvm on javadoc.io</a> : <>polyjose-jvm on javadoc.io, at <code dir="auto">https://javadoc.io/doc/dev.polyjose/polyjose-jvm</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The reference for the Kotlin API that the Android library and the desktop JVM jar share, served by javadoc.io from the published Maven artifacts.
+- **Swift:** {published.swift ? <a href="https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose">polyjose on Swift Package Index</a> : <>polyjose on Swift Package Index, at <code dir="auto">https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The DocC reference for the `Polyjose` module, hosted by Swift Package Index.
+
+## The same names on every platform
+
+Every operation has the same name on every platform, written in that language's usual casing: `snake_case` in Rust and `camelCase` in JavaScript, Kotlin and Swift. Record types are `UpperCamelCase` everywhere. Once you know an operation on one platform, you can look it up by name in any of the references above. [One API on every platform](/concepts/one-api/) lists the operations side by side.

@@ -1,0 +1,55 @@
+---
+title: Standards
+description: The RFCs polyjose implements, what it implements from each, and the errata and update notes that affect them.
+---
+
+import data from '../../../data/standards.json';
+
+export const parts = (s) => s.split('`').map((text, i) => (i % 2 === 1 ? <code>{text}</code> : text));
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+polyjose 0.1.0 is designed to implement the JOSE specifications below. Algorithm and parameter names follow the [IANA JOSE registries](https://www.iana.org/assignments/jose/jose.xhtml), and the [Algorithms](/concepts/algorithms/) page lists every algorithm with its RFC section.
+
+<table>
+	<caption>Specifications polyjose implements</caption>
+	<thead>
+		<tr>
+			<th scope="col">RFC</th>
+			<th scope="col">Title</th>
+			<th scope="col">What polyjose implements</th>
+		</tr>
+	</thead>
+	<tbody>
+		{data.rfcs.map((s) => (
+			<tr>
+				<th scope="row">
+					<a href={s.url}>RFC {s.rfc}</a>
+				</th>
+				<td>{s.title}</td>
+				<td>
+					{parts(s.implements)}
+					{s.updatedBy.length > 0 && <> Updated by {s.updatedBy.map((n) => `RFC ${n}`).join(', ')}.</>}
+				</td>
+			</tr>
+		))}
+	</tbody>
+</table>
+
+## Notes
+
+### Updates by RFC 9864
+
+RFC 7518 and RFC 8037 are updated by [RFC 9864](https://www.rfc-editor.org/rfc/rfc9864). It registers fully-specified algorithm names, such as `Ed25519`, and sets the older `EdDSA` identifier to Deprecated. polyjose supports both: use `Ed25519` for new tokens, and `EdDSA` for tokens and peers that already use it.
+
+### Erratum 8060 on RFC 7519
+
+{data.errata.map((e) => (
+	<p>
+		<a href={e.url}>Erratum {e.eid}</a> on RFC {e.rfc} §{e.section} has the status <strong>{e.status}</strong>. {parts(e.summary)} polyjose follows the corrected text.
+	</p>
+))}
+
+### Duplicate member names
+
+[RFC 7515 §4](https://www.rfc-editor.org/rfc/rfc7515#section-4) and [RFC 7519 §4](https://www.rfc-editor.org/rfc/rfc7519#section-4) let a parser either reject JSON with duplicate member names or keep only the last one. polyjose always rejects duplicates, in headers, claims, JWKs and every other JSON it reads, with `InvalidJson`. Two parsers that keep different duplicates could otherwise read the same token differently.

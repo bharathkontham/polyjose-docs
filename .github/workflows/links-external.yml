@@ -1,0 +1,82 @@
+# Weekly report of broken external links in the built site.
+#
+# Internal links and #hashes are checked on every build by the links validator,
+# so this job looks only at http(s) links to other sites. It never blocks
+# anything and opens no PR or issue: it writes lychee's report into the job
+# summary and raises a warning annotation when a link is broken.
+#
+# To update lychee, take the new release's lychee-x86_64-unknown-linux-gnu.tar.gz
+# checksum from the release assets (the published .sha256 file and the asset
+# digest must agree), and change both values below together.
+name: External links
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays, 06:17 UTC
+  workflow_dispatch:
+permissions: { contents: read }
+concurrency:
+  group: links-external
+  cancel-in-progress: true
+env:
+  LYCHEE_VERSION: 0.24.2
+  LYCHEE_SHA256: 1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a
+jobs:
+  external-links:
+    name: Report broken external links
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24, cache: npm }
+      # .npmrc already sets ignore-scripts; the flag keeps install scripts off
+      # even if that file changes.
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+
+      - name: Install lychee ${{ env.LYCHEE_VERSION }} (checksum verified)
+        run: |
+          set -euo pipefail
+          asset=lychee-x86_64-unknown-linux-gnu.tar.gz
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            --output "$RUNNER_TEMP/$asset" \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/$asset"
+          echo "${LYCHEE_SHA256}  $RUNNER_TEMP/$asset" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/lychee"
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/lychee" --strip-components=1
+          "$RUNNER_TEMP/lychee/lychee" --version
+          echo "$RUNNER_TEMP/lychee" >> "$GITHUB_PATH"
+
+      # Root-relative links resolve to file:// URLs under dist/, which the
+      # scheme filter leaves out; links to polyjose.dev itself are internal.
+      # lychee reads GITHUB_TOKEN to avoid github.com rate limits.
+      - name: Check external links
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          report="$RUNNER_TEMP/lychee.md"
+          status=0
+          lychee \
+            --root-dir "$PWD/dist" \
+            --scheme https --scheme http \
+            --exclude '^https?://(www\.)?polyjose\.dev([/:?#]|$)' \
+            --accept '100..=103,200..=299,429' \
+            --max-retries 3 --timeout 30 \
+            --no-progress --format markdown --output "$report" \
+            'dist/**/*.html' || status=$?
+          {
+            echo '# External links'
+            echo
+            if [ "$status" -eq 0 ]; then
+              echo 'Every external link in the built site responded.'
+            else
+              echo "lychee exited with status $status. Broken links are listed below; fix or remove them in a normal PR."
+            fi
+            echo
+            if [ -f "$report" ]; then cat "$report"; else echo 'lychee wrote no report.'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning title=External links::lychee reported problems (exit $status); see the job summary."
+          fi
