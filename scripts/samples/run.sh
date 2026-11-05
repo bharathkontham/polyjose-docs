@@ -206,7 +206,7 @@ EOF
   status=$?
 
   if [ "$status" -eq 77 ] && [ -s "$skip_file" ]; then
-    skip "$platform" "$(head -n 1 "$skip_file")"
+    skip_pinned "$platform" "$(head -n 1 "$skip_file")"
   elif [ "$status" -eq 0 ]; then
     pass "$platform"
   else
