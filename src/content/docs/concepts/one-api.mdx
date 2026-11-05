@@ -1,6 +1,110 @@
 ---
 title: One API on every platform
-description: How the same operations look in Rust, JavaScript, Kotlin and Swift.
+description: How the same polyjose operations, types, defaults and errors look in Rust, JavaScript, Kotlin and Swift.
 ---
 
-This page arrives with the 0.1.0 release and will explain how polyjose offers the same operations, options and behaviour on every platform from a single Rust implementation.
+polyjose is one implementation, written in Rust. The Node and Web packages, the Kotlin library and the Swift package all call that same code through a thin layer that only converts types. So every platform offers the same operations, with the same options, the same defaults and the same [error codes](/concepts/errors/).
+
+The operation names on this page are fixed for the 0.1.0 release. The packages are not published yet, so there is nothing to install today.
+
+## Names
+
+| Platform | Functions and fields | Example: verify a compact JWS | Its allow-list field |
+|---|---|---|---|
+| Rust | `snake_case` | `jws_verify_compact` | `allowed_algs` |
+| JavaScript | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
+| Kotlin | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
+| Swift | `camelCase` | `jwsVerifyCompact` | `allowedAlgs` |
+
+Option and result types are `UpperCamelCase` everywhere, such as `JwsVerifyOptions` and `JwsVerified`. In JavaScript they are plain objects with the same field names.
+
+## Types
+
+| Platform | Bytes | JSON values (JWKs, headers) | Calls |
+|---|---|---|---|
+| JavaScript | `Uint8Array` (a Node `Buffer` works too) | a string or a plain object in; plain objects out | return a Promise |
+| Kotlin | `ByteArray` | strings | synchronous, throwing |
+| Swift | `Data` | strings | synchronous, throwing |
+| Rust | slices (`&[u8]`) and `Vec<u8>` | – | – |
+
+Rust callers use the crate's own types, which the [API reference](/reference/api/) documents.
+
+- **Sizes and counts** are `u32` in Rust, `number` in JavaScript, `UInt` in Kotlin and `UInt32` in Swift.
+- **Times** are whole seconds since the Unix epoch, such as the `now` you can pass to JWT validation. Without `now`, JavaScript reads `Date.now()` rounded down to whole seconds, and Kotlin and Swift read the system clock.
+- **Algorithms, curves and formats** are plain strings, spelled exactly as registered: `ES256`, `ECDH-ES+A128KW`, `P-256`, `pkcs8`. The [Algorithms](/concepts/algorithms/) page lists them.
+- **Allow-lists are required arguments.** Every verify and decrypt call takes `allowedAlgs`, and every decrypt call also takes `allowedEnc`. In Kotlin and Swift they have no default, so leaving one out is a compile error. In JavaScript a missing list counts as empty, and the call fails with `AlgorithmNotAllowed`, the same code an empty list or a list of only `none` gets on every platform.
+- **Every other option is optional**, and leaving it out means the library's default. No package sets defaults of its own, so limits such as the PBES2 iteration bound are the same everywhere.
+- **Tokens are strings.** Compact JWS and JWE tokens are strings, and JSON serializations are JSON strings. JavaScript also accepts a JSON serialization as an object.
+
+### JavaScript: two drop-in packages
+
+`@polyjose/node` (a native addon) and `@polyjose/wasm` (WebAssembly, for browsers, edge workers and Node) export the same functions with the same types, so each is a drop-in replacement for the other. Every function returns a Promise in both.
+
+### Kotlin and Swift: synchronous calls
+
+Calls run on the thread that makes them and throw on failure. Move work off the main thread yourself, for example with `Dispatchers.Default` in Kotlin or a `Task` in Swift.
+
+Kotlin data classes and Swift structs print every field in `toString()` and `description`. `JwsSigner` and `JweRecipient` hold a key, so don't log them.
+
+## Operations
+
+Each name below is the JavaScript, Kotlin and Swift spelling. In Rust the same words are written in `snake_case`, so `jwkThumbprintUri` is `jwk_thumbprint_uri`.
+
+### Utilities
+
+| Operation | What it does |
+|---|---|
+| `version` | Returns the polyjose version. |
+| `errorCodes` | Returns every stable [error code](/concepts/errors/). |
+| `base64urlEncode` | Encodes bytes as base64url without padding. |
+| `base64urlDecode` | Decodes strict, unpadded base64url to bytes. |
+
+### JWK
+
+| Operation | What it does |
+|---|---|
+| `jwkParse` | Validates a JWK and returns it as polyjose serializes it. |
+| `jwkToPublic` | Returns the public part of a key. |
+| `jwkThumbprint` | Computes a JWK thumbprint (RFC 7638) with `SHA-256`, `SHA-384` or `SHA-512`. |
+| `jwkThumbprintUri` | Computes a JWK thumbprint URI (RFC 9278). |
+| `jwksSelect` | Picks one key from a JWK Set by `kid`, `alg` and `use`. |
+| `jwkGenerateOct` | Generates a symmetric key of 16 to 512 bytes. |
+| `jwkGenerateEc` | Generates an EC key on `P-256`, `P-384`, `P-521` or `secp256k1`. |
+| `jwkGenerateOkp` | Generates an `Ed25519` or `X25519` key. |
+| `jwkGenerateForAlg` | Generates a key for a given `alg` or `enc`, with `alg` set. |
+| `jwkFromPem` | Imports a PEM key. |
+| `jwkFromDer` | Imports a DER key in `pkcs8`, `sec1`, `spki` or `pkcs1` format. |
+| `jwkToPem` | Exports a key as PEM. |
+| `jwkToDer` | Exports a key as DER. |
+
+### JWS
+
+| Operation | What it does |
+|---|---|
+| `jwsSignCompact` | Signs a payload into a compact JWS. |
+| `jwsSignFlattened` | Signs with one signer into the flattened JSON serialization, optionally with a detached payload. |
+| `jwsSignGeneral` | Signs with several signers into the general JSON serialization. |
+| `jwsVerifyCompact` | Verifies a compact JWS with one key and your allow-list. |
+| `jwsVerifyJson` | Verifies a flattened or general JSON JWS. It succeeds when one signature verifies, and reports which one. |
+
+### JWE
+
+| Operation | What it does |
+|---|---|
+| `jweEncryptCompact` | Encrypts to one recipient into a compact JWE. |
+| `jweEncryptJson` | Encrypts to one or more recipients into the general or flattened JSON serialization. |
+| `jweDecryptCompact` | Decrypts a compact JWE with one key and your `alg` and `enc` allow-lists. |
+| `jweDecryptJson` | Decrypts a flattened or general JSON JWE. |
+
+### JWT
+
+| Operation | What it does |
+|---|---|
+| `jwtSign` | Signs a claims set into a JWT. |
+| `jwtVerify` | Verifies a JWT with one key and validates its claims. |
+| `jwtVerifyWithJwks` | Verifies a JWT with a key chosen from a JWK Set, and validates its claims. |
+| `jwtEncryptNested` | Encrypts a signed JWT for one recipient, producing a nested JWT. |
+| `jwtDecryptNested` | Decrypts a nested JWT and verifies the signed JWT inside, with separate settings for each layer. |
+| `jwtDecryptNestedWithJwks` | The same, verifying the inner JWT with a key from a JWK Set. |
+
+Some things are not offered on any platform: RSA signing, RSA decryption and RSA key generation, `RSA-OAEP` and `RSA1_5`, SHA-1 thumbprints, accepting `none`, and decoding a JWS or JWE without verifying it. Compression (`zip`) is available only in Rust. [What polyjose does not support](/security/not-supported/) explains each one.
