@@ -2,34 +2,82 @@
 // npm run lint:refs
 //
 // Fails when published text contains an internal identifier: a decision record,
-// requirements document, feature or task number, an approval step name, an
-// internal repository name, a local path, or an internal role name. Public
-// pages explain decisions in their own words, so the fix is always to reword.
-// There is deliberately no way to suppress a match.
+// requirements document, feature, batch or task number, an approval step name,
+// an internal repository name, a local path, or an internal role or process
+// term. Public pages explain decisions in their own words, so the fix is always
+// to reword. There is deliberately no way to suppress a match.
 //
-// Scanned: src/content, src/data and samples (as source text), and the
-// reader-visible text of every built dist/**/*.html page.
+// Scanned as source text: src/content, src/data, src/components, samples,
+// public and astro.config.mjs. Scanned from the built site: the reader-visible
+// text of every dist/**/*.html page, the link and asset URLs of those pages
+// (except built /_astro/ assets), and the other built text files (the sitemap,
+// robots.txt, JSON and web manifests).
 
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { htmlText } from './lib/html-text.mjs';
 import { listFiles, readText, lineIndex } from './lib/files.mjs';
+import { htmlUrlText, listDistFiles } from './lib/dist-files.mjs';
+
+// Identifiers are matched in any case. "Word boundary" here means a character
+// that is not a letter or digit, so `_t03`, `polyjose_brain` and `ADR_0019`
+// count too (`\b` treats `_` as part of a word).
+const L = '(?<![a-z0-9])';
+const R = '(?![a-z0-9])';
+// What may join a word to its number: whitespace, `_`, `/`, `#`, and the
+// hyphen and dash characters (U+2010 hyphen, U+2011 non-breaking hyphen,
+// U+2012..U+2015 figure, en and em dashes and the horizontal bar).
+const SEP = '[\\s_\\-\\u2010-\\u2015/#]';
+// What may join the words of a multi-word term.
+const JOIN = '[\\s_\\-\\u2010-\\u2015]+';
+
+const p = (source, label, flags = 'gi') => ({ re: new RegExp(source, flags), label });
 
 export const PATTERNS = [
-  { re: /\bADR[ -]?\d{1,4}\b/g, label: 'decision record number' },
-  { re: /\bPRD[ -]?\d+\b/g, label: 'requirements document number' },
-  { re: /\bfeatures?[ /]\d{4}\b/gi, label: 'feature number' },
-  { re: /\bT\d{2}\b/g, label: 'task number' },
-  { re: /\bGate [1-3]\b/g, label: 'approval step name' },
-  { re: /-brain\b/gi, label: 'internal repository name' },
-  { re: /\/Users\//g, label: 'local file path' },
-  { re: /\.worktrees\b/g, label: 'local worktree path' },
-  { re: /\borchestrator\b/gi, label: 'internal role name' },
-  { re: /\bcode-agent\b/gi, label: 'internal role name' },
+  // `adr/1…` also covers a path into the records directory with a long number.
+  p(`${L}adr(?:${SEP}?\\d{1,4}${R}|/\\d)`, 'decision record number'),
+  p(`${L}prds?(?:${SEP}?\\d+${R}|/\\d)`, 'requirements document number'),
+  p(`${L}features?${SEP}?\\d{4}${R}`, 'feature number'),
+  // Task and batch numbers, alone or inside a branch name. `b64` (the RFC 7797
+  // header parameter) is not one.
+  p(`${L}t\\d{2}${R}`, 'task number'),
+  p(`${L}b(?!64${R})\\d{2}${R}`, 'batch number'),
+  p(`${L}gate${SEP}?[1-3]${R}`, 'approval step name'),
+  p(`${L}brain${R}`, 'internal repository name'),
+  p('/Users/', 'local file path', 'g'),
+  // A local home directory, but not the same text inside a URL path, where it
+  // follows a host name or a path segment.
+  p('(?<![\\w.%~+@-])/home/', 'local file path'),
+  p('(?<![\\w.%~+@/-])~/', 'local file path'),
+  p(`${L}[a-z]:\\\\{1,2}users${R}`, 'local file path'),
+  p('\\.worktrees\\b', 'local worktree path'),
+  p(`${L}orchestrators?${R}`, 'internal role name'),
+  p(`${L}code${SEP}?agents?${R}`, 'internal role name'),
+  p(`${L}(?:planner|tester)${JOIN}agents?${R}`, 'internal role name'),
+  p(`${L}owner${JOIN}directives?${R}`, 'internal process term'),
+  p(`${L}overnight${JOIN}delegations?${R}`, 'internal process term'),
 ];
 
-const SOURCE_DIRS = ['src/content', 'src/data', 'samples'];
+// Characters that render as nothing (soft hyphen, zero-width space, joiners,
+// direction marks, word joiner and invisible operators, byte-order mark). They
+// are removed before matching, so they can't split an identifier.
+const INVISIBLE = /[\u00AD\u200B-\u200F\u2060-\u2064\uFEFF]/;
+
+/** `text` without invisible characters, and a map from its indexes back to `text`'s. */
+function visible(text) {
+  if (!INVISIBLE.test(text)) return { clean: text, origin: (i) => i };
+  let clean = '';
+  const at = [];
+  for (let i = 0; i < text.length; i++) {
+    if (INVISIBLE.test(text[i])) continue;
+    clean += text[i];
+    at.push(i);
+  }
+  return { clean, origin: (i) => at[i] ?? text.length };
+}
+
+const SOURCE_ROOTS = ['src/content', 'src/data', 'src/components', 'samples', 'public', 'astro.config.mjs'];
 const SKIP_NAMES = new Set(['node_modules', 'target', 'build', '.build', '.generated', '.git']);
 // The polyjose checkout the sample runner clones in CI is not our text.
 const SKIP_PATHS = new Set(['samples/.polyjose']);
@@ -37,10 +85,12 @@ const SKIP_PATHS = new Set(['samples/.polyjose']);
 /** Every internal identifier in `text`, in order of position. */
 export function findPrivateRefs(text) {
   const lineOf = lineIndex(text);
+  const { clean, origin } = visible(text);
   const found = [];
   for (const { re, label } of PATTERNS) {
-    for (const m of text.matchAll(re)) {
-      found.push({ index: m.index, line: lineOf(m.index), match: m[0], label });
+    for (const m of clean.matchAll(re)) {
+      const index = origin(m.index);
+      found.push({ index, line: lineOf(index), match: m[0], label });
     }
   }
   return found.sort((a, b) => a.index - b.index).map(({ index, ...f }) => f);
@@ -54,18 +104,28 @@ export function scanSite(root) {
   if (!existsSync(join(root, 'dist'))) {
     throw new Error('dist/ not found: run `npm run build` first, so the built pages are checked too.');
   }
-  const files = [
-    ...SOURCE_DIRS.flatMap((d) => listFiles(root, d, { skipNames: SKIP_NAMES, skipPaths: SKIP_PATHS })),
-    ...listFiles(root, 'dist').filter((f) => f.endsWith('.html')),
-  ];
+  const sources = SOURCE_ROOTS.flatMap((d) => listFiles(root, d, { skipNames: SKIP_NAMES, skipPaths: SKIP_PATHS }));
+  const dist = listDistFiles(root);
+  const pages = new Set(dist.html);
+  // Each file is read as one or more texts, and every text is checked.
+  const views = (file, raw) => {
+    if (pages.has(file)) {
+      return [
+        [htmlText(raw), ''],
+        [htmlUrlText(raw), ', in a link or asset URL'],
+      ];
+    }
+    return [[raw, '']];
+  };
   const findings = [];
   let scanned = 0;
-  for (const file of files) {
+  for (const file of [...sources, ...dist.html, ...dist.text]) {
     const raw = readText(join(root, file));
     if (raw === null) continue;
     scanned++;
-    const text = file.startsWith('dist/') ? htmlText(raw) : raw;
-    for (const f of findPrivateRefs(text)) findings.push({ file, ...f });
+    for (const [text, where] of views(file, raw)) {
+      for (const f of findPrivateRefs(text)) findings.push({ file, ...f, label: f.label + where });
+    }
   }
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
   return { findings, scanned };

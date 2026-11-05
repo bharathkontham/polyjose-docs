@@ -1,6 +1,12 @@
 ---
-// The credits table on Security › Cryptographic foundations: one row per
-// cryptographic primitive crate, from src/data/primitives.json.
+// The audit register on Security › Cryptographic foundations: the status
+// legend, then the credits table with one row per cryptographic primitive
+// crate, from src/data/primitives.json.
+//
+// The legend and every table row carry `data-audit-register`. The honesty
+// check (scripts/check/honesty.mjs) allows the word "audited" on this page only
+// inside those elements, where it reports the primitives' audit status in the
+// auditors' own terms. Nothing else on the site may use it.
 //
 // Audit statuses:
 // - "audited": a public independent report covers the crate, and the record
@@ -23,12 +29,36 @@ const labels: Record<Exclude<Status, 'none-found'>, string> = {
 	partial: 'Audited, earlier release',
 };
 
+/** The status legend shown above the table, one entry per status. */
+const legend: { label: string; meaning: string }[] = [
+	{ label: labels.audited, meaning: 'a public independent report covers the library.' },
+	{
+		label: labels.partial,
+		meaning:
+			'a public independent review exists, but it covered an earlier release line than the one polyjose uses, or it came before later fixes or a rewrite.',
+	},
+	{
+		label: 'No public independent audit found',
+		meaning: 'no public independent audit of the library itself was found. These libraries are widely deployed.',
+	},
+];
+
 /** Splits a note into its first clause (up to the first `.` or `:`) and the rest. */
 function lead(note: string): [string, string] {
 	const m = /^(.*?[.:])\s+(.*)$/s.exec(note);
 	return m ? [m[1], m[2]] : [note, ''];
 }
 ---
+
+<ul class="audit-legend" data-audit-register>
+	{
+		legend.map((entry) => (
+			<li>
+				<strong>{entry.label}</strong>: {entry.meaning}
+			</li>
+		))
+	}
+</ul>
 
 <table class="primitives" data-primitives>
 	<caption>
@@ -49,7 +79,7 @@ function lead(note: string): [string, string] {
 			primitives.map((p) => {
 				const audit = p.audit as { status: Status; by?: string; year?: number; report?: string; note: string };
 				return (
-					<tr data-crate={p.crate} data-audit-status={audit.status}>
+					<tr data-crate={p.crate} data-audit-status={audit.status} data-audit-register>
 						<th scope="row">
 							<a href={p.repo}>
 								<code>{p.crate}</code>

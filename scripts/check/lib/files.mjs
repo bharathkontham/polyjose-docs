@@ -1,14 +1,18 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, lstatSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 /**
  * Lists the regular files under `dir`, relative to `root` with `/` separators,
  * sorted. Directories whose name is in `skipNames`, or whose root-relative path
- * is in `skipPaths`, are not entered. Symbolic links are not followed.
+ * is in `skipPaths`, are not entered. Symbolic links are not followed. When
+ * `dir` is itself a regular file, the list is just that file.
  */
 export function listFiles(root, dir, { skipNames = new Set(), skipPaths = new Set() } = {}) {
   const start = join(root, dir);
   if (!existsSync(start)) return [];
+  const self = lstatSync(start);
+  if (self.isFile()) return [relative(root, start).split(sep).join('/')];
+  if (!self.isDirectory()) return [];
   const out = [];
   const walk = (abs) => {
     for (const entry of readdirSync(abs, { withFileTypes: true })) {
