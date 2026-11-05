@@ -58,6 +58,6 @@ These rules apply to every page, data file and sample. `npm run lint:refs` check
 
 **Honesty.**
 - polyjose is pre-1.0. Every page carries the site-wide notice.
-- Never describe polyjose as audited. Credit the libraries it builds on and quote what review they have had in their maintainers' own words, only on the Security › Cryptographic foundations and About pages.
+- Never describe polyjose as audited. Credit the libraries it builds on. What review they have had is quoted in their maintainers' own words only in the audit register on Security › Cryptographic foundations: the primitives table and its status legend. The word "audited" appears nowhere else on the site, About included.
 - Never claim constant-time behaviour beyond what the underlying library documents, and only on the Security pages.
 - No benchmark or adoption numbers until they have been measured and can be reproduced.
