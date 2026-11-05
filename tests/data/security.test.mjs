@@ -194,6 +194,18 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.0']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
+
+  // The JWK Sets guide is not written yet (it arrives with 0.1.0), so the
+  // pointer to it must not say it already covers key selection.
+  await t.test('decode without verify: points to the JWK Sets guide in the future tense', () => {
+    const start = html.indexOf('<h2 id="decode-without-verify"');
+    const end = html.indexOf('<h2', start + 1);
+    assert.ok(start !== -1 && end > start, 'no decode-without-verify section');
+    const section = textOf(html.slice(start, end));
+    assert.ok(links.includes('/guides/jwk-sets/'), 'links the JWK Sets guide');
+    assert.doesNotMatch(section, /JWK Sets guide (covers|explains|shows)\b/, 'the guide is not written yet');
+    assert.match(section, /JWK Sets guide will cover this/);
+  });
 });
 
 test('Reporting: private channel, SECURITY.md, targets as SECURITY.md states them, scope', () => {
