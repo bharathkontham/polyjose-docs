@@ -10,6 +10,9 @@
 //   - on pages with a five-platform tab group, once more per theme after
 //     switching to the Swift tab with the keyboard only (focus the selected
 //     tab, then arrow keys), which also checks the tabs are keyboard operable.
+// Before each axe run it waits, bounded, until the page's scripts have made
+// every wide code block keyboard-focusable (see waitForCodeBlocks in lib.mjs);
+// a page where that never happens fails with a message naming the blocks.
 // Any violation fails unless tests/a11y/allow.json lists its rule and selector
 // with a reason; an allow entry that matches nothing fails too.
 //
@@ -24,7 +27,15 @@ import { join, resolve } from 'node:path';
 import { preview } from 'astro';
 import { chromium } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
-import { AXE_TAGS, sitemapLocs, toLocal, parseAllowList, applyAllowList, arrowPresses } from './lib.mjs';
+import {
+  AXE_TAGS,
+  sitemapLocs,
+  toLocal,
+  parseAllowList,
+  applyAllowList,
+  arrowPresses,
+  waitForCodeBlocks,
+} from './lib.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const THEMES = ['light', 'dark'];
@@ -63,6 +74,12 @@ for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]
 // ---- one page --------------------------------------------------------------
 
 const analyze = (page) => new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+
+/** Waits for the page's scripts to settle, then runs axe. */
+async function settleAndAnalyze(page, variant, problems) {
+  problems.push(...(await waitForCodeBlocks(page)).map((p) => `${variant}: ${p}`));
+  return (await analyze(page)).violations;
+}
 
 /**
  * Switches every five-platform tab group on the page to the Swift tab using
@@ -143,13 +160,14 @@ async function checkPage(browser, url) {
       }));
       if (state.theme !== theme) problems.push(`${theme}: <html data-theme> is "${state.theme}"`);
       colours[theme] = state;
-      runs.push({ page: path, variant: theme, violations: (await analyze(page)).violations });
+      runs.push({ page: path, variant: theme, violations: await settleAndAnalyze(page, theme, problems) });
 
       const tabs = await switchPlatformTabs(page);
       tabGroups = tabs.found;
       problems.push(...tabs.problems.map((p) => `${theme}: ${p}`));
       if (tabs.found > 0) {
-        runs.push({ page: path, variant: `${theme}, ${TARGET_TAB} tab`, violations: (await analyze(page)).violations });
+        const variant = `${theme}, ${TARGET_TAB} tab`;
+        runs.push({ page: path, variant, violations: await settleAndAnalyze(page, variant, problems) });
       }
     } finally {
       await context.close();
