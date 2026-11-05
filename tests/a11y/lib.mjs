@@ -91,3 +91,58 @@ export function arrowPresses(from, to) {
   const key = to > from ? 'ArrowRight' : 'ArrowLeft';
   return Array.from({ length: Math.abs(to - from) }, () => key);
 }
+
+// ---- waiting for wide code blocks to become keyboard-focusable --------------
+//
+// A region that scrolls horizontally must be reachable with the keyboard
+// (WCAG 2.1.1 Keyboard; axe rule scrollable-region-focusable). Expressive Code
+// does this in its client script ("Scrollable block tabindex" in
+// @expressive-code/core): it gives every `.expressive-code pre` that is wider
+// than its box tabindex="0". It does so from a debounced ResizeObserver
+// callback, so the attribute arrives a few hundred milliseconds after the load
+// event, and again whenever a hidden block (in an inactive tab panel) becomes
+// visible. The runner therefore waits for that DOM state before every axe run.
+
+/**
+ * Upper bound, in milliseconds, of the wait before each axe run. The wait
+ * ends as soon as the condition holds, so this is never slept.
+ */
+export const CODE_BLOCK_WAIT_MS = 10_000;
+
+/**
+ * Runs in the page: the Expressive Code blocks that scroll horizontally but
+ * have no tabindex yet, each described as `code block N ("first line…")`.
+ * Self-contained (no outside references), because Playwright sends its source
+ * to the browser, where it is called without arguments.
+ */
+export function unfocusableCodeBlocks(root = document) {
+  const max = 32; // characters of the first line shown in messages
+  const out = [];
+  [...root.querySelectorAll('.expressive-code pre')].forEach((pre, i) => {
+    if (pre.scrollWidth <= pre.clientWidth || pre.hasAttribute('tabindex')) return;
+    const text = pre.innerText ?? pre.textContent ?? '';
+    const line = text.split('\n').map((l) => l.trim()).find((l) => l !== '') ?? '';
+    out.push(`code block ${i + 1} ("${line.length > max ? `${line.slice(0, max)}…` : line}")`);
+  });
+  return out;
+}
+
+/**
+ * Waits until every wide Expressive Code block on `page` is keyboard-focusable
+ * (see above), for at most `timeout` ms. Returns no problems once it holds, or
+ * one problem naming the blocks if it times out, so the page fails instead of
+ * being skipped. Pages without code blocks satisfy the condition at once.
+ */
+export async function waitForCodeBlocks(page, { timeout = CODE_BLOCK_WAIT_MS } = {}) {
+  try {
+    await page.waitForFunction(`(${unfocusableCodeBlocks})().length === 0`, undefined, { timeout });
+    return [];
+  } catch (err) {
+    if (err?.name !== 'TimeoutError') throw err;
+  }
+  const pending = await page.evaluate(unfocusableCodeBlocks);
+  return [
+    `wide code blocks are still not keyboard-focusable after ${timeout} ms ` +
+      `(Expressive Code did not add tabindex): ${pending.join(', ')}`,
+  ];
+}
