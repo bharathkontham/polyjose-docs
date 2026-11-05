@@ -39,7 +39,7 @@ This list describes polyjose 0.1.0 as designed. The library is in development an
    - every decryption failure returns the same error, so a failure doesn't reveal which check failed
    - PBES2 iteration counts are bounded
    - key material in the Rust core is designed to be wiped from memory when it is dropped; the [security model](/security/model/) lists where copies can remain in the bindings
-5. **Built to be audited.** No independent audit of polyjose has been published yet. The design aims to make one practical: the core depends only on cryptographic primitive libraries, and polyjose writes its own small utilities (base64url, JSON, error handling, DER and PEM), so a reviewer reads polyjose plus a short, documented list of primitives. A CI check is planned to stop the dependency tree from growing without anyone noticing.
+5. **Built for independent review.** No independent audit of polyjose has been published yet. The design aims to make one practical: the core depends only on cryptographic primitive libraries, and polyjose writes its own small utilities (base64url, JSON, error handling, DER and PEM), so a reviewer reads polyjose plus a short, documented list of primitives. A CI check is planned to stop the dependency tree from growing without anyone noticing.
 6. **Honest about its foundations.** Every primitive library polyjose builds on is credited by name, with its license and its review status in its maintainers' own words, on [Cryptographic foundations](/security/cryptographic-foundations/). That page says plainly which libraries have had an independent review and which haven't.
 
 ## Who it's for

@@ -7,6 +7,10 @@
 // (so hashed asset names such as /_astro/page.T12x.js never reach the checks),
 // <script> and <style> bodies, and comments. Line breaks are kept, so a match
 // can be reported by its line in the built file.
+//
+// Characters that render as nothing (the soft hyphen and the zero-width
+// characters) are removed from the text, so "audit&shy;ed" reads as "audited",
+// as it does on screen.
 
 const RAW_TEXT = new Set(['script', 'style']);
 
@@ -17,6 +21,32 @@ const INLINE = new Set([
   'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr',
 ]);
 
+// Elements that start a new block of text. The `blockSeparator` option marks
+// their boundaries, so a check can tell paragraphs, list items, headings and
+// table cells apart. Other non-inline tags (br, img, button, ...) only break
+// words.
+const BLOCK = new Set([
+  'address', 'article', 'aside', 'blockquote', 'body', 'caption', 'dd', 'details', 'dialog', 'div', 'dl', 'dt',
+  'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header',
+  'hgroup', 'hr', 'html', 'legend', 'li', 'main', 'menu', 'nav', 'ol', 'p', 'pre', 'section', 'summary',
+  'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'title', 'tr', 'ul',
+]);
+
+// Elements that never have content or a closing tag (HTML, "void elements").
+const VOID = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr',
+]);
+
+// U+00AD soft hyphen, U+200B zero width space, U+200C zero width non-joiner,
+// U+200D zero width joiner, U+2060 word joiner, U+FEFF zero width no-break
+// space. None of them is visible inside a word.
+const INVISIBLE = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+
+/** Removes the characters that render as nothing inside a word. */
+export function stripInvisible(s) {
+  return s.replace(INVISIBLE, '');
+}
+
 const READABLE_ATTRS = new Set(['alt', 'title', 'aria-label', 'aria-description', 'placeholder']);
 const READABLE_META = new Set([
   'description', 'og:title', 'og:description', 'twitter:title', 'twitter:description',
@@ -24,7 +54,7 @@ const READABLE_META = new Set([
 
 const ATTR = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
-const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', shy: '\u00AD' };
 
 /** Decodes the character references Astro emits (named basics and numeric). */
 export function decodeEntities(s) {
@@ -133,18 +163,63 @@ function readableAttrs(tag) {
   return out;
 }
 
-/** The reader-visible text of an HTML document, with its line breaks kept. */
-export function htmlText(html) {
+/** True for a start tag that opens an element (not a void or self-closed one). */
+function opens(tag) {
+  return !tag.closing && !VOID.has(tag.name) && !/\/\s*>$/.test(tag.raw);
+}
+
+/**
+ * Tracks the open elements, so a caller can tell when the element opened by a
+ * given start tag ends. Astro closes its elements explicitly; a stray closing
+ * tag with no open element of that name is ignored.
+ */
+class OpenElements {
+  constructor() {
+    this.stack = [];
+  }
+  /** Updates the stack for `tag` and returns the entries it closed. */
+  step(tag, entry) {
+    if (tag.closing) {
+      const at = this.stack.map((e) => e.name).lastIndexOf(tag.name);
+      return at === -1 ? [] : this.stack.splice(at).reverse();
+    }
+    if (opens(tag)) this.stack.push({ name: tag.name, ...entry });
+    return [];
+  }
+  some(pred) {
+    return this.stack.some(pred);
+  }
+}
+
+/**
+ * The reader-visible text of an HTML document, with its line breaks kept.
+ *
+ * Options:
+ * - `blockSeparator` (default `' '`): written at each block element boundary.
+ * - `skip(tag)`: when it returns true for a start tag, that element and all of
+ *   its content contribute only their line breaks.
+ */
+export function htmlText(html, { blockSeparator = ' ', skip } = {}) {
   let out = '';
+  const open = new OpenElements();
   for (const t of tokens(html)) {
+    const skipping = open.some((e) => e.skip);
     if (t.type === 'text') {
-      out += decodeEntities(t.raw);
+      out += skipping ? newlines(t.raw) : stripInvisible(decodeEntities(t.raw));
     } else if (t.type === 'skip') {
       out += newlines(t.raw);
     } else {
+      const skipped = skipping || (!t.closing && Boolean(skip?.(t)));
+      open.step(t, { skip: skipped });
+      if (skipped) {
+        out += newlines(t.raw);
+        continue;
+      }
+      // Each readable attribute value is a block of its own: an alt text or a
+      // meta description does not run into the text around it.
       const readable = t.closing ? [] : readableAttrs(t);
-      const sep = INLINE.has(t.name) && readable.length === 0 ? '' : ' ';
-      out += sep + readable.map((v) => decodeEntities(v) + ' ').join('') + newlines(t.raw);
+      const sep = BLOCK.has(t.name) || readable.length > 0 ? blockSeparator : INLINE.has(t.name) ? '' : ' ';
+      out += sep + readable.map((v) => stripInvisible(decodeEntities(v)) + blockSeparator).join('') + newlines(t.raw);
     }
   }
   return out;
@@ -157,4 +232,49 @@ export function hasAttribute(html, name) {
     if (t.type === 'tag' && !t.closing && t.attrs.has(want)) return true;
   }
   return false;
+}
+
+/**
+ * True when an element is not rendered: a <template>, or an element with the
+ * `hidden` attribute, `aria-hidden="true"` or an inline `display: none` or
+ * `visibility: hidden` style. Its content is hidden with it.
+ */
+function hides(tag) {
+  if (tag.name === 'template' || tag.attrs.has('hidden')) return true;
+  if ((tag.attrs.get('aria-hidden') ?? '').trim().toLowerCase() === 'true') return true;
+  const style = (tag.attrs.get('style') ?? '').toLowerCase().replace(/\s+/g, '');
+  return /(^|;)(display:none|visibility:hidden)(;|!|$)/.test(style);
+}
+
+/**
+ * The visible text of every element that carries the attribute `name`, in
+ * document order. Elements that are hidden themselves, or sit inside a hidden
+ * element or a <template>, are left out, and so is the text of hidden
+ * descendants. Only text content counts: attributes such as aria-label or
+ * title are not visible text. Each text has its white space collapsed.
+ */
+export function visibleTexts(html, name) {
+  const want = name.toLowerCase();
+  const open = new OpenElements();
+  const found = [];
+  for (const t of tokens(html)) {
+    if (t.type === 'text') {
+      if (open.some((e) => e.hidden)) continue;
+      const text = stripInvisible(decodeEntities(t.raw));
+      for (const e of open.stack) if (e.capture) e.capture.text += text;
+    } else if (t.type === 'tag') {
+      const hidden = !t.closing && hides(t);
+      const capture =
+        !t.closing && !hidden && t.attrs.has(want) && !open.some((e) => e.hidden) ? { text: '' } : null;
+      if (capture && !opens(t)) {
+        found.push(capture);
+        continue;
+      }
+      if (capture) found.push(capture);
+      const sep = INLINE.has(t.name) ? '' : ' ';
+      if (sep && !open.some((e) => e.hidden)) for (const e of open.stack) if (e.capture) e.capture.text += sep;
+      open.step(t, { hidden, capture });
+    }
+  }
+  return found.map((c) => c.text.replace(/\s+/g, ' ').trim());
 }
