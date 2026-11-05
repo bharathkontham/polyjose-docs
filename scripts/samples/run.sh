@@ -177,7 +177,7 @@ EOF
   if [ "$source" = "git" ]; then
     prepare_git "$rev"
     case "$prepare_result" in
-      skip) skip "$platform" "$prepare_reason"; return ;;
+      skip) skip_pinned "$platform" "$prepare_reason"; return ;;
       fail) fail "$platform" "$prepare_reason"; return ;;
     esac
     polyjose_dir="$ROOT/samples/.polyjose/polyjose"
