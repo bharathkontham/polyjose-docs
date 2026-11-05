@@ -22,7 +22,7 @@ RFC 7518 marks three algorithms Required: `HS256` for JWS ([RFC 7518 §3.1](http
 - Each table has one column per operation: **Sign** and **Verify** for JWS, **Encrypt** and **Decrypt** for JWE. **Yes** means the operation works.
 - RSA keys are used only for public-key operations. You can verify `RS*` and `PS*` signatures and encrypt to an `RSA-OAEP-256` recipient, but you can't sign with RSA or decrypt with an RSA private key. A call that would need one fails with `UnsupportedAlgorithm`.
 - **No** in both columns means polyjose recognises the identifier only to report a precise error.
-- **Requirement level** is the "JOSE Implementation Requirements" value in the IANA registry. RFC 7518 §3.1, §4.1 and §5.1 set it for the algorithms that RFC defines. A `+` means the requirement is likely to become stronger in a future version of the specification, and a `-` that it is likely to become weaker.
+- **Specification** gives the section that defines the identifier, then its requirement level: the "JOSE Implementation Requirements" value in the IANA registry. RFC 7518 §3.1, §4.1 and §5.1 set it for the algorithms that RFC defines. A `+` means the requirement is likely to become stronger in a future version of the specification, and a `-` that it is likely to become weaker.
 
 ## Signatures and MACs (JWS `alg`)
 
