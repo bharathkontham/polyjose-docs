@@ -2,8 +2,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://bharathkontham.github.io',
-  base: '/polyjose-docs',
+  site: 'https://polyjose.dev',
   integrations: [
     starlight({
       title: 'polyjose',
