@@ -51,15 +51,15 @@ export async function startAstro() {
   };
 }
 
-/** Text content of an HTML fragment, tags removed and entities for <, >, &, " and ' decoded. */
+const NAMED = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' };
+
+/** Text content of an HTML fragment: tags removed, named (<, >, ", ', &) and numeric entities decoded. */
 export function text(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/g, '')
     .replace(/<style[\s\S]*?<\/style>/g, '')
     .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&#x27;/g, "'")
-    .replace(/&amp;/g, '&');
+    .replace(/&(?:#x([0-9a-f]+)|#(\d+)|(lt|gt|quot|apos|amp));/gi, (_, hex, dec, name) =>
+      hex ? String.fromCodePoint(parseInt(hex, 16)) : dec ? String.fromCodePoint(Number(dec)) : NAMED[name.toLowerCase()],
+    );
 }
