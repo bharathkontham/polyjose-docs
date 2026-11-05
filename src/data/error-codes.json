@@ -1,0 +1,161 @@
+{
+  "$comment": "Every stable error code polyjose reports, on every platform. The set must equal errorCodes() / Error::CODES. meaning is one sentence; causes are typical, not exhaustive.",
+  "codes": [
+    {
+      "code": "InvalidBase64",
+      "meaning": "A part that must be base64url is not valid unpadded base64url (RFC 4648 §5).",
+      "causes": [
+        "Padding (`=`), or the standard alphabet's `+` and `/`, in a token part or a JWK member",
+        "Whitespace or line breaks inside a token",
+        "A truncated or corrupted token"
+      ]
+    },
+    {
+      "code": "InvalidJson",
+      "meaning": "Input that must be JSON is not strict I-JSON, or exceeds the parser's depth or size limits.",
+      "causes": [
+        "A JSON syntax error in a header, JWK, JWK Set or JSON serialization",
+        "Duplicate member names, which polyjose always rejects",
+        "Text that is not valid UTF-8",
+        "A JWT payload that is not a JSON object"
+      ]
+    },
+    {
+      "code": "InvalidHeader",
+      "meaning": "A JOSE header is well-formed JSON but breaks a header rule.",
+      "causes": [
+        "`alg` missing, or a registered parameter with the wrong type",
+        "The same parameter in the protected and the unprotected header",
+        "`crit` outside the protected header, or malformed",
+        "`b64` not listed in `crit`, or `b64: false` in a JWT",
+        "A JWT `typ` that the validation policy does not accept",
+        "Both or neither of the protected-header forms passed to a sign call"
+      ]
+    },
+    {
+      "code": "InvalidFormat",
+      "meaning": "The serialization has the wrong shape, or the input is larger than the configured limit.",
+      "causes": [
+        "A compact JWS without exactly three parts, or a compact JWE without exactly five",
+        "A JSON serialization that does not have the shape the RFC defines",
+        "A detached payload supplied while the token also carries one, or missing when it does not",
+        "Input over the size limit (1 MiB by default) or a JSON JWS with more than 16 signatures",
+        "A JSON serialization passed to a JWT call, or a nested JWT passed to the signed-JWT verifier"
+      ]
+    },
+    {
+      "code": "UnsupportedAlgorithm",
+      "meaning": "The algorithm, key type, curve, format or option is not implemented.",
+      "causes": [
+        "An `alg` or `enc` value polyjose does not know",
+        "RSA signing, or parsing an RSA private key",
+        "`RSA-OAEP` (SHA-1) or `RSA1_5`",
+        "A `SHA-1` thumbprint",
+        "`zip` outside the Rust crate's `deflate` feature",
+        "An unknown format, hash, curve or serialization name passed as a string"
+      ]
+    },
+    {
+      "code": "AlgorithmNotAllowed",
+      "meaning": "The algorithm is valid but not in the allow-list the caller passed.",
+      "causes": [
+        "The token's `alg` or `enc` is not in the allow-list (`allowedAlgs` or `allowedEnc`; `allowed_algs` or `allowed_enc` in Rust)",
+        "An empty allow-list, or one that names only `none`",
+        "A token with `alg: none`",
+        "In JavaScript, an allow-list that was left out"
+      ]
+    },
+    {
+      "code": "InvalidKey",
+      "meaning": "The key material is malformed or too weak for the algorithm.",
+      "causes": [
+        "An HMAC key shorter than the hash output",
+        "An RSA modulus outside 2048 to 8192 bits",
+        "An EC private key whose length is not the curve's field size",
+        "An Ed25519 public key of small order",
+        "A requested `oct` key length outside 16 to 512 bytes"
+      ]
+    },
+    {
+      "code": "KeyAlgorithmMismatch",
+      "meaning": "The key is valid but does not belong to the algorithm or is not permitted for this use.",
+      "causes": [
+        "A key of the wrong family or curve, for example an `oct` key for `RS256`",
+        "A JWK whose `alg` differs from the header's (`EdDSA` and `Ed25519` are different)",
+        "A JWK whose `use` is not `sig`, or whose `key_ops` lacks the operation",
+        "A public key passed to a sign call"
+      ]
+    },
+    {
+      "code": "InvalidSignature",
+      "meaning": "The signature or MAC does not verify with the given key.",
+      "causes": [
+        "The token was changed after signing",
+        "The wrong key, for example another issuer's",
+        "A signature of the wrong length, such as a DER-encoded ECDSA signature"
+      ]
+    },
+    {
+      "code": "DecryptionFailed",
+      "meaning": "Decryption failed, and the reason is deliberately not reported.",
+      "causes": [
+        "The wrong key, or a ciphertext, IV or tag that was changed",
+        "A PBES2 iteration count above the limit (10,000 by default)",
+        "Compressed content that is invalid or decompresses past the limit (250,000 bytes by default)"
+      ]
+    },
+    {
+      "code": "UnknownCritical",
+      "meaning": "The `crit` header names a parameter that polyjose does not understand.",
+      "causes": [
+        "Any `crit` entry other than `b64` on a JWS",
+        "A JWE `crit` entry that the caller did not list as understood"
+      ]
+    },
+    {
+      "code": "TokenExpired",
+      "meaning": "The JWT's `exp` time has passed, after allowing for the leeway.",
+      "causes": [
+        "The token is older than its lifetime",
+        "The verifier's clock is ahead of the issuer's by more than the leeway (60 seconds by default)"
+      ]
+    },
+    {
+      "code": "TokenNotYetValid",
+      "meaning": "The JWT's `nbf` time is still in the future, after allowing for the leeway.",
+      "causes": [
+        "The token is used before its start time",
+        "The verifier's clock is behind the issuer's by more than the leeway"
+      ]
+    },
+    {
+      "code": "InvalidClaim",
+      "meaning": "A JWT claim is missing, has the wrong type, or does not match the validation policy.",
+      "causes": [
+        "A required claim is missing, including `exp`, which is required by default",
+        "`iss`, `sub` or `aud` differs from what the policy expects",
+        "The token has an `aud` claim but the policy names no audience",
+        "A date claim that is a string, or outside the range a JavaScript number holds exactly",
+        "`iat` too old or in the future when a maximum age is set",
+        "A leeway above 600 seconds in the policy"
+      ]
+    },
+    {
+      "code": "NoMatchingKey",
+      "meaning": "No key in the JWK Set is a candidate for verifying this token.",
+      "causes": [
+        "No member has the token's `kid`",
+        "No member fits the token's `alg`: wrong key family or curve, or a JWK `alg`, `use` or `key_ops` that rules it out",
+        "More candidates than the limit (8 by default), for example a token without `kid` and a large set"
+      ]
+    },
+    {
+      "code": "RandomnessUnavailable",
+      "meaning": "The operating system's secure random number generator could not be read.",
+      "causes": [
+        "A sandbox or runtime that blocks the platform's random source",
+        "Generating a key, encrypting or signing where no secure random source exists"
+      ]
+    }
+  ]
+}
