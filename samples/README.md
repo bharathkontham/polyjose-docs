@@ -130,6 +130,8 @@ In `git` mode, `run.sh` needs polyjose at the pinned commit:
 - **Locally** it uses a `polyjose` checkout next to this repository (`../polyjose`). That checkout must be at the pinned commit, with no uncommitted changes and no untracked files that polyjose doesn't ignore, so the samples never pass against code other than what's pinned. `run.sh` links it as `samples/.polyjose/polyjose`.
 - **In CI** (`CI=true`) it clones polyjose into `samples/.polyjose/polyjose` and checks out the pinned commit.
 
+**In CI, a pinned platform that doesn't run fails.** With `CI=true`, a platform whose pin is `git` or `registry` has to run its samples. If it would be SKIPPED, it's reported as `FAIL` with the same reason and the exit status is non-zero. That covers a missing runner, a missing toolchain, and a polyjose clone that can't be fetched. A green CI run therefore never hides samples that didn't run. A `none` pin is still SKIPPED (`no polyjose build pinned`) and doesn't fail the run, in CI too.
+
 ### Platform runners
 
 Each platform's runner is `scripts/samples/platforms/<platform>.sh`. `run.sh` sources it in a subshell, from the repository root, with `set -euo pipefail` and these variables:
@@ -144,4 +146,4 @@ Each platform's runner is `scripts/samples/platforms/<platform>.sh`. `run.sh` so
 | `SAMPLES_WORK_DIR` | `samples/.polyjose`, for build output kept outside the sample projects |
 | `POLYJOSE_DIR` | polyjose at the pinned commit (`git` mode; empty otherwise) |
 
-The runner builds or installs polyjose for its platform, then runs that platform's samples. Finishing with status 0 is a pass and any other status is a failure. If its toolchain is missing, it calls `samples_skip "<reason>"`, which reports the platform as SKIPPED. A runner never publishes anything.
+The runner builds or installs polyjose for its platform, then runs that platform's samples. Finishing with status 0 is a pass and any other status is a failure. If its toolchain is missing, it calls `samples_skip "<reason>"`, which reports the platform as SKIPPED locally and as FAIL in CI. A runner never publishes anything.

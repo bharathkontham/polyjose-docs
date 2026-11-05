@@ -411,3 +411,114 @@ test('with CI=true a failed clone is a FAIL', () => {
   assert.match(resultLines(r.out)[0], /^FAIL \(swift: could not fetch polyjose bbbbbbbbbbbb/);
   assert.doesNotMatch(r.out, /runner ran/);
 });
+
+// Under CI=true a platform with a git or registry pin must run: every way it
+// could be skipped is a FAIL. Only a none pin may still be SKIPPED there.
+const CI_RULE = 'a pinned platform must run when CI=true';
+const gitPin = (rev = 'a'.repeat(40)) => ({ source: 'git', rev, upcoming: '0.1.0' });
+
+test('with CI=true git-pinned platforms without a runner fail, none pins stay skipped', () => {
+  // The review's reproduction: rust and js pinned to a commit, no runners.
+  const { base, docs } = docsTree({ pins: { rust: gitPin(), js: gitPin() } });
+  const r = run(['all'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${join(base, 'missing')}` } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [
+    `FAIL (rust: runner not installed; ${CI_RULE})`,
+    `FAIL (js: runner not installed; ${CI_RULE})`,
+    'SKIPPED (kotlin: no polyjose build pinned)',
+    'SKIPPED (swift: no polyjose build pinned)',
+  ]);
+  assert.doesNotMatch(r.out, /PASS|SKIPPED \((rust|js):/);
+});
+
+test('with CI=true a registry-pinned platform without a runner fails', () => {
+  const { docs } = docsTree({ pins: { kotlin: REGISTRY } });
+  const r = run(['kotlin'], { docs, env: { CI: 'true' } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [`FAIL (kotlin: runner not installed; ${CI_RULE})`]);
+});
+
+test('with CI=true none pins are still skipped and the run exits 0', () => {
+  const { docs } = docsTree({ runners: { rust: 'pass', swift: 'skip' } });
+  const r = run(['all'], { docs, env: { CI: 'true' } });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(
+    resultLines(r.out),
+    PLATFORMS.map((p) => `SKIPPED (${p}: no polyjose build pinned)`),
+  );
+  assert.doesNotMatch(r.out, /runner ran|PASS|FAIL/);
+});
+
+test('with CI=true a registry-pinned runner that skips itself fails with its reason', () => {
+  const { docs } = docsTree({ pins: { kotlin: REGISTRY, swift: REGISTRY }, runners: { kotlin: 'skip', swift: 'pass' } });
+  const r = run(['all'], { docs, env: { CI: 'true' } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [
+    'SKIPPED (rust: no polyjose build pinned)',
+    'SKIPPED (js: no polyjose build pinned)',
+    `FAIL (kotlin: toolchain not found; ${CI_RULE})`,
+    'PASS (swift)',
+  ]);
+  assert.doesNotMatch(r.out, /not reached/);
+});
+
+test('with CI=true a git-pinned runner that skips itself fails with its reason', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'skip' } });
+  const upstream = join(base, 'upstream');
+  const { first } = upstreamRepo(upstream);
+  writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify(gitPin(first)));
+  const r = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${upstream}` } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [`FAIL (rust: toolchain not found; ${CI_RULE})`]);
+  assert.match(r.out, /runner ran: rust/);
+});
+
+test('a runner that exits 77 without samples_skip is a FAIL, with and without CI', () => {
+  const { docs } = docsTree({ pins: { js: REGISTRY }, runners: { js: 'exit77' } });
+  for (const env of [{}, { CI: 'true' }]) {
+    const r = run(['js'], { docs, env });
+    assert.equal(r.status, 1, JSON.stringify(env) + r.out + r.err);
+    assert.deepEqual(resultLines(r.out), ['FAIL (js: runner exited with status 77)']);
+  }
+});
+
+test('with CI=true a sibling or clone problem is a FAIL, never SKIPPED', () => {
+  // Each sibling state that the local path skips on, with a clone that cannot be fetched.
+  const siblings = {
+    'no sibling': () => {},
+    'sibling at another commit': (sibling) => polyjoseRepo(sibling),
+    'sibling with uncommitted changes': (sibling) => {
+      polyjoseRepo(sibling);
+      writeFileSync(join(sibling, 'README.md'), 'changed\n');
+    },
+    'sibling where git status fails': (sibling) => {
+      polyjoseRepo(sibling);
+      writeFileSync(join(sibling, '.git/index'), 'not an index');
+    },
+  };
+  for (const [name, make] of Object.entries(siblings)) {
+    const { base, docs } = docsTree({ pins: { rust: gitPin('c'.repeat(40)) }, runners: { rust: 'pass' } });
+    make(join(base, 'polyjose'));
+    const r = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${join(base, 'missing')}` } });
+    assert.equal(r.status, 1, `${name}: ${r.out}${r.err}`);
+    const lines = resultLines(r.out);
+    assert.equal(lines.length, 1, name);
+    assert.match(lines[0], /^FAIL \(rust: could not fetch polyjose cccccccccccc from file:\/\//, name);
+    assert.doesNotMatch(r.out, /SKIPPED|PASS|runner ran/, name);
+  }
+});
+
+test('outside CI the same pinned platforms are SKIPPED, never PASS, and the run exits 0', () => {
+  const { docs } = docsTree({ pins: { rust: gitPin(), js: gitPin(), kotlin: REGISTRY }, runners: { kotlin: 'skip' } });
+  for (const env of [{}, { CI: 'false' }, { CI: '' }]) {
+    const r = run(['all'], { docs, env });
+    assert.equal(r.status, 0, JSON.stringify(env) + r.out + r.err);
+    assert.deepEqual(resultLines(r.out), [
+      'SKIPPED (rust: runner not installed)',
+      'SKIPPED (js: runner not installed)',
+      'SKIPPED (kotlin: toolchain not found)',
+      'SKIPPED (swift: no polyjose build pinned)',
+    ]);
+    assert.doesNotMatch(r.out, /PASS|FAIL/);
+  }
+});
