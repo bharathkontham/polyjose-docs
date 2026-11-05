@@ -58,7 +58,9 @@ function linksOf(html) {
 export function sentencesOf(text) {
 	return text
 		.split('\n')
-		.flatMap((line) => line.split(/(?<=[.!?])\s+(?=[A-Z`"(])/))
+		// A sentence starts with a capital, a quote or a bracket, or with one of
+		// the lowercase names the site uses at the start of sentences.
+		.flatMap((line) => line.split(/(?<=[.!?])\s+(?=[A-Z`"(]|polyjose\b|panva\/jose\b)/))
 		.map((s) => s.trim())
 		.filter(Boolean);
 }
@@ -128,6 +130,7 @@ describe('the number-claim check itself', () => {
 		assert.equal(unmeasuredNumberClaims('Test vectors from RFC 7515, RFC 7516 and RFC 7520 run everywhere.').length, 0);
 		assert.equal(unmeasuredNumberClaims('It implements RFC 7518 and RFC 9864.').length, 0);
 		assert.equal(unmeasuredNumberClaims('Version 0.1.0 is not on crates.io yet.').length, 0);
+		assert.equal(unmeasuredNumberClaims('Java is awkward in 0.1.0. polyjose runs the same test vectors.').length, 0);
 		assert.equal(unmeasuredNumberClaims('Version 0.1.0 is not on crates.io and needs 40 crates.').length, 1);
 	});
 });
