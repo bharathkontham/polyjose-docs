@@ -5,7 +5,9 @@ description: The pure-Rust cryptographic libraries polyjose builds on, their lic
 
 import PrimitivesTable from '../../../components/PrimitivesTable.astro';
 
-polyjose implements the JOSE standards (JWS, JWE, JWK and JWT), but it does not implement any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+polyjose is designed to implement the JOSE standards (JWS, JWE, JWK and JWT) without implementing any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
 
 Thank you to the maintainers and contributors of [RustCrypto](https://github.com/RustCrypto), [dalek-cryptography](https://github.com/dalek-cryptography) and [rust-random](https://github.com/rust-random). polyjose is built on their work.
 
@@ -20,16 +22,16 @@ Everything that is not a cryptographic primitive, such as JSON, base64url and DE
 polyjose uses a cryptographic library only when all of these hold:
 
 - It comes from the RustCrypto or dalek-cryptography projects, is written in pure Rust, and is actively maintained.
-- It has no unresolved RustSec advisory at the version polyjose pins. Advisories are checked on every pull request. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
+- It has no unresolved RustSec advisory at the version polyjose pins. A RustSec advisory check is planned for every pull request. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
 - Its algorithm is not broken for the way JOSE uses it.
-- polyjose passes the RFC, NIST and Wycheproof test vectors against that exact version.
+- It is required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.
 - Its audit status is disclosed, on this page.
 
 Where more than one library qualifies, polyjose prefers the one with the strongest independent audit record, then the widest deployment, then active maintenance. An independent audit counts in a library's favour, but it is not required: several of the libraries below have none, and the table says so.
 
 Randomness comes only from the operating system's random number generator, through `getrandom` from the rust-random project.
 
-Each library is pinned to an exact version and upgraded only through a change that reruns the full test suite and rechecks its audit status. The exact versions will be listed here once polyjose is published.
+Each library is pinned to an exact version. An upgrade will go only through a change that reruns the full test suite and rechecks the library's audit status. The exact versions will be listed here once polyjose is published.
 
 Pure Rust gives memory safety, not freedom from side channels. How well each library resists timing attacks is described in its own documentation.
 
