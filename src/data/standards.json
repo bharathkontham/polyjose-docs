@@ -1,0 +1,113 @@
+{
+  "$comment": "The specifications polyjose implements. Titles and update relationships as published by rfc-editor.org. implements says what polyjose does with each one.",
+  "rfcs": [
+    {
+      "rfc": 7515,
+      "title": "JSON Web Signature (JWS)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7515",
+      "updatedBy": [],
+      "implements": "Compact, flattened JSON and general JSON serializations, multiple signatures, detached payloads and `crit`. Verification takes an explicit algorithm allow-list."
+    },
+    {
+      "rfc": 7516,
+      "title": "JSON Web Encryption (JWE)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7516",
+      "updatedBy": [],
+      "implements": "Compact, flattened JSON and general JSON serializations, multiple recipients and additional authenticated data. Decryption takes explicit `alg` and `enc` allow-lists. `zip` (`DEF`) is available in Rust with the `deflate` feature."
+    },
+    {
+      "rfc": 7517,
+      "title": "JSON Web Key (JWK)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7517",
+      "updatedBy": [],
+      "implements": "JWKs and JWK Sets with key types `oct`, `RSA` (public keys only), `EC` and `OKP`, and the `use`, `key_ops`, `alg` and `kid` members. `x5c` and `x5t` are carried but not validated as X.509."
+    },
+    {
+      "rfc": 7518,
+      "title": "JSON Web Algorithms (JWA)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7518",
+      "updatedBy": [9864],
+      "implements": "Every algorithm marked Required, and the others listed on the Algorithms page, with the exceptions stated there."
+    },
+    {
+      "rfc": 7519,
+      "title": "JSON Web Token (JWT)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7519",
+      "updatedBy": [],
+      "implements": "Issuing and validating signed JWTs (`exp`, `nbf`, `iat`, `iss`, `sub`, `aud`, `jti`), and nested JWTs that are signed and then encrypted."
+    },
+    {
+      "rfc": 7520,
+      "title": "Examples of Protecting Content Using JSON Object Signing and Encryption (JOSE)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7520",
+      "updatedBy": [],
+      "implements": "Its examples are test vectors for the algorithms polyjose implements."
+    },
+    {
+      "rfc": 7638,
+      "title": "JSON Web Key (JWK) Thumbprint",
+      "url": "https://www.rfc-editor.org/rfc/rfc7638",
+      "updatedBy": [],
+      "implements": "Thumbprints with SHA-256, SHA-384 or SHA-512. SHA-1 is not offered."
+    },
+    {
+      "rfc": 7797,
+      "title": "JSON Web Signature (JWS) Unencoded Payload Option",
+      "url": "https://www.rfc-editor.org/rfc/rfc7797",
+      "updatedBy": [],
+      "implements": "`b64: false`, which must be listed in `crit`. JWTs never use it."
+    },
+    {
+      "rfc": 8037,
+      "title": "CFRG Elliptic Curve Diffie-Hellman (ECDH) and Signatures in JSON Object Signing and Encryption (JOSE)",
+      "url": "https://www.rfc-editor.org/rfc/rfc8037",
+      "updatedBy": [9864],
+      "implements": "The `OKP` key type with Ed25519 signatures (`EdDSA`) and X25519 key agreement (ECDH-ES). Ed448 and X448 are not offered."
+    },
+    {
+      "rfc": 8725,
+      "title": "JSON Web Token Best Current Practices",
+      "url": "https://www.rfc-editor.org/rfc/rfc8725",
+      "updatedBy": [],
+      "implements": "The default validation policy: explicit allow-lists, no `none`, keys bound to their algorithm, `exp` required, audience and type checks."
+    },
+    {
+      "rfc": 8812,
+      "title": "CBOR Object Signing and Encryption (COSE) and JSON Object Signing and Encryption (JOSE) Registrations for Web Authentication (WebAuthn) Algorithms",
+      "url": "https://www.rfc-editor.org/rfc/rfc8812",
+      "updatedBy": [],
+      "implements": "Its JOSE registrations: the `ES256K` algorithm and the `secp256k1` curve."
+    },
+    {
+      "rfc": 9068,
+      "title": "JSON Web Token (JWT) Profile for OAuth 2.0 Access Tokens",
+      "url": "https://www.rfc-editor.org/rfc/rfc9068",
+      "updatedBy": [],
+      "implements": "The `at+jwt` type and an access-token validation profile."
+    },
+    {
+      "rfc": 9278,
+      "title": "JWK Thumbprint URI",
+      "url": "https://www.rfc-editor.org/rfc/rfc9278",
+      "updatedBy": [],
+      "implements": "`urn:ietf:params:oauth:jwk-thumbprint` URIs."
+    },
+    {
+      "rfc": 9864,
+      "title": "Fully-Specified Algorithms for JSON Object Signing and Encryption (JOSE) and CBOR Object Signing and Encryption (COSE)",
+      "url": "https://www.rfc-editor.org/rfc/rfc9864",
+      "updatedBy": [],
+      "implements": "The `Ed25519` algorithm, recommended for new tokens. `EdDSA`, which it deprecates, stays supported for existing tokens."
+    }
+  ],
+  "errata": [
+    {
+      "eid": 8060,
+      "rfc": 7519,
+      "section": "7.2",
+      "status": "Verified",
+      "url": "https://www.rfc-editor.org/errata/eid8060",
+      "summary": "Step 5 of JWT validation checks the header by the JWS or JWE rules, so header parameters that are not understood are ignored unless `crit` lists them."
+    }
+  ]
+}
