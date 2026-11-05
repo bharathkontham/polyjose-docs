@@ -1,6 +1,72 @@
 ---
 title: Cryptographic foundations
-description: The cryptographic libraries polyjose builds on.
+description: The pure-Rust cryptographic libraries polyjose builds on, their licenses, what polyjose uses each one for, and what independent review each has had.
 ---
 
-This page arrives with the 0.1.0 release and will credit the pure-Rust cryptographic libraries polyjose builds on and say what review each of them has had, as their maintainers describe it.
+import PrimitivesTable from '../../../components/PrimitivesTable.astro';
+
+polyjose implements the JOSE standards (JWS, JWE, JWK and JWT), but it does not implement any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
+
+Thank you to the maintainers and contributors of [RustCrypto](https://github.com/RustCrypto), [dalek-cryptography](https://github.com/dalek-cryptography) and [rust-random](https://github.com/rust-random). polyjose is built on their work.
+
+## Why polyjose composes primitives
+
+Cryptographic primitives are easy to get subtly wrong and hard to test into correctness. A new implementation would put unreviewed code exactly where mistakes cost the most. So polyjose combines widely used implementations into the JOSE formats, and its own code stays in the JOSE layer: parsing and serialization, key formats, algorithm policy, and the key derivation that the JOSE specifications define on top of the primitives (the Concat KDF of ECDH-ES).
+
+Everything that is not a cryptographic primitive, such as JSON, base64url and DER/PEM handling, is written in polyjose itself. That keeps the dependency tree to the primitives and their own dependencies.
+
+## How a library is chosen
+
+polyjose uses a cryptographic library only when all of these hold:
+
+- It comes from the RustCrypto or dalek-cryptography projects, is written in pure Rust, and is actively maintained.
+- It has no unresolved RustSec advisory at the version polyjose pins. Advisories are checked on every pull request. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
+- Its algorithm is not broken for the way JOSE uses it.
+- polyjose passes the RFC, NIST and Wycheproof test vectors against that exact version.
+- Its audit status is disclosed, on this page.
+
+Where more than one library qualifies, polyjose prefers the one with the strongest independent audit record, then the widest deployment, then active maintenance. An independent audit counts in a library's favour, but it is not required: several of the libraries below have none, and the table says so.
+
+Randomness comes only from the operating system's random number generator, through `getrandom` from the rust-random project.
+
+Each library is pinned to an exact version and upgraded only through a change that reruns the full test suite and rechecks its audit status. The exact versions will be listed here once polyjose is published.
+
+Pure Rust gives memory safety, not freedom from side channels. How well each library resists timing attacks is described in its own documentation.
+
+## The libraries
+
+Audit status is given as the reviewers and the libraries' maintainers published it. A review of an earlier release does not cover code written since, so each entry says what was reviewed where that matters.
+
+- **Audited**: a public independent report covers the library.
+- **Audited, earlier release**: a public independent review exists, but it covered an earlier release line than the one polyjose uses, or it came before later fixes or a rewrite.
+- **No public independent audit found**: no public independent audit of the library itself was found. These libraries are widely deployed.
+
+<PrimitivesTable />
+
+## RSA: public-key operations only
+
+polyjose uses `rsa` for public-key operations only, because [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) (the Marvin attack) has no patched release. The advisory describes a timing side channel that can leak the private key, so it affects operations that use the private key: signing and decryption.
+
+Public-key operations handle no secret, so polyjose offers them: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures, and encrypting to RSA-OAEP-256 recipients. RSA signing, RSA decryption and RSA key generation are not offered. [What polyjose does not support](/security/not-supported/) lists everything that is left out and why.
+
+## subtle and zeroize
+
+`subtle` and `zeroize` are not cryptographic primitives, but they are part of the primitives' own security model. The RustCrypto and dalek libraries already use them: `subtle` to compare and select secret values, and `zeroize` to clear secrets from memory. polyjose uses the same two crates for its own secret comparisons and to wipe key material when it is dropped, rather than writing its own.
+
+`subtle` describes itself as "[pure-Rust traits and utilities for constant-time cryptographic implementations](https://github.com/dalek-cryptography/subtle#readme)", and as a "best-effort" attempt, "since side-channels are ultimately a property of a deployed cryptographic system including the hardware it runs on, not just of software."
+
+## Licenses and notices
+
+The RustCrypto libraries and `getrandom` are licensed `MIT OR Apache-2.0`. The dalek-cryptography libraries, including `subtle`, are licensed `BSD-3-Clause`. All of them are compatible with polyjose's own MIT license.
+
+These licenses require their notices to be reproduced when the code is distributed in binary form. When polyjose is published, every prebuilt package (the npm packages, the Android library and the Apple XCFramework) will ship a `THIRD-PARTY-NOTICES.txt` that lists every crate compiled into it, including transitive dependencies, with its license notice.
+
+## Build-time crates on x86_64
+
+On x86_64 targets, `curve25519-dalek` uses its own code generator, [`curve25519-dalek-derive`](https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek-derive), to generate its SIMD backends while it compiles. That procedural macro brings in `syn`, `quote`, `proc-macro2` and `unicode-ident`. These crates run only at build time and are not linked into the built library. They do appear in dependency listings such as `cargo tree`, so they are named here.
+
+## polyjose itself
+
+polyjose itself has not yet had an independent audit. One is planned before 1.0. It will cover polyjose's own code: its JSON, base64url and DER/PEM handling, the Concat KDF, and the way it combines the primitives.
+
+polyjose is pre-1.0. Until that audit is published, treat polyjose as code without an independent review of its own, built on the libraries above. To report a security issue, see [Reporting a vulnerability](/security/reporting/).
