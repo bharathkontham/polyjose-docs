@@ -2,6 +2,30 @@
   "name": "polyjose-docs",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "astro dev", "build": "astro build", "preview": "astro preview" },
-  "dependencies": { "astro": "7.4.6", "@astrojs/starlight": "0.42.9" }
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint:refs": "node scripts/check/private-refs.mjs",
+    "lint:honesty": "node scripts/check/honesty.mjs",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\" \"tests/data/*.test.mjs\"",
+    "samples:coverage": "node scripts/samples/check-coverage.mjs",
+    "a11y": "node tests/a11y/run.mjs",
+    "verify": "npm run check && npm run build && npm run lint:refs && npm run lint:honesty && npm run test:scripts && npm run samples:coverage && npm run a11y"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.9",
+    "astro": "7.4.6",
+    "starlight-links-validator": "0.27.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "playwright-core": "$@playwright/test"
+  }
 }
