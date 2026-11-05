@@ -1,6 +1,45 @@
 ---
 title: Algorithms
-description: The JOSE algorithms polyjose supports.
+description: Every JOSE algorithm identifier polyjose recognises, what it does with each one, and how that relates to RFC 7518.
 ---
 
-This page arrives with the 0.1.0 release and will list every signing, key management and content encryption algorithm polyjose supports, with the specification that defines each one.
+import AlgorithmMatrix from '../../../components/AlgorithmMatrix.astro';
+
+polyjose recognises the JOSE algorithm identifiers on this page, spelled exactly as in the [IANA JOSE registry](https://www.iana.org/assignments/jose/jose.xhtml). The same identifiers, with the same behaviour, apply in Rust, Node, the Web, Kotlin and Swift.
+
+Recognising an identifier is not the same as accepting it. Every verify and decrypt call takes an explicit allow-list of the algorithms you expect, and a token whose header names anything else fails with `AlgorithmNotAllowed` before any cryptography runs ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)).
+
+## Conformance
+
+> Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits `RSA-OAEP` (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see [the security page](/security/not-supported/)) and `RSA1_5`.
+
+Where a recipient expects `RSA-OAEP`, use `RSA-OAEP-256` instead, or ECDH-ES for new recipients.
+
+RFC 7518 marks three algorithms Required: `HS256` for JWS ([RFC 7518 §3.1](https://www.rfc-editor.org/rfc/rfc7518#section-3.1)), and `A128CBC-HS256` and `A256CBC-HS512` for JWE content encryption ([RFC 7518 §5.1](https://www.rfc-editor.org/rfc/rfc7518#section-5.1)). polyjose implements all three. `RSA-OAEP` is Recommended+ ([RFC 7518 §4.1](https://www.rfc-editor.org/rfc/rfc7518#section-4.1)), not Required.
+
+## Reading the tables
+
+- Each table has one column per operation: **Sign** and **Verify** for JWS, **Encrypt** and **Decrypt** for JWE. **Yes** means the operation works.
+- RSA keys are used only for public-key operations. You can verify `RS*` and `PS*` signatures and encrypt to an `RSA-OAEP-256` recipient, but you can't sign with RSA or decrypt with an RSA private key. A call that would need one fails with `UnsupportedAlgorithm`.
+- **No** in both columns means polyjose recognises the identifier only to report a precise error.
+- **Requirement level** is the "JOSE Implementation Requirements" value in the IANA registry. RFC 7518 §3.1, §4.1 and §5.1 set it for the algorithms that RFC defines. A `+` means the requirement is likely to become stronger in a future version of the specification, and a `-` that it is likely to become weaker.
+
+## Signatures and MACs (JWS `alg`)
+
+<AlgorithmMatrix group="jws-alg" />
+
+For new tokens, prefer `Ed25519`. [RFC 9864](https://www.rfc-editor.org/rfc/rfc9864) registers it as the fully-specified name for EdDSA with Ed25519, and deprecates the older `EdDSA` identifier, which polyjose keeps for tokens and peers that already use it.
+
+## Key management (JWE `alg`)
+
+<AlgorithmMatrix group="jwe-alg" />
+
+## Content encryption (JWE `enc`)
+
+<AlgorithmMatrix group="jwe-enc" />
+
+## Compression (JWE `zip`)
+
+<AlgorithmMatrix group="zip" />
+
+Compressing data before encrypting it can leak information about the plaintext ([RFC 8725 §3.6](https://www.rfc-editor.org/rfc/rfc8725#section-3.6)), so compression is off unless you turn it on.
