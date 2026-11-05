@@ -44,6 +44,33 @@ function textOf(html) {
     .trim();
 }
 
+/**
+ * The DOM `textContent` of a fragment: tags removed without adding spaces, so
+ * `<code>RSA1_5</code>.` reads `RSA1_5.`. Entities are decoded; whitespace is
+ * kept as written, apart from trimming the ends.
+ */
+function textContent(html) {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+/** The HTML from the `<h2>` with this id up to the next `<h2>`. */
+function sectionHtml(html, id) {
+  const start = html.indexOf(`<h2 id="${id}"`);
+  assert.ok(start !== -1, `no <h2 id="${id}">`);
+  const end = html.indexOf('<h2', start + 1);
+  return html.slice(start, end === -1 ? undefined : end);
+}
+
 function hrefs(html) {
   return [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/gi)].map((m) => m[1].replace(/&amp;/g, '&'));
 }
@@ -205,6 +232,50 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     assert.ok(links.includes('/guides/jwk-sets/'), 'links the JWK Sets guide');
     assert.doesNotMatch(section, /JWK Sets guide (covers|explains|shows)\b/, 'the guide is not written yet');
     assert.match(section, /JWK Sets guide will cover this/);
+  });
+});
+
+// The public conformance statement, as its text content renders (the code
+// spans around RSA-OAEP and RSA1_5 become plain text). It is published
+// verbatim on Concepts › Algorithms and here; tests/data/concepts.test.mjs
+// holds the same string. Change it only together with the accepted decision.
+const CONFORMANCE =
+  'Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits RSA-OAEP (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see the security page) and RSA1_5.';
+const CONFORMANCE_FRAMING = 'When 0.1.0 is released, it will conform as follows:';
+
+test('Not supported: the SHA-1 section quotes the conformance statement verbatim', async (t) => {
+  const section = sectionHtml(page('security/not-supported').html, 'sha-1');
+  const quotes = [...section.matchAll(/<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/gi)];
+  assert.equal(quotes.length, 1, 'one blockquote in the SHA-1 section');
+  const [whole, inner] = quotes[0];
+
+  await t.test('text content, character for character', () => {
+    assert.equal(textContent(inner), CONFORMANCE);
+  });
+
+  await t.test('code spans and the link', () => {
+    assert.deepEqual(
+      [...inner.matchAll(/<code\b[^>]*>([\s\S]*?)<\/code>/gi)].map((m) => textContent(m[1])),
+      ['RSA-OAEP', 'RSA1_5'],
+      'exactly RSA-OAEP and RSA1_5 are code spans',
+    );
+    assert.match(inner, /omits <code\b[^>]*>RSA-OAEP<\/code> \(SHA-1\)/);
+    assert.match(inner, /and <code\b[^>]*>RSA1_5<\/code>\./);
+    const anchors = [...inner.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)];
+    assert.equal(anchors.length, 1, 'only "the security page" is a link');
+    assert.equal(textContent(anchors[0][2]), 'the security page');
+    // The reader is already on the security page, so it links the heading.
+    assert.match(anchors[0][1], /\bhref="#rsa-private-keys"/);
+  });
+
+  await t.test('the framing line comes right before it', () => {
+    const before = section.slice(0, section.indexOf(whole));
+    const paragraphs = [...before.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)];
+    assert.ok(paragraphs.length > 0, 'no paragraph before the blockquote');
+    const last = paragraphs.at(-1);
+    assert.equal(textContent(last[1]), CONFORMANCE_FRAMING);
+    const between = before.slice(last.index + last[0].length);
+    assert.equal(textContent(between), '', 'nothing between the framing line and the blockquote');
   });
 });
 
