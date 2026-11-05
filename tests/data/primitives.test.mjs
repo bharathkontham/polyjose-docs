@@ -195,6 +195,25 @@ test('subtle: Quarkslab, 2019, for Tari, in the dalek review', () => {
   assert.equal(audit.status, 'partial');
 });
 
+// The Quarkslab post limits its subtle finding to one toolchain and to
+// software: "the audit verified that the source code and the assembly generated
+// by Rust (version nightly-2019-06-11) do not have any trivial time leak. The
+// audit does not validate that the library is immune to time leaks on a
+// specific piece of hardware or outside the scope of the library." The entry
+// carries both limits, as crypto-bigint carries its "diverged since" caveat.
+test('subtle: carries the review\'s own limits, the 2019 nightly toolchain and no hardware guarantee', () => {
+  const { note } = byCrate.get('subtle').audit;
+  assert.match(note, /source code/);
+  assert.match(note, /nightly-2019-06-11/, 'the toolchain the reviewed assembly came from');
+  assert.match(note, /trivial tim(e|ing) leaks?/);
+  assert.match(
+    note,
+    /"does not validate that the library is immune to time leaks on a specific piece of hardware or outside the scope of the library\."/,
+    'the hardware limit, quoted from the post',
+  );
+  assert.match(note, /Later releases have followed since/);
+});
+
 test('x25519-dalek and ed25519-dalek: no audit of their own, the marginal review is mentioned, never as a full audit', () => {
   for (const crate of ['x25519-dalek', 'ed25519-dalek']) {
     const { audit, sources } = byCrate.get(crate);
@@ -272,6 +291,26 @@ test('page: rsa is public-key only, with the advisory and the not-supported page
   assert.ok(main.includes('href="/security/not-supported/"'));
   assert.match(text, /public-key operations only/);
   assert.match(text, /no patched release/);
+});
+
+test('page: says there is no SHA-1, so no RSA-OAEP, and no RSA1_5, with the alternatives', { skip }, () => {
+  assert.match(text, /\bno SHA-1 anywhere\b/);
+  assert.match(text, /\bno RSA-OAEP\b(?!-256)/, 'names RSA-OAEP (SHA-1) as absent');
+  assert.match(text, /RSA-OAEP-256 or ECDH-ES/, 'gives the alternatives');
+  assert.match(text, /\bno RSA1_5\b/);
+  assert.match(text, /\bsha1 crate is not a dependency\b/, 'explains why the table has no sha1 row');
+  for (const hash of ['sha-1', 'rsa1_5', 'rsa-private-keys']) {
+    assert.ok(main.includes(`href="/security/not-supported/#${hash}"`), `links /security/not-supported/#${hash}`);
+  }
+});
+
+test('page: shows the subtle review\'s limits next to its entry', { skip }, () => {
+  const row = (main.match(/<tr data-crate="subtle"[\s\S]*?<\/tr>/) ?? [''])[0];
+  assert.ok(row, 'no subtle row');
+  const rowText = textOf(row);
+  assert.match(rowText, /nightly-2019-06-11/);
+  assert.match(rowText, /specific piece of hardware/);
+  assert.ok(row.includes('href="https://blog.quarkslab.com/security-audit-of-dalek-libraries.html"'), 'links the post');
 });
 
 test('page: says polyjose itself has not been audited yet, plans one before 1.0, and is pre-1.0', { skip }, () => {
