@@ -19,81 +19,106 @@ import { pathToFileURL } from 'node:url';
 import { htmlText } from './lib/html-text.mjs';
 import { listFiles, readText, lineIndex } from './lib/files.mjs';
 import { htmlUrlText, listDistFiles } from './lib/dist-files.mjs';
+import { normalizeWithMap } from './lib/normalize.mjs';
 
-// Identifiers are matched in any case. "Word boundary" here means a character
+// Identifiers are matched in any case, on text folded by lib/normalize.mjs
+// (NFKC and look-alike letters), so "ＡＤＲ 0019" or a Cyrillic "Т07" counts;
+// a finding quotes the original text. "Word boundary" here means a character
 // that is not a letter or digit, so `_t03`, `polyjose_brain` and `ADR_0019`
 // count too (`\b` treats `_` as part of a word).
 const L = '(?<![a-z0-9])';
 const R = '(?![a-z0-9])';
-// What may join a word to its number: whitespace, `_`, `/`, `#`, and the
-// hyphen and dash characters (U+2010 hyphen, U+2011 non-breaking hyphen,
-// U+2012..U+2015 figure, en and em dashes and the horizontal bar).
-const SEP = '[\\s_\\-\\u2010-\\u2015/#]';
+// What may join a word to its number: whitespace, `_`, `/`, `#`, `.`, `:`,
+// `(`, and the hyphen, dash and minus characters (U+2010 hyphen, U+2011
+// non-breaking hyphen, U+2012..U+2015 figure, en and em dashes and the
+// horizontal bar, U+2212 minus sign).
+const SEP = '[\\s_\\-\\u2010-\\u2015\\u2212/#.:(]';
+// "no.", "nr.", "num." or "number" between a word and its number.
+const NUMWORD = `(?:n(?:o|r|um(?:ber)?)\\.?${SEP}{0,3})?`;
 // What may join the words of a multi-word term.
 const JOIN = '[\\s_\\-\\u2010-\\u2015]+';
+const JOIN_OPT = '[\\s_\\-\\u2010-\\u2015]*';
+// A hyphen or underscore join only, for terms whose spaced form is ordinary
+// English ("ready for test", "deliver features").
+const HYPHEN = '[_\\-\\u2010-\\u2015]';
+// Home-directory folders of public tools, which install steps name.
+const TOOL_DIR = '(?!\\.(?:cargo|gradle|npm|config)(?![\\w.-]))';
 
-const p = (source, label, flags = 'gi') => ({ re: new RegExp(source, flags), label });
+// `asset: true` marks the patterns that are also run on built script, style,
+// image and source map files and on the whole source of each built page. Those
+// are full of short names next to numbers (`t(19,…)`, `#f00`, `t12` in SVG
+// path data), so the task, batch and fix numbers, the task/bug/fix words and
+// the approval step names are matched only in text and source files.
+const p = (source, label, { flags = 'gi', asset = true } = {}) => ({ re: new RegExp(source, flags), label, asset });
+const textOnly = { asset: false };
 
 export const PATTERNS = [
   // `adr/1…` also covers a path into the records directory with a long number.
-  p(`${L}adr(?:${SEP}?\\d{1,4}${R}|/\\d)`, 'decision record number'),
-  p(`${L}prds?(?:${SEP}?\\d+${R}|/\\d)`, 'requirements document number'),
-  p(`${L}features?${SEP}?\\d{4}${R}`, 'feature number'),
-  // Task and batch numbers, alone or inside a branch name. `b64` (the RFC 7797
-  // header parameter) is not one.
-  p(`${L}t\\d{2}${R}`, 'task number'),
-  p(`${L}b(?!64${R})\\d{2}${R}`, 'batch number'),
-  p(`${L}gate${SEP}?[1-3]${R}`, 'approval step name'),
+  p(`${L}adrs?(?:${SEP}{0,3}${NUMWORD}\\d{1,4}${R}|/\\d)`, 'decision record number'),
+  p(`${L}prds?(?:${SEP}{0,3}${NUMWORD}\\d+${R}|/\\d)`, 'requirements document number'),
+  p(`${L}feat(?:ure)?s?(?:${SEP}{1,3}${NUMWORD}#?\\d{1,4}|\\d{4})${R}`, 'feature number'),
+  // Task, batch and fix numbers, alone or inside a branch name. `b64` (the RFC
+  // 7797 header parameter) is not one.
+  p(`${L}t${SEP}?\\d{2,3}${R}`, 'task number', textOnly),
+  p(`${L}b(?!64${R})${SEP}?\\d{2,3}${R}`, 'batch number', textOnly),
+  p(`${L}f${SEP}?\\d{2,3}${R}`, 'fix number', textOnly),
+  p(`${L}(?:tasks?|bugs?|fix)${SEP}{1,3}#?[tbf]?\\d{1,4}${R}`, 'task number', textOnly),
+  p(`${L}gate${SEP}{0,3}[1-3]${R}`, 'approval step name', textOnly),
   p(`${L}brain${R}`, 'internal repository name'),
-  p('/Users/', 'local file path', 'g'),
+  // A macOS home directory in any case, but a lower-case `/users/` inside a URL
+  // path (github.com/users/…) is not one.
+  p('/Users/|(?<![\\w.%~+@-])/[Uu][Ss][Ee][Rr][Ss]/', 'local file path', { flags: 'g' }),
   // A local home directory, but not the same text inside a URL path, where it
   // follows a host name or a path segment.
   p('(?<![\\w.%~+@-])/home/', 'local file path'),
-  p('(?<![\\w.%~+@/-])~/', 'local file path'),
+  // `~/` and `$HOME/`, except a public tool's folder (`~/.cargo`) and `cd ~/` itself.
+  p(`(?<![\\w.%~+@/-])~/${TOOL_DIR}(?!(?<=${L}cd[ \\t]{1,4}~/)(?![^\\s"'\`;&|)]))`, 'local file path'),
+  p(`\\$(?:home|\\{home\\})/${TOOL_DIR}`, 'local file path'),
   p(`${L}[a-z]:\\\\{1,2}users${R}`, 'local file path'),
   p('\\.worktrees\\b', 'local worktree path'),
   p(`${L}orchestrators?${R}`, 'internal role name'),
   p(`${L}code${SEP}?agents?${R}`, 'internal role name'),
-  p(`${L}(?:planner|tester)${JOIN}agents?${R}`, 'internal role name'),
+  p(`${L}(?:planner|tester|release|lead|git${JOIN_OPT}ops)${JOIN}agents?${R}`, 'internal role name'),
   p(`${L}owner${JOIN}directives?${R}`, 'internal process term'),
   p(`${L}overnight${JOIN}delegations?${R}`, 'internal process term'),
+  p(`${L}deliver${HYPHEN}features?${R}`, 'internal process term'),
+  p(`${L}intake${JOIN}skills?${R}`, 'internal process term'),
+  p(`${L}test(?:${HYPHEN}reports?${R}|\\s?reports?(?=/))`, 'internal process term'),
+  p(`${L}ready${HYPHEN}for${HYPHEN}test${R}`, 'internal process term'),
+  p(`${L}phase${JOIN}[ab](?:\\s*/\\s*[ab])?${JOIN}(?:security|code)${JOIN}reviews?${R}`, 'internal process term'),
 ];
-
-// Characters that render as nothing (soft hyphen, zero-width space, joiners,
-// direction marks, word joiner and invisible operators, byte-order mark). They
-// are removed before matching, so they can't split an identifier.
-const INVISIBLE = /[\u00AD\u200B-\u200F\u2060-\u2064\uFEFF]/;
-
-/** `text` without invisible characters, and a map from its indexes back to `text`'s. */
-function visible(text) {
-  if (!INVISIBLE.test(text)) return { clean: text, origin: (i) => i };
-  let clean = '';
-  const at = [];
-  for (let i = 0; i < text.length; i++) {
-    if (INVISIBLE.test(text[i])) continue;
-    clean += text[i];
-    at.push(i);
-  }
-  return { clean, origin: (i) => at[i] ?? text.length };
-}
 
 const SOURCE_ROOTS = ['src/content', 'src/data', 'src/components', 'samples', 'public', 'astro.config.mjs'];
 const SKIP_NAMES = new Set(['node_modules', 'target', 'build', '.build', '.generated', '.git']);
 // The polyjose checkout the sample runner clones in CI is not our text.
 const SKIP_PATHS = new Set(['samples/.polyjose']);
 
-/** Every internal identifier in `text`, in order of position. */
-export function findPrivateRefs(text) {
+/**
+ * Every internal identifier in `text`, in order of position. Each finding
+ * quotes the original text and its line. With `asset: true`, only the patterns
+ * that are safe on minified code run (see PATTERNS). A match that lies inside
+ * another one ("T03" in "task T03") is not reported again.
+ */
+export function findPrivateRefs(text, { asset = false } = {}) {
   const lineOf = lineIndex(text);
-  const { clean, origin } = visible(text);
+  const folded = normalizeWithMap(text);
   const found = [];
-  for (const { re, label } of PATTERNS) {
-    for (const m of clean.matchAll(re)) {
-      const index = origin(m.index);
-      found.push({ index, line: lineOf(index), match: m[0], label });
+  for (const { re, label, asset: onAssets } of PATTERNS) {
+    if (asset && !onAssets) continue;
+    for (const m of folded.text.matchAll(re)) {
+      const [start, end] = folded.toOriginal(m.index, m.index + m[0].length);
+      found.push({ start, end, match: text.slice(start, end), label });
     }
   }
-  return found.sort((a, b) => a.index - b.index).map(({ index, ...f }) => f);
+  found.sort((a, b) => a.start - b.start || b.end - a.end);
+  const out = [];
+  let reach = -1;
+  for (const f of found) {
+    if (f.end <= reach) continue;
+    reach = Math.max(reach, f.end);
+    out.push({ line: lineOf(f.start), match: f.match, label: f.label });
+  }
+  return out;
 }
 
 /**
