@@ -127,7 +127,7 @@ scripts/samples/run.sh all
 
 In `git` mode, `run.sh` needs polyjose at the pinned commit:
 
-- **Locally** it uses a `polyjose` checkout next to this repository (`../polyjose`). That checkout must be at the pinned commit with no uncommitted changes, so the samples never pass against code other than what's pinned. `run.sh` links it as `samples/.polyjose/polyjose`.
+- **Locally** it uses a `polyjose` checkout next to this repository (`../polyjose`). That checkout must be at the pinned commit, with no uncommitted changes and no untracked files that polyjose doesn't ignore, so the samples never pass against code other than what's pinned. `run.sh` links it as `samples/.polyjose/polyjose`.
 - **In CI** (`CI=true`) it clones polyjose into `samples/.polyjose/polyjose` and checks out the pinned commit.
 
 ### Platform runners
