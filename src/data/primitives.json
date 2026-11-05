@@ -196,10 +196,17 @@
     "license": "MIT OR Apache-2.0",
     "purpose": "The big-integer arithmetic beneath the rsa crate and the elliptic curves, for RS256, RS384, RS512, PS256, PS384, PS512, RSA-OAEP-256, ES256, ES384, ES512, ES256K and ECDH-ES.",
     "audit": {
-      "status": "none-found",
-      "note": "No public independent audit found. It is widely deployed."
+      "status": "partial",
+      "by": "NCC Group",
+      "year": 2023,
+      "report": "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
+      "note": "Reviewed by NCC Group in 2023, for Entropy, in the same review as k256. The crate's maintainers report no significant findings, and note that the implementation has diverged significantly since that review."
     },
-    "sources": ["https://crates.io/crates/crypto-bigint", "https://github.com/RustCrypto/crypto-bigint"]
+    "sources": [
+      "https://crates.io/crates/crypto-bigint",
+      "https://github.com/RustCrypto/crypto-bigint",
+      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf"
+    ]
   },
   {
     "crate": "zeroize",
@@ -274,10 +281,17 @@
     "license": "BSD-3-Clause",
     "purpose": "Comparing and selecting secret values inside the primitives and in polyjose, for example when checking HS256, HS384 and HS512 signatures and AES-CBC-HMAC authentication tags.",
     "audit": {
-      "status": "none-found",
-      "note": "No public independent audit found. It is widely deployed."
+      "status": "partial",
+      "by": "Quarkslab",
+      "year": 2019,
+      "report": "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html",
+      "note": "Reviewed by Quarkslab in 2019, for Tari, as part of its review of the dalek libraries, which found minor issues only. For this crate, the review checked the source code and the generated assembly for trivial timing leaks. Later releases have followed since."
     },
-    "sources": ["https://crates.io/crates/subtle", "https://github.com/dalek-cryptography/subtle"]
+    "sources": [
+      "https://crates.io/crates/subtle",
+      "https://github.com/dalek-cryptography/subtle",
+      "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html"
+    ]
   },
   {
     "crate": "getrandom",

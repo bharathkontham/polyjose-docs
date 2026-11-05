@@ -24,8 +24,12 @@ const DALEK = ['curve25519-dalek', 'ed25519-dalek', 'x25519-dalek', 'subtle'];
 const RUST_RANDOM = ['getrandom'];
 const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
 
-// The only crates with a published independent review of their own.
-const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa'];
+// The only crates with a published independent review of their own. The first
+// four come from the audit register. crypto-bigint and subtle were in scope of
+// two of those same reviews: the NCC Group report for Entropy lists the
+// crypto-bigint repository in scope (and the crate's README says so), and the
+// Quarkslab post names subtle among the libraries it audited.
+const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa', 'crypto-bigint', 'subtle'];
 
 const STATUSES = ['audited', 'partial', 'none-found'];
 const NONE_FOUND_NOTE = 'No public independent audit found';
@@ -168,6 +172,27 @@ test('curve25519-dalek: Quarkslab, 2019, for Tari, minor issues; x25519/ed25519 
   assert.match(audit.note, /Scalar/);
   assert.ok(sources.includes('https://rustsec.org/advisories/RUSTSEC-2022-0093.html'));
   assert.equal(audit.status, 'partial', 'the review predates later fixes and the line polyjose uses');
+});
+
+test('crypto-bigint: NCC Group, 2023, for Entropy, in the k256 review; diverged since', () => {
+  const { audit } = byCrate.get('crypto-bigint');
+  assert.equal(audit.by, 'NCC Group');
+  assert.equal(audit.year, 2023);
+  assert.equal(audit.report, byCrate.get('k256').audit.report, 'the same report as k256');
+  assert.match(audit.note, /\bEntropy\b/);
+  assert.match(audit.note, /no significant findings/);
+  assert.match(audit.note, /diverged significantly since that review/);
+  assert.equal(audit.status, 'partial');
+});
+
+test('subtle: Quarkslab, 2019, for Tari, in the dalek review', () => {
+  const { audit } = byCrate.get('subtle');
+  assert.equal(audit.by, 'Quarkslab');
+  assert.equal(audit.year, 2019);
+  assert.equal(audit.report, byCrate.get('curve25519-dalek').audit.report, 'the same post as curve25519-dalek');
+  assert.match(audit.note, /\bTari\b/);
+  assert.match(audit.note, /minor issues only/);
+  assert.equal(audit.status, 'partial');
 });
 
 test('x25519-dalek and ed25519-dalek: no audit of their own, the marginal review is mentioned, never as a full audit', () => {
