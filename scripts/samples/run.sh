@@ -66,6 +66,16 @@ trap 'rm -f "$skip_file"' EXIT
 pass() { echo "PASS ($1)"; }
 fail() { echo "FAIL ($1: $2)"; failed=1; }
 skip() { echo "SKIPPED ($1: $2)"; }
+# A platform with a git or registry pin that did not run. Locally that is a
+# SKIPPED; with CI=true it is a FAIL, so CI never goes green on samples that
+# were never run.
+skip_pinned() {
+  if [ "${CI:-}" = "true" ]; then
+    fail "$1" "$2; a pinned platform must run when CI=true"
+  else
+    skip "$1" "$2"
+  fi
+}
 short() { printf '%s' "$1" | cut -c1-12; }
 
 # Makes polyjose available at the pinned commit as samples/.polyjose/polyjose.
@@ -159,7 +169,7 @@ EOF
 
   runner="$ROOT/scripts/samples/platforms/$platform.sh"
   if [ ! -f "$runner" ]; then
-    skip "$platform" "runner not installed"
+    skip_pinned "$platform" "runner not installed"
     return
   fi
 
