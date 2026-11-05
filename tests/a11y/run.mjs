@@ -38,6 +38,7 @@ const CONCURRENCY = 4;
 
 const cleanups = [];
 let cleaning = null;
+let interrupted = null;
 function stopAll() {
   cleaning ??= (async () => {
     while (cleanups.length > 0) {
@@ -53,7 +54,8 @@ function stopAll() {
 }
 for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
   process.once(signal, () => {
-    console.error(`\na11y: ${signal}, stopping the preview server`);
+    interrupted = { signal, code };
+    console.error(`\na11y: ${signal}, stopping the browser and the preview server`);
     stopAll().finally(() => process.exit(code));
   });
 }
@@ -242,9 +244,10 @@ let code;
 try {
   code = await main(process.argv.slice(2));
 } catch (err) {
-  console.error(`a11y: ${err.message}`);
+  // After a signal, in-flight pages fail because the browser is closing.
+  if (!interrupted) console.error(`a11y: ${err.message}`);
   code = 2;
 } finally {
   await stopAll();
 }
-process.exit(code);
+process.exit(interrupted?.code ?? code);
