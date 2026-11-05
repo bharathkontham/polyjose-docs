@@ -59,20 +59,20 @@ export function checkPage(route, html) {
   each(
     AUDIT_CLAIM,
     'audit-claim',
-    'says polyjose is audited. No independent audit of polyjose itself has been published; describe what is audited, and by whom, instead.',
+    'claims that polyjose is audited, but no independent audit of polyjose itself has been published. Say what is audited, and by whom, instead.',
   );
   if (!AUDITED_PAGES.has(route)) {
     each(
       AUDITED_WORD,
       'audited-word',
-      `"audited" may appear only on ${[...AUDITED_PAGES].join(' and ')}, where audit status is reported in the auditors' terms.`,
+      `the word may appear only on ${[...AUDITED_PAGES].join(' and ')}, which report audit status in the auditors' own terms.`,
     );
   }
   if (!route.startsWith(CONSTANT_TIME_PREFIX)) {
     each(
       CONSTANT_TIME,
       'constant-time',
-      `constant-time behaviour may be described only on pages under ${CONSTANT_TIME_PREFIX}, quoting the crate that documents it.`,
+      `may appear only on pages under ${CONSTANT_TIME_PREFIX}, quoting the crate that documents it.`,
     );
   }
   return findings;
@@ -106,7 +106,7 @@ function main(argv) {
     for (const f of findings) {
       count++;
       const where = f.line ? `${shown}:${f.line}` : shown;
-      const what = f.match ? `"${f.match}" ${f.message}` : f.message;
+      const what = f.match ? `"${f.match}": ${f.message}` : f.message;
       console.error(`${where} (${route}): ${what}`);
     }
   }
