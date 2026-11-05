@@ -310,6 +310,80 @@ test('with CI=true git mode clones polyjose into samples/.polyjose/polyjose at t
   assert.equal(again.status, 0, again.out + again.err);
 });
 
+/** A throwaway upstream polyjose that serves any reachable commit; returns its commits. */
+function upstreamRepo(dir) {
+  const commits = polyjoseRepo(dir);
+  git(dir, 'config', 'uploadpack.allowReachableSHA1InWant', 'true');
+  return commits;
+}
+
+test('with CI=true a git pin runs the runner even when ../polyjose is dirty and elsewhere', () => {
+  const { base, docs } = docsTree({ runners: { js: 'pass' } });
+  // A sibling that the local path would skip: another history, uncommitted and untracked changes.
+  const sibling = join(base, 'polyjose');
+  polyjoseRepo(sibling);
+  writeFileSync(join(sibling, 'README.md'), 'changed\n');
+  writeFileSync(join(sibling, 'untracked.txt'), 'x\n');
+  const upstream = join(base, 'upstream');
+  const { first } = upstreamRepo(upstream);
+  writeFileSync(join(docs, 'samples/pins/js.json'), JSON.stringify({ source: 'git', rev: first, upcoming: '0.1.0' }));
+  const env = { CI: 'true', POLYJOSE_GIT_URL: `file://${upstream}` };
+  const clone = join(docs, 'samples/.polyjose/polyjose');
+
+  const r = run(['js'], { docs, env });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['PASS (js)']);
+  assert.match(r.out, /runner ran: js/);
+  assert.match(r.out, new RegExp(`POLYJOSE_DIR=${clone}\n`));
+  assert.ok(!lstatSync(clone).isSymbolicLink());
+
+  // What a runner leaves in the clone does not stop the next run.
+  mkdirSync(join(clone, 'target'), { recursive: true });
+  writeFileSync(join(clone, 'target/out.o'), 'build output\n');
+  writeFileSync(join(clone, 'generated.d.ts'), 'export {};\n');
+  const again = run(['js'], { docs, env });
+  assert.equal(again.status, 0, again.out + again.err);
+  assert.deepEqual(resultLines(again.out), ['PASS (js)']);
+  assert.match(again.out, new RegExp(`POLYJOSE_HEAD=${first}\n`));
+});
+
+test('with CI=true a reused clone whose origin is stale is pointed at the configured URL', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'pass' } });
+  const old = join(base, 'old-upstream');
+  const current = join(base, 'upstream');
+  const { second: oldRev } = upstreamRepo(old);
+  const { first: rev } = upstreamRepo(current);
+  const pin = (r) => writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify({ source: 'git', rev: r, upcoming: '0.1.0' }));
+  const clone = join(docs, 'samples/.polyjose/polyjose');
+
+  pin(oldRev);
+  const first = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${old}` } });
+  assert.equal(first.status, 0, first.out + first.err);
+  assert.equal(git(clone, 'remote', 'get-url', 'origin'), `file://${old}`);
+
+  // Same clone, new URL and a commit only the new upstream has.
+  pin(rev);
+  const r = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${current}` } });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['PASS (rust)']);
+  assert.equal(git(clone, 'remote', 'get-url', 'origin'), `file://${current}`);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), rev);
+});
+
+test('with CI=true a reused clone without an origin remote gets one', () => {
+  const { base, docs } = docsTree({ runners: { rust: 'pass' } });
+  const upstream = join(base, 'upstream');
+  const { first } = upstreamRepo(upstream);
+  writeFileSync(join(docs, 'samples/pins/rust.json'), JSON.stringify({ source: 'git', rev: first, upcoming: '0.1.0' }));
+  const clone = join(docs, 'samples/.polyjose/polyjose');
+  mkdirSync(clone, { recursive: true });
+  git(clone, 'init', '-q');
+  const r = run(['rust'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${upstream}` } });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), ['PASS (rust)']);
+  assert.equal(git(clone, 'remote', 'get-url', 'origin'), `file://${upstream}`);
+});
+
 test('with CI=true a failed clone is a FAIL', () => {
   const { base, docs } = docsTree({
     pins: { swift: { source: 'git', rev: 'b'.repeat(40), upcoming: '0.1.0' } },
