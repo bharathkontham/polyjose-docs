@@ -24,6 +24,11 @@
 #     edits to its tracked files discarded.
 #   - pin "registry": the runner installs the published version itself.
 #
+# CI rule. With CI=true, a platform whose pin is git or registry must run:
+# each of its skips above (no runner, a sibling or clone problem, a runner
+# calling samples_skip) is a FAIL with the same reason instead, so CI never
+# goes green on samples that did not run. A "none" pin is still SKIPPED.
+#
 # Runner contract. scripts/samples/platforms/<platform>.sh is sourced in a
 # subshell, from the docs repository root, with `set -euo pipefail` and:
 #   SAMPLES_ROOT         the docs repository (absolute path)
@@ -35,7 +40,7 @@
 #   POLYJOSE_DIR         polyjose at the pinned commit (git mode; empty otherwise)
 # Finishing with status 0 is a PASS; any other status is a FAIL. A runner
 # whose toolchain is missing calls `samples_skip "<reason>"`, which ends it
-# as SKIPPED.
+# as SKIPPED (a FAIL with CI=true). Exiting 77 without samples_skip is a FAIL.
 #
 # Written for bash 3.2 (macOS /bin/bash): no associative arrays, mapfile or
 # ${var,,}.
@@ -66,6 +71,16 @@ trap 'rm -f "$skip_file"' EXIT
 pass() { echo "PASS ($1)"; }
 fail() { echo "FAIL ($1: $2)"; failed=1; }
 skip() { echo "SKIPPED ($1: $2)"; }
+# A platform with a git or registry pin that did not run. Locally that is a
+# SKIPPED; with CI=true it is a FAIL, so CI never goes green on samples that
+# were never run.
+skip_pinned() {
+  if [ "${CI:-}" = "true" ]; then
+    fail "$1" "$2; a pinned platform must run when CI=true"
+  else
+    skip "$1" "$2"
+  fi
+}
 short() { printf '%s' "$1" | cut -c1-12; }
 
 # Makes polyjose available at the pinned commit as samples/.polyjose/polyjose.
@@ -159,7 +174,7 @@ EOF
 
   runner="$ROOT/scripts/samples/platforms/$platform.sh"
   if [ ! -f "$runner" ]; then
-    skip "$platform" "runner not installed"
+    skip_pinned "$platform" "runner not installed"
     return
   fi
 
@@ -167,7 +182,7 @@ EOF
   if [ "$source" = "git" ]; then
     prepare_git "$rev"
     case "$prepare_result" in
-      skip) skip "$platform" "$prepare_reason"; return ;;
+      skip) skip_pinned "$platform" "$prepare_reason"; return ;;
       fail) fail "$platform" "$prepare_reason"; return ;;
     esac
     polyjose_dir="$ROOT/samples/.polyjose/polyjose"
@@ -196,7 +211,7 @@ EOF
   status=$?
 
   if [ "$status" -eq 77 ] && [ -s "$skip_file" ]; then
-    skip "$platform" "$(head -n 1 "$skip_file")"
+    skip_pinned "$platform" "$(head -n 1 "$skip_file")"
   elif [ "$status" -eq 0 ]; then
     pass "$platform"
   else
