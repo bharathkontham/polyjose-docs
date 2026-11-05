@@ -47,8 +47,8 @@ const LANG_BY_EXTENSION = /** @type {Record<string, string>} */ ({
   '.swift': 'swift',
 });
 
-/** Directories that hold build output, dependencies or generated copies, never sample sources. */
-const SKIPPED_DIRS = new Set(['node_modules', 'target', 'build', '.build', '.generated', '.polyjose']);
+/** Directories that hold build output or dependencies, never sample sources. */
+const SKIPPED_DIRS = new Set(['node_modules', 'target', 'build']);
 
 const KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -81,7 +81,8 @@ function locate(path) {
   const platform = PLATFORMS.find((p) => p.dir === dir);
   if (!platform) return null;
   const segments = rest.split('/');
-  if (segments.slice(0, -1).some((s) => SKIPPED_DIRS.has(s))) return null;
+  // Dot directories and dotfiles are skipped, as the build's file glob skips them.
+  if (segments.some((s) => s.startsWith('.')) || segments.slice(0, -1).some((s) => SKIPPED_DIRS.has(s))) return null;
   const name = segments[segments.length - 1];
   const extension = platform.extensions.find((ext) => name.endsWith(ext));
   if (!extension) return null;
@@ -90,8 +91,9 @@ function locate(path) {
 
 /**
  * Whether a path is a sample source file: under `samples/<rust|js|web|kotlin|swift>/`,
- * with that platform's extension, and not inside fixtures, generated copies,
- * dependencies or build output.
+ * with that platform's extension, and not inside fixtures, generated copies
+ * (`.generated`), dependencies (`node_modules`), build output (`target`,
+ * `build`, `.build`) or any other dot directory.
  *
  * @param {string} path
  */
