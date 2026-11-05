@@ -171,8 +171,10 @@ test('waitForCodeBlocks waits on the DOM condition with a bound and returns no p
   const { fn, options } = page.calls[0];
   assert.equal(options.timeout, CODE_BLOCK_WAIT_MS);
   assert.ok(CODE_BLOCK_WAIT_MS > 0);
-  // The condition is the helper above: true exactly when nothing is pending.
-  const evaluate = (document) => vm.runInNewContext(`(${fn})()`, { document });
+  // The condition is an expression built from the helper above: true exactly
+  // when nothing is pending.
+  assert.equal(typeof fn, 'string');
+  const evaluate = (document) => vm.runInNewContext(fn, { document });
   assert.equal(evaluate(root()), true);
   assert.equal(evaluate(root(pre(900, 300, { tabindex: '0' }))), true);
   assert.equal(evaluate(root(pre(900, 300))), false);
