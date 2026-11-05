@@ -1,6 +1,6 @@
 # polyjose-docs
 
-This is the public documentation site for [polyjose](https://github.com/bharathkontham/polyjose). It's built with Astro + Starlight (pinned exactly) and deployed to GitHub Pages.
+This is the public documentation site for [polyjose](https://github.com/bharathkontham/polyjose). It's built with Astro + Starlight (pinned exactly) and deployed to GitHub Pages at **https://polyjose.dev**.
 
 ```sh
 npm install
