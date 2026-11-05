@@ -52,7 +52,7 @@ Code samples are not typed into pages. They live as real, tested source files un
 
 ## Writing rules
 
-These rules are checked automatically and apply to every page, data file and sample.
+These rules apply to every page, data file and sample. `npm run lint:refs` checks the private-reference rule, and `npm run lint:honesty` checks the pre-1.0 notice, the audit wording and which pages may say "constant-time", on every built page. Everything the scripts can't check, including the benchmark and adoption rule, is checked in review.
 
 **No private references.** Pages stand on their own. Don't cite internal planning documents: no decision-record, requirement or task numbers, internal file paths, or internal tool and role names. Explain a decision in your own words. Public identifiers are fine: RFC sections, IANA names, error codes, advisory ids such as RUSTSEC numbers.
 
