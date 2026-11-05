@@ -1,0 +1,280 @@
+// Tests for src/data/primitives.json, the data behind Security › Cryptographic
+// foundations, and for the page built from it.
+//
+// The data credits every cryptographic primitive crate polyjose builds on and
+// states its public audit status. The audit facts must match the published
+// reports exactly: nothing stronger, nothing weaker. The page tests read the
+// built HTML in dist/, so they run after `npm run build` (as `npm run verify`
+// does) and are skipped, with a reason, when dist/ has not been built.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const root = fileURLToPath(new URL('../../', import.meta.url));
+const primitives = JSON.parse(readFileSync(`${root}src/data/primitives.json`, 'utf8'));
+const byCrate = new Map(primitives.map((p) => [p.crate, p]));
+
+const RUSTCRYPTO = [
+  'aes', 'aes-gcm', 'aes-kw', 'cbc', 'hmac', 'sha2', 'pbkdf2', 'p256', 'p384', 'p521',
+  'k256', 'ecdsa', 'elliptic-curve', 'rsa', 'crypto-bigint', 'zeroize',
+];
+const DALEK = ['curve25519-dalek', 'ed25519-dalek', 'x25519-dalek', 'subtle'];
+const RUST_RANDOM = ['getrandom'];
+const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
+
+// The only crates with a published independent review of their own.
+const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa'];
+
+const STATUSES = ['audited', 'partial', 'none-found'];
+const NONE_FOUND_NOTE = 'No public independent audit found';
+
+const nonEmptyString = (v) => typeof v === 'string' && v.trim().length > 0;
+
+test('lists exactly the primitive crates, once each, in a stable order', () => {
+  const crates = primitives.map((p) => p.crate);
+  assert.equal(new Set(crates).size, crates.length, 'duplicate crate entry');
+  assert.deepEqual([...crates].sort(), [...ALL].sort());
+});
+
+test('has no sha1 entry (polyjose uses no SHA-1)', () => {
+  assert.equal(byCrate.has('sha1'), false);
+  for (const p of primitives) {
+    assert.doesNotMatch(p.purpose, /\bSHA-?1\b/i, `${p.crate}: purpose mentions SHA-1`);
+  }
+});
+
+test('every entry has every field, and none is empty', () => {
+  for (const p of primitives) {
+    assert.deepEqual(
+      Object.keys(p).sort(),
+      ['audit', 'crate', 'license', 'purpose', 'repo', 'sources', 'upstream'],
+      `${p.crate}: unexpected or missing fields`,
+    );
+    for (const key of ['crate', 'upstream', 'repo', 'license', 'purpose']) {
+      assert.ok(nonEmptyString(p[key]), `${p.crate}: ${key} is empty`);
+    }
+    assert.ok(STATUSES.includes(p.audit.status), `${p.crate}: unknown audit status ${p.audit.status}`);
+    assert.ok(nonEmptyString(p.audit.note), `${p.crate}: audit.note is empty`);
+    for (const key of ['by', 'report']) {
+      if (key in p.audit) assert.ok(nonEmptyString(p.audit[key]), `${p.crate}: audit.${key} is empty`);
+    }
+    if ('year' in p.audit) assert.ok(Number.isInteger(p.audit.year), `${p.crate}: audit.year is not a year`);
+    assert.ok(Array.isArray(p.sources) && p.sources.length > 0, `${p.crate}: no sources`);
+    for (const s of p.sources) assert.ok(nonEmptyString(s), `${p.crate}: empty source`);
+  }
+});
+
+test('the purpose is one sentence', () => {
+  for (const p of primitives) {
+    assert.match(p.purpose, /^[A-Z].*\.$/s, `${p.crate}: purpose must be a full sentence`);
+    assert.doesNotMatch(p.purpose.slice(0, -1), /[.!?]\s/, `${p.crate}: purpose has more than one sentence`);
+  }
+});
+
+test('every link is https: repos, reports and sources', () => {
+  for (const p of primitives) {
+    const urls = [p.repo, ...p.sources, ...(p.audit.report ? [p.audit.report] : [])];
+    for (const u of urls) {
+      const url = new URL(u);
+      assert.equal(url.protocol, 'https:', `${p.crate}: ${u} is not https`);
+    }
+  }
+});
+
+test('upstream project and license match each crate', () => {
+  const expected = [
+    ...RUSTCRYPTO.map((c) => [c, 'RustCrypto', 'MIT OR Apache-2.0']),
+    ...DALEK.map((c) => [c, 'dalek-cryptography', 'BSD-3-Clause']),
+    ...RUST_RANDOM.map((c) => [c, 'rust-random', 'MIT OR Apache-2.0']),
+  ];
+  for (const [crate, upstream, license] of expected) {
+    const p = byCrate.get(crate);
+    assert.equal(p.upstream, upstream, `${crate}: upstream`);
+    assert.equal(p.license, license, `${crate}: license`);
+    assert.ok(p.repo.startsWith(`https://github.com/${upstream}/`), `${crate}: repo is not under ${upstream}`);
+    assert.ok(
+      p.sources.includes(`https://crates.io/crates/${crate}`),
+      `${crate}: the crates.io page (source of the license) is not listed in sources`,
+    );
+  }
+});
+
+test('only the crates with a published review of their own have a status other than none-found', () => {
+  for (const p of primitives) {
+    if (REVIEWED.includes(p.crate)) continue;
+    assert.equal(p.audit.status, 'none-found', `${p.crate}: status must be none-found`);
+  }
+  for (const crate of REVIEWED) {
+    assert.notEqual(byCrate.get(crate).audit.status, 'none-found', `${crate}: has a published review`);
+  }
+});
+
+test('a reviewed crate names the reviewer, the year and a link to the report', () => {
+  for (const p of primitives) {
+    if (p.audit.status === 'none-found') {
+      for (const key of ['by', 'year', 'report']) {
+        assert.equal(key in p.audit, false, `${p.crate}: none-found must not carry audit.${key}`);
+      }
+      assert.ok(p.audit.note.startsWith(NONE_FOUND_NOTE), `${p.crate}: note must start "${NONE_FOUND_NOTE}"`);
+      assert.match(p.audit.note, /widely deployed/, `${p.crate}: note must say the crate is widely deployed`);
+    } else {
+      for (const key of ['by', 'year', 'report']) {
+        assert.ok(key in p.audit, `${p.crate}: a reviewed crate needs audit.${key}`);
+      }
+      assert.ok(p.sources.includes(p.audit.report), `${p.crate}: the report must also be listed in sources`);
+    }
+  }
+});
+
+test('aes-gcm: NCC Group, 2020, for MobileCoin, no significant findings, the 0.8 line', () => {
+  const { audit } = byCrate.get('aes-gcm');
+  assert.equal(audit.by, 'NCC Group');
+  assert.equal(audit.year, 2020);
+  assert.equal(
+    audit.report,
+    'https://www.nccgroup.com/research/public-report-rustcrypto-aesgcm-and-chacha20pluspoly1305-implementation-review/',
+  );
+  assert.match(audit.note, /\bMobileCoin\b/);
+  assert.match(audit.note, /no significant findings/);
+  assert.match(audit.note, /the 0\.8 line/);
+  assert.match(audit.note, /later release line/);
+  assert.equal(audit.status, 'partial', 'the review does not cover the line polyjose uses');
+});
+
+test('k256: NCC Group, 2023, for Entropy, two high-severity findings, both fixed', () => {
+  const { audit } = byCrate.get('k256');
+  assert.equal(audit.by, 'NCC Group');
+  assert.equal(audit.year, 2023);
+  assert.equal(
+    audit.report,
+    'https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf',
+  );
+  assert.match(audit.note, /\bEntropy\b/);
+  assert.match(audit.note, /two high-severity findings, both fixed/);
+  assert.equal(audit.status, 'audited');
+});
+
+test('curve25519-dalek: Quarkslab, 2019, for Tari, minor issues; x25519/ed25519 only marginally; later fixes', () => {
+  const { audit, sources } = byCrate.get('curve25519-dalek');
+  assert.equal(audit.by, 'Quarkslab');
+  assert.equal(audit.year, 2019);
+  assert.equal(audit.report, 'https://blog.quarkslab.com/security-audit-of-dalek-libraries.html');
+  assert.match(audit.note, /\bTari\b/);
+  assert.match(audit.note, /minor issues/);
+  assert.match(audit.note, /x25519-dalek and ed25519-dalek were reviewed only marginally/);
+  assert.match(audit.note, /RUSTSEC-2022-0093/);
+  assert.match(audit.note, /Scalar/);
+  assert.ok(sources.includes('https://rustsec.org/advisories/RUSTSEC-2022-0093.html'));
+  assert.equal(audit.status, 'partial', 'the review predates later fixes and the line polyjose uses');
+});
+
+test('x25519-dalek and ed25519-dalek: no audit of their own, the marginal review is mentioned, never as a full audit', () => {
+  for (const crate of ['x25519-dalek', 'ed25519-dalek']) {
+    const { audit, sources } = byCrate.get(crate);
+    assert.equal(audit.status, 'none-found');
+    assert.match(audit.note, /only marginally/, `${crate}: mention the marginal review`);
+    assert.match(audit.note, /Quarkslab/);
+    assert.ok(sources.includes('https://blog.quarkslab.com/security-audit-of-dalek-libraries.html'));
+  }
+  assert.match(byCrate.get('ed25519-dalek').audit.note, /RUSTSEC-2022-0093/);
+});
+
+test('rsa: Include Security, 2019, one minor finding, predates Marvin, public-key operations only', () => {
+  const { audit, sources, purpose } = byCrate.get('rsa');
+  assert.equal(audit.by, 'Include Security');
+  assert.equal(audit.year, 2019);
+  assert.match(audit.note, /one minor finding/);
+  assert.match(audit.note, /predates RUSTSEC-2023-0071/);
+  assert.match(audit.note, /no published audit/);
+  assert.match(audit.note, /public-key operations only/);
+  assert.match(purpose, /public-key operations only/i);
+  assert.ok(sources.includes('https://rustsec.org/advisories/RUSTSEC-2023-0071.html'));
+  assert.ok(sources.includes('https://github.com/RustCrypto/RSA'), 'the README the review is reported in');
+  assert.equal(audit.status, 'partial', 'the current rewrite has no published audit');
+});
+
+test('the data never calls polyjose audited, carries no versions, and claims no constant-time behaviour', () => {
+  const text = JSON.stringify(primitives);
+  assert.doesNotMatch(text, /polyjose[^.]{0,60}\b(is|has been|was|are)\s+(independently\s+|professionally\s+)?audited\b/i);
+  assert.doesNotMatch(text, /\bv?\d+\.\d+\.\d+/, 'exact versions come from the lockfile later');
+  assert.doesNotMatch(text, /\bv\d+\b|=\d/, 'no version requirements');
+  assert.doesNotMatch(text, /constant[- ]time/i, 'quote constant-time claims on the page, with a link');
+});
+
+// ---------------------------------------------------------------------------
+// The built page.
+
+const pagePath = `${root}dist/security/cryptographic-foundations/index.html`;
+const built = existsSync(pagePath);
+const skip = built ? false : 'dist/ is not built; run `npm run build` first';
+const html = built ? readFileSync(pagePath, 'utf8') : '';
+const main = built ? (html.match(/<main[\s\S]*<\/main>/) ?? [''])[0] : '';
+const textOf = (s) =>
+  s
+    .replace(/<(script|style)[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ');
+const text = textOf(main);
+
+test('page: the table is semantic, with a caption and column headers', { skip }, () => {
+  const tables = main.match(/<table[\s\S]*?<\/table>/g) ?? [];
+  const table = tables.find((t) => t.includes('data-primitives'));
+  assert.ok(table, 'no primitives table');
+  assert.match(table, /<caption[^>]*>[^<\s][\s\S]*?<\/caption>/, 'caption missing');
+  const ths = table.match(/<th\b[^>]*>/g) ?? [];
+  assert.ok(ths.length >= 5, 'too few column headers');
+  const colHeaders = ths.filter((th) => /scope="col"/.test(th));
+  assert.ok(colHeaders.length >= 5, 'column headers need scope="col"');
+  for (const th of ths) assert.match(th, /scope="(col|row)"/, `header without scope: ${th}`);
+  const rows = table.match(/<tbody[\s\S]*<\/tbody>/)[0].match(/<tr\b/g) ?? [];
+  assert.equal(rows.length, primitives.length, 'one row per crate');
+});
+
+test('page: links every crate and every report', { skip }, () => {
+  for (const p of primitives) {
+    assert.ok(main.includes(`href="${p.repo}"`), `${p.crate}: no link to ${p.repo}`);
+    if (p.audit.report) assert.ok(main.includes(`href="${p.audit.report}"`), `${p.crate}: no link to its report`);
+  }
+});
+
+test('page: rsa is public-key only, with the advisory and the not-supported page linked', { skip }, () => {
+  assert.ok(main.includes('href="https://rustsec.org/advisories/RUSTSEC-2023-0071.html"'));
+  assert.ok(main.includes('href="/security/not-supported/"'));
+  assert.match(text, /public-key operations only/);
+  assert.match(text, /no patched release/);
+});
+
+test('page: says polyjose itself has not been audited yet, plans one before 1.0, and is pre-1.0', { skip }, () => {
+  assert.match(text, /polyjose itself has not yet had an independent audit/);
+  assert.match(text, /planned before 1\.0/);
+  assert.match(text, /pre-1\.0/);
+  assert.doesNotMatch(text, /polyjose[^.]{0,60}\b(is|has been|was|are)\s+(independently\s+|professionally\s+)?audited\b/i);
+});
+
+test('page: covers the trust rule, subtle and zeroize, the notices file and the build-time crates', { skip }, () => {
+  for (const phrase of [
+    'pure Rust',
+    'no unresolved RustSec advisory',
+    'Wycheproof',
+    'THIRD-PARTY-NOTICES.txt',
+    'curve25519-dalek-derive',
+    'not linked into',
+    'own security model',
+  ]) {
+    assert.ok(text.includes(phrase), `page does not mention "${phrase}"`);
+  }
+  for (const crate of ['syn', 'quote', 'proc-macro2']) assert.match(text, new RegExp(`\\b${crate}\\b`));
+});
+
+test('page: thanks the upstream maintainers by project name and shows no versions', { skip }, () => {
+  assert.match(text, /[Tt]hank/);
+  for (const project of ['RustCrypto', 'dalek-cryptography', 'rust-random']) {
+    assert.ok(text.includes(project), `page does not name ${project}`);
+  }
+  assert.doesNotMatch(text, /\bv?\d+\.\d+\.\d+/, 'no exact versions yet');
+});
