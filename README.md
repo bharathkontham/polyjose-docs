@@ -52,12 +52,12 @@ Code samples are not typed into pages. They live as real, tested source files un
 
 ## Writing rules
 
-These rules are checked automatically and apply to every page, data file and sample.
+These rules apply to every page, data file and sample. `npm run lint:refs` checks the private-reference rule, and `npm run lint:honesty` checks the pre-1.0 notice, the audit wording and which pages may say "constant-time", on every built page. Everything the scripts can't check, including the benchmark and adoption rule, is checked in review.
 
 **No private references.** Pages stand on their own. Don't cite internal planning documents: no decision-record, requirement or task numbers, internal file paths, or internal tool and role names. Explain a decision in your own words. Public identifiers are fine: RFC sections, IANA names, error codes, advisory ids such as RUSTSEC numbers.
 
 **Honesty.**
 - polyjose is pre-1.0. Every page carries the site-wide notice.
-- Never describe polyjose as audited. Credit the libraries it builds on and quote what review they have had in their maintainers' own words, only on the Security › Cryptographic foundations and About pages.
+- Never describe polyjose as audited. Credit the libraries it builds on. What review they have had is quoted in their maintainers' own words only in the audit register on Security › Cryptographic foundations: the primitives table and its status legend. The word "audited" appears nowhere else on the site, About included.
 - Never claim constant-time behaviour beyond what the underlying library documents, and only on the Security pages.
 - No benchmark or adoption numbers until they have been measured and can be reproduced.
