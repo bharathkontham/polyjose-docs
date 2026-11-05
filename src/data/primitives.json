@@ -285,7 +285,7 @@
       "by": "Quarkslab",
       "year": 2019,
       "report": "https://blog.quarkslab.com/security-audit-of-dalek-libraries.html",
-      "note": "Reviewed by Quarkslab in 2019, for Tari, as part of its review of the dalek libraries, which found minor issues only. For this crate, the review checked the source code and the generated assembly for trivial timing leaks. Later releases have followed since."
+      "note": "Reviewed by Quarkslab in 2019, for Tari, as part of its review of the dalek libraries, which found minor issues only. For this crate, the review checked that the source code, and the assembly that the Rust compiler version nightly-2019-06-11 generated from it, have no trivial time leak. In the post's words, the review \"does not validate that the library is immune to time leaks on a specific piece of hardware or outside the scope of the library.\" Later releases have followed since."
     },
     "sources": [
       "https://crates.io/crates/subtle",
