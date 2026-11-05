@@ -507,3 +507,18 @@ test('with CI=true a sibling or clone problem is a FAIL, never SKIPPED', () => {
     assert.doesNotMatch(r.out, /SKIPPED|PASS|runner ran/, name);
   }
 });
+
+test('outside CI the same pinned platforms are SKIPPED, never PASS, and the run exits 0', () => {
+  const { docs } = docsTree({ pins: { rust: gitPin(), js: gitPin(), kotlin: REGISTRY }, runners: { kotlin: 'skip' } });
+  for (const env of [{}, { CI: 'false' }, { CI: '' }]) {
+    const r = run(['all'], { docs, env });
+    assert.equal(r.status, 0, JSON.stringify(env) + r.out + r.err);
+    assert.deepEqual(resultLines(r.out), [
+      'SKIPPED (rust: runner not installed)',
+      'SKIPPED (js: runner not installed)',
+      'SKIPPED (kotlin: toolchain not found)',
+      'SKIPPED (swift: no polyjose build pinned)',
+    ]);
+    assert.doesNotMatch(r.out, /PASS|FAIL/);
+  }
+});
