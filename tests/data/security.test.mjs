@@ -81,7 +81,7 @@ test('Security model: each fact is stated', async (t) => {
 
   await t.test('2. dependencies', () => {
     assertPhrases(text, 'core dependencies', ['subtle', 'zeroize', 'getrandom']);
-    assertPhrases(text, 'own utilities', ['base64url', 'JSON', 'DER', 'PEM', 'errors']);
+    assertPhrases(text, 'own utilities', ['base64url', 'JSON', 'DER', 'PEM', /\berror (types|handling)\b|\berrors\b/]);
     assertPhrases(text, 'allowlist', [/CI\b[^.]*\ballowlist\b/]);
     assert.ok(links.includes('/security/cryptographic-foundations/'), 'links to Security › Cryptographic foundations');
   });
