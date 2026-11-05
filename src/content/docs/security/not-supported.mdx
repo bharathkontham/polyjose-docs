@@ -43,6 +43,10 @@ RSA signing, RSA decryption and RSA key generation will return once a fixed `rsa
 
 **Why:** SHA-1 isn't practically broken inside OAEP, because OAEP doesn't rely on collision resistance. But SHA-1 has been retired almost everywhere else, and leaving it out entirely means one fewer primitive to trust. `RSA-OAEP` is not a Required algorithm in RFC 7518 §4.1, so omitting it keeps polyjose conformant.
 
+When 0.1.0 is released, it will conform as follows:
+
+> Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits `RSA-OAEP` (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see [the security page](#rsa-private-keys)) and `RSA1_5`.
+
 **Instead:** use `RSA-OAEP-256`, or `ECDH-ES` for new recipients. polyjose can't encrypt to a recipient that accepts only `RSA-OAEP`.
 
 ## `zip` in bindings
