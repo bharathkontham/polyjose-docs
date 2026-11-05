@@ -109,6 +109,8 @@ test('isSampleSource skips fixtures, generated copies, build output and dependen
     'samples/rust/target/debug/build/x.rs',
     'samples/kotlin/build/generated/A.kt',
     'samples/swift/.build/checkouts/x/A.swift',
+    'samples/js/.cache/x.mjs',
+    'samples/rust/tests/.hidden.rs',
     'samples/rust/tests/a.txt',
     'samples/rust/tests/a.kt',
     'samples/kotlin/a.rs',
