@@ -11,15 +11,23 @@
 // - "none-found": no public independent audit of the crate was found.
 //
 // The note carries the reviewer's facts as published; the label only sorts.
+// A "none-found" note already opens with its status ("No public independent
+// audit found"), so that first sentence is shown as the label instead of
+// repeating it.
 import primitives from '../data/primitives.json';
 
 type Status = 'audited' | 'partial' | 'none-found';
 
-const labels: Record<Status, string> = {
+const labels: Record<Exclude<Status, 'none-found'>, string> = {
 	audited: 'Audited',
 	partial: 'Audited, earlier release',
-	'none-found': 'No public audit found',
 };
+
+/** Splits a note into its first clause (up to the first `.` or `:`) and the rest. */
+function lead(note: string): [string, string] {
+	const m = /^(.*?[.:])\s+(.*)$/s.exec(note);
+	return m ? [m[1], m[2]] : [note, ''];
+}
 ---
 
 <table class="primitives" data-primitives>
@@ -51,13 +59,20 @@ const labels: Record<Status, string> = {
 						<td>{p.license}</td>
 						<td>{p.purpose}</td>
 						<td class="audit">
-							<strong>{labels[audit.status]}.</strong>{' '}
-							{audit.report && (
-								<a href={audit.report}>
-									{audit.by} report ({audit.year})
-								</a>
+							{audit.status === 'none-found' ? (
+								<>
+									<strong>{lead(audit.note)[0]}</strong>
+									{lead(audit.note)[1] && <p>{lead(audit.note)[1]}</p>}
+								</>
+							) : (
+								<>
+									<strong>{labels[audit.status]}.</strong>{' '}
+									<a href={audit.report}>
+										{audit.by} report ({audit.year})
+									</a>
+									<p>{audit.note}</p>
+								</>
 							)}
-							<p>{audit.note}</p>
 						</td>
 					</tr>
 				);
