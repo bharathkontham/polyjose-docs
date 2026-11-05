@@ -1,7 +1,7 @@
 ---
 // Renders one group of src/data/algorithms.json as a captioned table: one row
 // per identifier (a row header), one column per operation, the key it takes,
-// the defining RFC section and the registry's requirement level.
+// the defining RFC section with the registry's requirement level, and details.
 import data from '../data/algorithms.json';
 
 type Status = 'yes' | 'verify-only' | 'encrypt-only' | 'no';
@@ -68,12 +68,10 @@ const notSupportedHref = (id: string) => `/security/not-supported/${DEEP_LINK_NO
 	<thead>
 		<tr>
 			<th scope="col">Identifier</th>
-			<th scope="col">Description</th>
 			{group.operations.map((op) => <th scope="col">{capitalize(op)}</th>)}
 			<th scope="col">Key</th>
-			<th scope="col">Defined in</th>
-			<th scope="col">Requirement level</th>
-			<th scope="col">Notes</th>
+			<th scope="col">Specification</th>
+			<th scope="col">Details</th>
 		</tr>
 	</thead>
 	<tbody>
@@ -83,7 +81,6 @@ const notSupportedHref = (id: string) => `/security/not-supported/${DEEP_LINK_NO
 					<th scope="row">
 						<code>{row.name}</code>
 					</th>
-					<td>{row.description}</td>
 					{([0, 1] as const).map((i) =>
 						supports(row.status, i) ? (
 							<td>
@@ -96,25 +93,29 @@ const notSupportedHref = (id: string) => `/security/not-supported/${DEEP_LINK_NO
 						),
 					)}
 					<td>{row.key}</td>
-					<td>
+					<td class="spec">
 						<a href={rfcLink(row.spec)}>{rfcLabel(row.spec)}</a>
-					</td>
-					<td>
-						{row.level ?? '–'}
-						{row.levelSpec && (
+						{row.level && (
 							<>
-								{' '}
-								(<a href={rfcLink(row.levelSpec)}>{rfcLabel(row.levelSpec)}</a>)
+								<br />
+								{row.level}
+								{row.levelSpec && (
+									<>
+										{' '}
+										(<a href={rfcLink(row.levelSpec)}>{rfcLabel(row.levelSpec)}</a>)
+									</>
+								)}
 							</>
 						)}
 					</td>
 					<td>
-						{row.recommended && <strong>Recommended for new tokens. </strong>}
-						{row.deprecated && <strong>Deprecated. </strong>}
-						{row.note && parts(row.note).map((p) => (p.code ? <code>{p.text}</code> : p.text))}
+						{row.description}.
+						{row.recommended && <strong> Recommended for new tokens.</strong>}
+						{row.deprecated && <strong> Deprecated.</strong>}
+						{row.note && [' ', ...parts(row.note).map((p) => (p.code ? <code>{p.text}</code> : p.text))]}
 						{row.notSupported && (
 							<>
-								{row.note ? ' ' : ''}
+								{' '}
 								<a href={notSupportedHref(row.notSupported)}>
 									{row.status === 'no' ? 'Why it is not supported' : 'Why it is limited'}
 								</a>
@@ -135,7 +136,11 @@ const notSupportedHref = (id: string) => `/security/not-supported/${DEEP_LINK_NO
 		color: var(--sl-color-white);
 		padding-block-end: 0.5rem;
 	}
-	.algorithm-matrix th[scope='row'] {
+	.algorithm-matrix th[scope='row'],
+	.algorithm-matrix .spec {
 		white-space: nowrap;
+	}
+	.algorithm-matrix td:last-child {
+		min-width: 16rem;
 	}
 </style>
