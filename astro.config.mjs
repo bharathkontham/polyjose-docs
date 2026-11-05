@@ -64,6 +64,7 @@ export default defineConfig({
       title: 'polyjose',
       description: 'Pure-Rust JOSE (JWS, JWE, JWK, JWT) for Rust, Node, Web, Android and Apple platforms.',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/bharathkontham/polyjose' }],
+      components: { Banner: './src/components/overrides/Banner.astro' },
       sidebar,
     }),
   ],

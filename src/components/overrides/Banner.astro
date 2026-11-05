@@ -1,0 +1,35 @@
+---
+// Site-wide Banner override: renders Starlight's own banner (when a page sets
+// one in frontmatter), then the pre-release notice that every page carries,
+// the splash page included. The `data-prerelease-notice` attribute is the
+// marker the build checks look for in the generated HTML.
+import Default from '@astrojs/starlight/components/Banner.astro';
+---
+
+<Default />
+<div class="prerelease-notice" role="note" data-prerelease-notice data-pagefind-ignore>
+	<p>
+		<strong>Pre-1.0:</strong> polyjose is not published yet, and its APIs may change before 1.0.
+		Read the <a href="/security/reporting/">security policy</a> before you rely on it.
+	</p>
+</div>
+
+<style>
+	.prerelease-notice {
+		padding: 0.5rem var(--sl-nav-pad-x);
+		background-color: var(--sl-color-orange-low);
+		border-bottom: 1px solid var(--sl-color-orange);
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-sm);
+		line-height: var(--sl-line-height-headings);
+		text-align: center;
+		text-wrap: balance;
+	}
+	.prerelease-notice p {
+		margin: 0;
+	}
+	.prerelease-notice a {
+		color: var(--sl-color-white);
+		text-decoration: underline;
+	}
+</style>
