@@ -133,16 +133,17 @@
     "license": "MIT OR Apache-2.0",
     "purpose": "The secp256k1 curve for ES256K signatures.",
     "audit": {
-      "status": "audited",
+      "status": "partial",
       "by": "NCC Group",
       "year": 2023,
       "report": "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
-      "note": "Reviewed by NCC Group in 2023, for Entropy: two high-severity findings, both fixed."
+      "note": "Reviewed by NCC Group in 2023, for Entropy: two high-severity findings, both fixed. The review covered commits 0f27814 and 5c829a4 of k256 (report page 2, section 1, Executive Summary, Scope), on the 0.13 line; polyjose uses a later release line."
     },
     "sources": [
       "https://crates.io/crates/k256",
       "https://github.com/RustCrypto/elliptic-curves/tree/master/k256",
-      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf"
+      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
+      "https://github.com/RustCrypto/elliptic-curves/commit/0f27814b47f4ea2a43f2958e91d142688c89d89a"
     ]
   },
   {
@@ -200,12 +201,13 @@
       "by": "NCC Group",
       "year": 2023,
       "report": "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
-      "note": "Reviewed by NCC Group in 2023, for Entropy, in the same review as k256. The crate's maintainers report no significant findings, and note that the implementation has diverged significantly since that review."
+      "note": "Reviewed by NCC Group in 2023, for Entropy, in the same review as k256. The review covered commits fde0661 and ad08a7e of crypto-bigint (report page 2, section 1, Executive Summary, Scope), on the 0.5 line; polyjose uses a later release line. The crate's maintainers report no significant findings, and note that the implementation has diverged significantly since that review."
     },
     "sources": [
       "https://crates.io/crates/crypto-bigint",
       "https://github.com/RustCrypto/crypto-bigint",
-      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf"
+      "https://www.nccgroup.com/media/bq2gfxb3/_ncc_group_entropycryptography_e008526_report_2023-08-25_v10.pdf",
+      "https://github.com/RustCrypto/crypto-bigint/commit/fde06616bffa9659cd84754706597a42681d9575"
     ]
   },
   {
