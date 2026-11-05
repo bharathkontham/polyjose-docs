@@ -20,12 +20,58 @@ const TRIGGERS = [
   ['Feature 0007 adds', 'Feature 0007'],
   ['done in T03.', 'T03'],
   ['after Gate 2', 'Gate 2'],
-  ['polyjose-brain', '-brain'],
+  ['polyjose-brain', 'brain'],
   ['/Users/someone/src', '/Users/'],
   ['in .worktrees/x', '.worktrees'],
   ['the orchestrator merges', 'orchestrator'],
   ['The Orchestrator merges', 'Orchestrator'],
   ['a code-agent worker', 'code-agent'],
+  // Any case, and any separator between the word and the number.
+  ['adr-0019', 'adr-0019'],
+  ['adr/0019-x.md', 'adr/0019'],
+  ['see adr/12345', 'adr/1'],
+  ['ADR_0019', 'ADR_0019'],
+  ['ADR#19', 'ADR#19'],
+  ['ADR\u20110019', 'ADR\u20110019'],
+  ['ADR\u20100019', 'ADR\u20100019'],
+  ['ADR\n0019', 'ADR\n0019'],
+  ['prds/0003-jwe.md', 'prds/0003'],
+  ['prd_7', 'prd_7'],
+  ['feature-0003', 'feature-0003'],
+  ['feature_0003', 'feature_0003'],
+  ['FEATURES#0011', 'FEATURES#0011'],
+  ['after gate-2', 'gate-2'],
+  ['GATE_3', 'GATE_3'],
+  ['gate1', 'gate1'],
+  // Batch and task numbers, also inside branch and file names.
+  ['B03', 'B03'],
+  ['the b12 batch', 'b12'],
+  ['b03-foundations-no-sha1', 'b03'],
+  ['t07', 't07'],
+  ['feature/docs-site-t03-quality-gates', 't03'],
+  ['docs_site_t03_quality', 't03'],
+  // The internal repository, by name.
+  ['polyjose brain', 'brain'],
+  ['The Brain says', 'Brain'],
+  ['polyjose_brain', 'brain'],
+  // Local paths.
+  ['~/bharathwork/joserust', '~/'],
+  ['cd `~/src`', '~/'],
+  ['/home/runner/work', '/home/'],
+  ['file:///home/runner', '/home/'],
+  ['"/home/x"', '/home/'],
+  ['C:\\Users\\me', 'C:\\Users'],
+  ['"d:\\\\users\\\\me"', 'd:\\\\users'],
+  ['in .Worktrees/x', '.Worktrees'],
+  // Process terms.
+  ['an owner directive', 'owner directive'],
+  ['Owner-Directives', 'Owner-Directives'],
+  ['overnight delegation', 'overnight delegation'],
+  ['the planner agent', 'planner agent'],
+  ['two tester agents', 'tester agents'],
+  ['the orchestrators', 'orchestrators'],
+  ['a code agent', 'code agent'],
+  ['code_agent', 'code_agent'],
 ];
 
 for (const [text, match] of TRIGGERS) {
@@ -53,9 +99,53 @@ const SAFE = [
   '2026-01-01T12:00:00Z',
   'ES256K and PS384',
   'requirement R12',
-  'the brain of the operation',
   'Gate 4',
   'T1 or T123',
+  // The RFC 7797 header parameter, in any case and spelling.
+  'b64',
+  'B64',
+  '`b64: false` needs `crit`',
+  '{"b64":false,"crit":["b64"]}',
+  'B64_PAYLOAD',
+  // RFC numbers and sections.
+  'RFC 7797',
+  'RFC 7515 §4.1.11',
+  'rfc7518',
+  'RFC 7520 §4.1',
+  // Hyphenated prose with a word starting with "t" after the hyphen.
+  'well-tested',
+  'non-trivial',
+  'a self-test',
+  'built-in tools',
+  // Algorithm names, curves, advisories, shrinkers and hashed asset names.
+  'A256CBC-HS512',
+  'ECDH-ES+A256KW',
+  'P-384 and P-521',
+  'RUSTSEC-2024-0344',
+  'R8 and ProGuard',
+  'Code.astro_astro_type_script_index_0_lang.C3fM4Kra.js',
+  'common.BoOHtkVB.css',
+  'page.x-T12_ab.js',
+  'pagefind.en_e7e6941272.pf_meta',
+  'en_b12a3f0.pf_fragment',
+  // Words that contain an identifier-like word.
+  'brainpoolP256r1',
+  'brains and brainstorm',
+  'a gate',
+  'the gateway',
+  'gate 10',
+  'delegate 2 keys',
+  'navigate 3 pages',
+  'the owner of the key',
+  'a compiler directive',
+  'quadrant 7',
+  'feature 12',
+  // Paths and the same text inside external URLs.
+  'https://example.com/home/docs',
+  'https://example.com/a-b/home/x',
+  'https://example.com/~/x',
+  'https://example.edu/~user/',
+  'C:\\Windows',
 ];
 
 for (const text of SAFE) {
@@ -73,6 +163,28 @@ test('reports every match with its line', () => {
       [2, 'T01'],
       [4, 'PRD 2'],
     ],
+  );
+});
+
+test('ignores invisible characters inside an identifier', () => {
+  for (const [text, match] of [
+    ['ADR\u00AD0019', 'ADR0019'],
+    ['A\u200BDR 1', 'ADR 1'],
+    ['T\u200D07', 'T07'],
+    ['polyjose bra\u2060in', 'brain'],
+    ['gate\uFEFF 2', 'gate 2'],
+  ]) {
+    const found = findPrivateRefs(text);
+    assert.equal(found.length, 1, `${JSON.stringify(text)}: ${JSON.stringify(found)}`);
+    assert.equal(found[0].match, match);
+  }
+});
+
+test('keeps line numbers when invisible characters are removed', () => {
+  const found = findPrivateRefs('a\u00AD\u200Bb\nok\n\u00ADADR\u00AD 7');
+  assert.deepEqual(
+    found.map((f) => [f.line, f.match]),
+    [[3, 'ADR 7']],
   );
 });
 
