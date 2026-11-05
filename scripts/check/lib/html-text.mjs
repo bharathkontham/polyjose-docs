@@ -71,6 +71,7 @@ function tagEnd(html, start) {
  * element bodies come out as `skip` tokens.
  */
 export function* tokens(html) {
+  const lower = html.toLowerCase();
   let i = 0;
   let text = '';
   const flush = function* () {
@@ -78,10 +79,12 @@ export function* tokens(html) {
     text = '';
   };
   while (i < html.length) {
-    const c = html[i];
-    if (c !== '<' || !/[a-zA-Z/!?]/.test(html[i + 1] ?? '')) {
-      text += c;
-      i++;
+    if (html[i] !== '<' || !/[a-zA-Z/!?]/.test(html[i + 1] ?? '')) {
+      // Plain text runs up to the next '<' (which may itself be text).
+      const next = html.indexOf('<', i + 1);
+      const stop = next === -1 ? html.length : next;
+      text += html.slice(i, stop);
+      i = stop;
       continue;
     }
     yield* flush();
@@ -109,7 +112,7 @@ export function* tokens(html) {
     const attrs = closing ? new Map() : parseAttrs(raw.slice(m[0].length, -1));
     yield { type: 'tag', raw, name, closing, attrs };
     if (!closing && RAW_TEXT.has(name)) {
-      const close = html.toLowerCase().indexOf(`</${name}`, i);
+      const close = lower.indexOf(`</${name}`, i);
       const stop = close === -1 ? html.length : close;
       yield { type: 'skip', raw: html.slice(i, stop) };
       i = stop;
