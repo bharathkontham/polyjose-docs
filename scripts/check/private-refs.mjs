@@ -2,19 +2,23 @@
 // npm run lint:refs
 //
 // Fails when published text contains an internal identifier: a decision record,
-// requirements document, feature or task number, an approval step name, an
-// internal repository name, a local path, or an internal role name. Public
-// pages explain decisions in their own words, so the fix is always to reword.
-// There is deliberately no way to suppress a match.
+// requirements document, feature, batch or task number, an approval step name,
+// an internal repository name, a local path, or an internal role or process
+// term. Public pages explain decisions in their own words, so the fix is always
+// to reword. There is deliberately no way to suppress a match.
 //
-// Scanned: src/content, src/data and samples (as source text), and the
-// reader-visible text of every built dist/**/*.html page.
+// Scanned as source text: src/content, src/data, src/components, samples,
+// public and astro.config.mjs. Scanned from the built site: the reader-visible
+// text of every dist/**/*.html page, the link and asset URLs of those pages
+// (except built /_astro/ assets), and the other built text files (the sitemap,
+// robots.txt, JSON and web manifests).
 
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { htmlText } from './lib/html-text.mjs';
 import { listFiles, readText, lineIndex } from './lib/files.mjs';
+import { htmlUrlText, listDistFiles } from './lib/dist-files.mjs';
 
 // Identifiers are matched in any case. "Word boundary" here means a character
 // that is not a letter or digit, so `_t03`, `polyjose_brain` and `ADR_0019`
@@ -73,7 +77,7 @@ function visible(text) {
   return { clean, origin: (i) => at[i] ?? text.length };
 }
 
-const SOURCE_DIRS = ['src/content', 'src/data', 'samples'];
+const SOURCE_ROOTS = ['src/content', 'src/data', 'src/components', 'samples', 'public', 'astro.config.mjs'];
 const SKIP_NAMES = new Set(['node_modules', 'target', 'build', '.build', '.generated', '.git']);
 // The polyjose checkout the sample runner clones in CI is not our text.
 const SKIP_PATHS = new Set(['samples/.polyjose']);
@@ -100,18 +104,28 @@ export function scanSite(root) {
   if (!existsSync(join(root, 'dist'))) {
     throw new Error('dist/ not found: run `npm run build` first, so the built pages are checked too.');
   }
-  const files = [
-    ...SOURCE_DIRS.flatMap((d) => listFiles(root, d, { skipNames: SKIP_NAMES, skipPaths: SKIP_PATHS })),
-    ...listFiles(root, 'dist').filter((f) => f.endsWith('.html')),
-  ];
+  const sources = SOURCE_ROOTS.flatMap((d) => listFiles(root, d, { skipNames: SKIP_NAMES, skipPaths: SKIP_PATHS }));
+  const dist = listDistFiles(root);
+  const pages = new Set(dist.html);
+  // Each file is read as one or more texts, and every text is checked.
+  const views = (file, raw) => {
+    if (pages.has(file)) {
+      return [
+        [htmlText(raw), ''],
+        [htmlUrlText(raw), ', in a link or asset URL'],
+      ];
+    }
+    return [[raw, '']];
+  };
   const findings = [];
   let scanned = 0;
-  for (const file of files) {
+  for (const file of [...sources, ...dist.html, ...dist.text]) {
     const raw = readText(join(root, file));
     if (raw === null) continue;
     scanned++;
-    const text = file.startsWith('dist/') ? htmlText(raw) : raw;
-    for (const f of findPrivateRefs(text)) findings.push({ file, ...f });
+    for (const [text, where] of views(file, raw)) {
+      for (const f of findPrivateRefs(text)) findings.push({ file, ...f, label: f.label + where });
+    }
   }
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
   return { findings, scanned };
