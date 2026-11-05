@@ -411,3 +411,40 @@ test('with CI=true a failed clone is a FAIL', () => {
   assert.match(resultLines(r.out)[0], /^FAIL \(swift: could not fetch polyjose bbbbbbbbbbbb/);
   assert.doesNotMatch(r.out, /runner ran/);
 });
+
+// Under CI=true a platform with a git or registry pin must run: every way it
+// could be skipped is a FAIL. Only a none pin may still be SKIPPED there.
+const CI_RULE = 'a pinned platform must run when CI=true';
+const gitPin = (rev = 'a'.repeat(40)) => ({ source: 'git', rev, upcoming: '0.1.0' });
+
+test('with CI=true git-pinned platforms without a runner fail, none pins stay skipped', () => {
+  // The review's reproduction: rust and js pinned to a commit, no runners.
+  const { base, docs } = docsTree({ pins: { rust: gitPin(), js: gitPin() } });
+  const r = run(['all'], { docs, env: { CI: 'true', POLYJOSE_GIT_URL: `file://${join(base, 'missing')}` } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [
+    `FAIL (rust: runner not installed; ${CI_RULE})`,
+    `FAIL (js: runner not installed; ${CI_RULE})`,
+    'SKIPPED (kotlin: no polyjose build pinned)',
+    'SKIPPED (swift: no polyjose build pinned)',
+  ]);
+  assert.doesNotMatch(r.out, /PASS|SKIPPED \((rust|js):/);
+});
+
+test('with CI=true a registry-pinned platform without a runner fails', () => {
+  const { docs } = docsTree({ pins: { kotlin: REGISTRY } });
+  const r = run(['kotlin'], { docs, env: { CI: 'true' } });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.deepEqual(resultLines(r.out), [`FAIL (kotlin: runner not installed; ${CI_RULE})`]);
+});
+
+test('with CI=true none pins are still skipped and the run exits 0', () => {
+  const { docs } = docsTree({ runners: { rust: 'pass', swift: 'skip' } });
+  const r = run(['all'], { docs, env: { CI: 'true' } });
+  assert.equal(r.status, 0, r.out + r.err);
+  assert.deepEqual(
+    resultLines(r.out),
+    PLATFORMS.map((p) => `SKIPPED (${p}: no polyjose build pinned)`),
+  );
+  assert.doesNotMatch(r.out, /runner ran|PASS|FAIL/);
+});
