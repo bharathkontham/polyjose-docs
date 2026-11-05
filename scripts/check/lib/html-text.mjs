@@ -234,22 +234,53 @@ export function hasAttribute(html, name) {
   return false;
 }
 
+// Elements whose content is not shown: a <details> (even when open, since a
+// reader can close it, and its summary with it), <noscript> (scripts run in
+// the browsers that read the site), <template>, and a <dialog> that is not
+// open.
+const HIDING_ELEMENTS = new Set(['details', 'noscript', 'template']);
+
+// Utility classes that hide an element from view, with any responsive prefix
+// ("md:sl-hidden"): screen-reader-only text, and display or visibility utilities.
+const HIDING_CLASS =
+  /^(?:[\w-]+:)*(?:sl-)?(?:sr-only|visually-hidden|visuallyhidden|screen-reader-text|hidden|invisible)$/i;
+
+// Inline style declarations that hide an element or shrink it to nothing.
+// White space is removed before matching.
+const ZERO = String.raw`(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?`;
+const HIDING_STYLE = new RegExp(
+  String.raw`(?:^|;)(?:display:none|visibility:(?:hidden|collapse)|content-visibility:hidden|opacity:${ZERO}|(?:max-)?(?:width|height):${ZERO}|font-size:${ZERO})(?:;|!|$)`,
+);
+
+/** The class names of a start tag or element. */
+function classes(tag) {
+  return (tag.attrs.get('class') ?? '').split(/\s+/).filter(Boolean);
+}
+
 /**
- * True when an element is not rendered: a <template>, or an element with the
- * `hidden` attribute, `aria-hidden="true"` or an inline `display: none` or
- * `visibility: hidden` style. Its content is hidden with it.
+ * True when an element is not shown, and its content with it: it is one of
+ * HIDING_ELEMENTS or a closed <dialog>; it has the `hidden` attribute (any
+ * value) or `aria-hidden="true"`; it has a hiding utility class (sr-only,
+ * visually-hidden, sl-sr-only, sl-hidden, ...); or its inline style sets
+ * display:none, visibility:hidden or collapse, content-visibility:hidden,
+ * opacity:0, a zero width, height, max-width, max-height or font-size.
+ *
+ * Accepts a start tag token or an element of `elementTree()`. Only the
+ * element's own markup is read: rules in style sheets are not.
  */
-function hides(tag) {
-  if (tag.name === 'template' || tag.attrs.has('hidden')) return true;
+export function isHidden(tag) {
+  if (HIDING_ELEMENTS.has(tag.name) || (tag.name === 'dialog' && !tag.attrs.has('open'))) return true;
+  if (tag.attrs.has('hidden')) return true;
   if ((tag.attrs.get('aria-hidden') ?? '').trim().toLowerCase() === 'true') return true;
+  if (classes(tag).some((c) => HIDING_CLASS.test(c))) return true;
   const style = (tag.attrs.get('style') ?? '').toLowerCase().replace(/\s+/g, '');
-  return /(^|;)(display:none|visibility:hidden)(;|!|$)/.test(style);
+  return HIDING_STYLE.test(style);
 }
 
 /**
  * The visible text of every element that carries the attribute `name`, in
  * document order. Elements that are hidden themselves, or sit inside a hidden
- * element or a <template>, are left out, and so is the text of hidden
+ * element (see `isHidden`), are left out, and so is the text of hidden
  * descendants. Only text content counts: attributes such as aria-label or
  * title are not visible text. Each text has its white space collapsed.
  */
@@ -263,7 +294,7 @@ export function visibleTexts(html, name) {
       const text = stripInvisible(decodeEntities(t.raw));
       for (const e of open.stack) if (e.capture) e.capture.text += text;
     } else if (t.type === 'tag') {
-      const hidden = !t.closing && hides(t);
+      const hidden = !t.closing && isHidden(t);
       const capture =
         !t.closing && !hidden && t.attrs.has(want) && !open.some((e) => e.hidden) ? { text: '' } : null;
       if (capture && !opens(t)) {
@@ -277,4 +308,68 @@ export function visibleTexts(html, name) {
     }
   }
   return found.map((c) => c.text.replace(/\s+/g, ' ').trim());
+}
+
+/**
+ * A light element tree of an HTML document, for checks that depend on where an
+ * element sits. The root is `{ name: '#document', attrs, children, parent: null }`;
+ * each element is `{ name, attrs, children, parent }` (`attrs` as in
+ * `tokens()`); text is a `{ text }` child, decoded, with invisible characters
+ * removed. Comments, doctypes and the bodies of <script> and <style> are left
+ * out. Void and self-closed elements have no children. A closing tag closes
+ * the elements left open inside it; a stray closing tag is ignored.
+ */
+export function elementTree(html) {
+  const root = { name: '#document', attrs: new Map(), children: [], parent: null };
+  const stack = [root];
+  for (const t of tokens(html)) {
+    const top = stack[stack.length - 1];
+    if (t.type === 'text') {
+      top.children.push({ text: stripInvisible(decodeEntities(t.raw)) });
+    } else if (t.type === 'tag' && t.closing) {
+      const at = stack.map((e) => e.name).lastIndexOf(t.name);
+      if (at > 0) stack.length = at;
+    } else if (t.type === 'tag') {
+      const el = { name: t.name, attrs: t.attrs, children: [], parent: top };
+      top.children.push(el);
+      if (opens(t)) stack.push(el);
+    }
+  }
+  return root;
+}
+
+/** The element children of a tree node, in document order. */
+export function elementChildren(node) {
+  return node.children.filter((c) => c.name !== undefined);
+}
+
+/** True when the element's class attribute contains the class `name`. */
+export function hasClass(el, name) {
+  return classes(el).includes(name);
+}
+
+/** True when neither the element nor any element around it is hidden (see `isHidden`). */
+export function isRendered(el) {
+  for (let e = el; e && e.parent; e = e.parent) if (isHidden(e)) return false;
+  return true;
+}
+
+/**
+ * The text an element shows: its text content without the text of hidden
+ * descendants, with white space collapsed. Attributes such as aria-label, title
+ * and alt are not shown text, so they are left out.
+ */
+export function visibleText(el) {
+  const walk = (node) => {
+    let out = '';
+    for (const c of node.children) {
+      if (c.name === undefined) out += c.text;
+      else if (!isHidden(c)) {
+        const sep = INLINE.has(c.name) ? '' : ' ';
+        out += sep + walk(c) + sep;
+      }
+    }
+    return out;
+  };
+  return walk(el).replace(/\s+/g, ' ').trim();
 }
