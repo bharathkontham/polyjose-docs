@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightLinksValidator from 'starlight-links-validator';
 
 // Every sidebar entry names its page by slug. Starlight fails the build when a
 // slug has no page, so a page can't go missing without the build noticing.
@@ -66,6 +67,16 @@ export default defineConfig({
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/bharathkontham/polyjose' }],
       components: { Banner: './src/components/overrides/Banner.astro' },
       sidebar,
+      plugins: [
+        // Fails `astro build` on a broken internal link or #hash. Links to this
+        // site must be written as internal paths (an absolute polyjose.dev URL is
+        // an error), so every one of them is checked. The generated API
+        // reference under /api/ is not part of the content collection.
+        starlightLinksValidator({
+          sameSitePolicy: 'error',
+          exclude: ['/api/{js,kotlin,swift}{,/**/*}'],
+        }),
+      ],
     }),
   ],
 });
