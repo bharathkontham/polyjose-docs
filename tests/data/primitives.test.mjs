@@ -395,5 +395,9 @@ test('page: thanks the upstream maintainers by project name and shows no version
   for (const project of ['RustCrypto', 'dalek-cryptography', 'rust-random']) {
     assert.ok(text.includes(project), `page does not name ${project}`);
   }
-  assert.doesNotMatch(text, /\bv?\d+\.\d+\.\d+/, 'no exact versions yet');
+  // The page's "as designed" framing sentence names the polyjose release it
+  // describes. Only that exact sentence is exempt; any other x.y.z still fails.
+  const framing = 'This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.';
+  assert.ok(text.includes(framing), 'the framing sentence is on the page');
+  assert.doesNotMatch(text.split(framing).join(' '), /\bv?\d+\.\d+\.\d+/, 'no exact crate versions yet');
 });
