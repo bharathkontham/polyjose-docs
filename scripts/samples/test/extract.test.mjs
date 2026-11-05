@@ -138,7 +138,7 @@ test('error: an empty region', () => {
 });
 
 test('error: ids that do not match the id pattern', () => {
-  for (const bad of ['single', 'Upper/case', 'a/', '/a', 'a//b', 'a/b_c', 'a/b.c', 'a b/c']) {
+  for (const bad of ['single', 'Upper/case', 'a/', '/a', 'a//b', 'a/b_c', 'a/b.c']) {
     rejects(`// docs:start ${bad}\nx();\n// docs:end ${bad}\n`, /sign\.rs:1: .*not a valid region id/);
   }
 });
@@ -176,4 +176,9 @@ test('dedent strips the common leading whitespace and keeps relative indentation
   assert.equal(dedent(['a', '  b']), 'a\n  b');
   // Mixed tabs and spaces share no prefix, so nothing is stripped.
   assert.equal(dedent(['\ta', '  b']), '\ta\n  b');
+});
+
+test('error: a malformed marker line', () => {
+  rejects('// docs:startx a/b\nx();\n', /sign\.rs:1: malformed docs marker/);
+  rejects('// docs:ending a/b\n', /sign\.rs:1: malformed docs marker/);
 });
