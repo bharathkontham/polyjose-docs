@@ -1,6 +1,96 @@
 ---
 title: Security model
-description: What polyjose protects against and how.
+description: How polyjose builds on its cryptography, the safe defaults it applies to every token, and what remains your responsibility.
 ---
 
-This page arrives with the 0.1.0 release and will describe the threats polyjose is designed to resist, the safe defaults it applies, and what remains your responsibility.
+This page describes how polyjose is built and the safe defaults it applies, with the RFC sections behind each rule. The same rules hold on every platform: Rust, Node.js, Web, Android and the JVM, and Apple platforms.
+
+## Cryptography
+
+polyjose uses pure-Rust cryptographic primitives from the [RustCrypto](https://github.com/RustCrypto) and [dalek-cryptography](https://github.com/dalek-cryptography) projects only. It does not use OpenSSL, `ring`, `aws-lc` or any other C-based cryptography library. polyjose composes these primitives into JOSE and never implements a primitive itself: there is no hand-written AES, big-number arithmetic or elliptic-curve arithmetic in polyjose.
+
+Pure Rust gives memory safety, not freedom from side channels. How well each primitive resists timing attacks depends on the crate that provides it. [Cryptographic foundations](/security/cryptographic-foundations/) lists every primitive crate and what its maintainers say about it.
+
+**Randomness comes only from the operating system's CSPRNG**, through the `getrandom` crate. That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys and generated keys. In the WebAssembly package the source is `crypto.getRandomValues`. If the system generator is unavailable, the operation fails. There is no fallback generator. ECDSA nonces are derived deterministically as in RFC 6979, which RFC 8725 §3.2 recommends for JWT libraries, so the nonce never depends on the random source alone. polyjose also mixes in added randomness as defence in depth.
+
+## Dependencies
+
+The core crate depends only on cryptographic primitive crates plus three small support crates: `subtle`, `zeroize` and `getrandom`. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
+
+CI fails if the core's dependency tree contains any crate that isn't on an allowlist, so a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
+
+## Algorithm verification
+
+- **You choose the algorithms.** Every verify and decrypt call takes an explicit allow-list of algorithms, and every JWE decrypt call also takes an allow-list of content encryption (`enc`) algorithms. A token's `alg` or `enc` header never decides alone: a value outside your list fails with `AlgorithmNotAllowed` before any cryptography runs. An empty list, or one containing only `none`, is rejected.
+- **`none` is never accepted.** An unsecured token always fails with `AlgorithmNotAllowed`, and there is no option to allow it.
+- **Keys are bound to their algorithm family.** An HMAC (`oct`) key can't verify an `RS256` token, and an RSA key can't verify `ES256`. When a JWK carries `alg`, `use` or `key_ops`, they must agree with the operation. A mismatch fails with `KeyAlgorithmMismatch`.
+- **Weak keys are rejected.** RSA keys under 2048 bits are rejected (RFC 7518 §3.3), and so are HMAC keys shorter than the hash output (RFC 7518 §3.2). EC points are validated on the curve when a key is imported, including ephemeral public keys carried in a JWE header.
+- **Embedded keys are never trusted.** The `jwk`, `jku`, `x5u`, `x5c` and `kid` header members never select or replace the key you pass. They are returned to you as data. `kid` only narrows the candidates inside a JWK Set you provide ([below](#jwk-sets)).
+
+These rules follow RFC 8725 §3.1 ("Perform Algorithm Verification") and RFC 8725 §3.2 ("Use Appropriate Algorithms"). They answer the attacks described in RFC 8725 §2.1 ("Weak Signatures and Insufficient Signature Validation"): changing `alg` to `none`, or turning an `RS256` token into `HS256` so that the RSA public key is used as an HMAC secret.
+
+Some algorithms are left out entirely. RSA is public-key only, because [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) affects RSA private-key operations and has no fixed release. There is no SHA-1, so no `RSA-OAEP` (use `RSA-OAEP-256` or `ECDH-ES`), and there is no `RSA1_5`. [What polyjose does not support](/security/not-supported/) explains each one.
+
+## JWS
+
+- **Input limits.** A serialized JWS may be at most 1 MiB (a detached payload doesn't count), and a general JSON JWS may carry at most 16 signatures. Larger input fails with `InvalidFormat` before any cryptography runs. Both limits are configurable.
+- **Several signatures.** A general JSON JWS is valid when at least one of its signatures verifies with your key, and the result tells you which one.
+- **Ed25519 uses strict verification.** Signatures under the `Ed25519` and `EdDSA` algorithms are verified strictly: small-order public keys, signatures with a small-order R point and signatures with a non-canonical s are rejected. A rare token that a lenient verifier accepts may therefore fail in polyjose.
+- **ECDSA signatures are malleable.** polyjose accepts both forms of an ECDSA signature (s and n − s) and creates the low-s form. Because a valid token can be rewritten into a second valid token, never use the raw token string as a replay or uniqueness key. Use a claim such as `jti` instead.
+- **`b64: false` needs `crit`.** The unencoded-payload option is accepted only when the protected header also lists `b64` in `crit`, as RFC 7797 §6 ("Using "crit" with "b64"") requires. JWTs never accept it. Any other name in `crit` that polyjose doesn't understand fails with `UnknownCritical` (RFC 7515 §4.1.11).
+
+## JWE
+
+- **One error for every decryption failure.** Once decryption starts, every failure (a wrong key, a bad authentication tag, bad padding, a PBES2 count above the bound, a decompression error) returns the same error code, `DecryptionFailed`. An attacker can't tell the causes apart, so there is no padding oracle. Malformed tokens and algorithms you didn't allow are rejected earlier, with their own codes, before any key is used.
+- **PBES2 iteration counts are bounded.** An incoming token's `p2c` may be at most 10,000 by default, so a hostile token can't make you run an unbounded number of PBKDF2 iterations. You can raise the bound explicitly, up to 1,000,000. Tokens polyjose creates use 10,000, above the minimum of 1,000 that RFC 7518 §4.8.1.2 recommends.
+- **Prefer high-entropy secrets over high counts.** Iterations only slow down guessing, and they don't make a weak password strong. Use randomly generated secrets wherever you can. RFC 8725 §3.5 ("Ensure Cryptographic Keys Have Sufficient Entropy") notes that password-based encryption is still subject to brute-force attacks.
+- **Input limits.** A serialized JWE may be at most 1 MiB, and a JSON JWE may have at most 16 recipients. Both are configurable.
+- **Compression is bounded and opt-in.** Compression (`zip`) exists only in the Rust crate, behind the opt-in `deflate` cargo feature. Decompression runs only after the authentication tag has been verified, and its output is limited to 250,000 bytes by default. RFC 8725 §3.6 ("Avoid Compression of Encryption Inputs") advises against compressing before encryption, and the other packages are built [without compression](/security/not-supported/#zip-in-bindings).
+
+## JWT defaults
+
+- **`exp` is required.** A token without an expiration time is rejected unless you explicitly allow it (RFC 7519 §4.1.4).
+- **Leeway is 60 seconds by default, capped at 600 seconds.** RFC 7519 §4.1.4 allows "some small leeway, usually no more than a few minutes" for clock skew. A larger value is refused when you build the policy.
+- **Audience.** When you configure accepted audiences, the token's `aud` must contain one of them. A token that carries an `aud` you weren't told to accept is rejected, including when you configured no audience at all, unless you explicitly opt out (RFC 7519 §4.1.3, RFC 8725 §3.9).
+- **Issuer.** When you configure issuers, `iss` must match one of them exactly. Make sure the keys you pass belong to that issuer: polyjose can't know which keys an issuer owns (RFC 8725 §3.8).
+- **Explicit typing.** `typ` must be absent or `JWT`, unless you configure an explicit type such as `at+jwt` or explicitly opt out. This keeps one kind of token from being accepted as another (RFC 8725 §3.11, RFC 8725 §3.12).
+- **One level of nesting.** The only nested form is a JWE whose plaintext is a signed JWT (sign, then encrypt, as RFC 7519 §11.2 recommends). Signed and nested tokens have separate entry points, so you always know which protection a token had, and both layers are checked with keys and algorithms you supply (RFC 8725 §3.3).
+- **An explicit clock.** The current time comes from a clock you pass, or from the platform clock, in whole seconds (NumericDate, RFC 7519 §2). Nothing reads the time behind your back.
+
+Claims are read only after the signature has been verified, so a tampered token reports `InvalidSignature`, never a claim error.
+
+## JWK Sets
+
+When you verify against a JWK Set, polyjose picks candidate keys from it:
+
+- Candidates are filtered by the key type and curve that the token's `alg` needs, then by each key's own `alg`, `use` and `key_ops` (RFC 7517 §4.2–§4.4), then by `kid` when the token carries one. A `kid` is compared as an exact string and never used as a path, URL or query (RFC 8725 §3.10).
+- At most 8 candidates are tried, in order, and the first that verifies wins. A token that matches more candidates fails with `NoMatchingKey` before any signature is checked. The bound is configurable.
+- A set containing an RSA private key is rejected as a whole, with `UnsupportedAlgorithm`, so a published private key can't go unnoticed.
+
+polyjose never fetches a JWK Set itself. You fetch the issuer's set and pass it in.
+
+## Secrets in memory
+
+**On the Rust side,** key material and plaintext that polyjose holds are zeroized (overwritten) when they are dropped, using the `zeroize` crate. They never appear in `Debug` output or in error messages, and no binding logs anything.
+
+**The limits, said plainly:**
+
+- **Host strings can't be wiped by polyjose.** JavaScript strings, JVM `String`s and Swift `String`s are immutable and managed by their runtime. A JWK or password you pass as a string stays in that runtime's memory until it is reclaimed.
+- **Byte outputs can be wiped by you.** Secret results returned as bytes (`Uint8Array` in JavaScript, `ByteArray` in Kotlin, `Data` in Swift) are yours to overwrite when you're done with them:
+  - JavaScript: `bytes.fill(0)`
+  - Kotlin: `bytes.fill(0)`
+  - Swift: `data.resetBytes(in: data.startIndex..<data.endIndex)`
+
+  This clears that buffer only, not copies made earlier by your code or the runtime.
+- **The Kotlin and Swift bindings leave copies in Rust memory.** Their generated interface layer leaves one un-wiped copy in Rust heap memory per secret byte argument, per secret field inside a record argument (such as the key in a `JwsSigner`), and per returned secret value. That memory is freed but not overwritten. String arguments leave none. The Node.js and Web packages don't leave these copies.
+- **Two records print their key.** The generated Kotlin and Swift records `JwsSigner` and `JweRecipient` hold a key, and their generated `toString` (Kotlin) and `description` (Swift) print every field, including the key. Never log them or put them into strings.
+
+## Errors
+
+Every failure carries a stable error code, such as `InvalidSignature`, `AlgorithmNotAllowed` or `DecryptionFailed`. The codes are identical on every platform. Error messages never include input: no key material, payloads, plaintext or token contents. Match on the code, not the message text. [Errors](/concepts/errors/) lists every code.
+
+## Status
+
+polyjose is pre-1.0 and not yet published. An independent security review of polyjose itself is planned before 1.0. Until then, the protections on this page rest on the RFCs, the tests that check them on every platform, and the libraries listed under [Cryptographic foundations](/security/cryptographic-foundations/).
+
+To report a problem, see [Reporting a vulnerability](/security/reporting/).
