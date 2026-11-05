@@ -84,20 +84,60 @@ export function opensWithFraming(body) {
 }
 
 // Testing and checking machinery: CI, tests, test vectors, conformance and
-// interop runs, Wycheproof, per-pull-request checks, fuzzing.
-const MACHINERY = /\bCI\b|\btests?\b|\btest suite\b|\bvectors?\b|\bconformance\b|\binterop\w*|\bWycheproof\b|\bpull requests?\b|\bfuzz\w*/i;
-// A verb that says the machinery runs, passes or catches something today.
-const RUNNING = /\b(runs?|ran|reruns?|pass(es|ed)?|checks?|checked|rechecks?|fails?|stops?|verif(y|ies)|ships)\b/i;
-// Words that mark a sentence as a plan or a design goal.
-const PLANNED = /\b(will|planned|plan|designed|meant|aims?|required to)\b|before (0\.1\.0|1\.0|release)/i;
+// interop runs, Wycheproof, per-pull-request checks, fuzzing. Initialization
+// vectors are cipher inputs, not test vectors, so they are not machinery.
+const MACHINERY = /\bCI\b|\btest(s|ed)?\b|\btest suite\b|(?<!\binitiali[sz]ation )\bvectors?\b|\bconformance\b|\binterop\w*|\bWycheproof\b|\bpull requests?\b|\bfuzz\w*/i;
+// A verb that says the machinery runs, passes, catches or covers something today.
+const RUNNING =
+	/\b(runs?|ran|reruns?|pass(es|ed)?|checks?|checked|rechecks?|fails?|stops?|verif(y|ies)|ships|tests?|tested|fuzz(ed)?|blocks?|scans?|scanned|enforces?|covers?)\b/gi;
+// Running-verb forms that are also nouns. One of these is not a running verb
+// when it heads or modifies a noun phrase ("the tests", "test vectors", "the
+// AES block cipher", "fuzz targets") or follows "hard to" and the like, which
+// says something is difficult, not that it runs ("hard to test").
+const ALSO_A_NOUN = /^(tests?|fuzz|blocks?|scans?)$/i;
+const NOUN_BEFORE = /\b(a|an|the|each|every|any|no|its|their|this|these|those|one|conformance|unit|integration|property|interop|platform|planned|full|own)\s+$/i;
+const NOUN_AFTER = /^\s+(vectors?|suites?|cases?|runs?|harness(es)?|ciphers?|sizes?|results?|data|files?|keys?|targets?|coverage)\b/i;
+const DIFFICULTY_BEFORE = /\b(hard|easy|difficult|impossible)\s+to\s+$/i;
+// What excuses a running verb: one of these in the same clause. A plan is
+// "is planned" or "are planned"; a design goal is "designed to" or "designed
+// so that"; the future is "will". "designed" alone ("the designed API"), a
+// "planned" adjective, "required to", "aims" or "before release" is not enough.
+const GOVERNS = /\bdesigned to\b|\bdesigned so that\b|\b(is|are) planned\b|\bwill\b/i;
+// Where one clause ends and the next begins: a semicolon, a colon, a dash, or a
+// comma before a conjunction or "which".
+const CLAUSE_BREAK = /\s*[;:]\s+|\s*—\s*|\s+–\s+|,\s+(?=(?:and|but|or|so|yet|while|whereas|which|because|although|though|since|unless)\b)/i;
+
+/** The clauses of one sentence, split at CLAUSE_BREAK. */
+export function clausesOf(sentence) {
+	return sentence
+		.split(CLAUSE_BREAK)
+		.map((c) => c.trim())
+		.filter(Boolean);
+}
+
+/** The running verbs in a clause, leaving out noun uses of ALSO_A_NOUN. */
+export function runningVerbsOf(clause) {
+	return [...clause.matchAll(RUNNING)]
+		.filter((m) => {
+			if (!ALSO_A_NOUN.test(m[0])) return true;
+			const before = clause.slice(0, m.index);
+			const after = clause.slice(m.index + m[0].length);
+			return !NOUN_BEFORE.test(before) && !NOUN_AFTER.test(after) && !DIFFICULTY_BEFORE.test(before);
+		})
+		.map((m) => m[0]);
+}
 
 /**
- * Sentences that describe checking machinery as already running. Such a
- * sentence must say it is planned or a design goal. A sentence that only names
- * the machinery ("Its examples are test vectors") is not a claim that it runs.
+ * Sentences that describe checking machinery as already running. A sentence
+ * that names the machinery is flagged when one of its clauses has a running
+ * verb that no plan, design goal or "will" in that same clause governs. A
+ * sentence that only names the machinery ("Its examples are test vectors") is
+ * not a claim that it runs.
  */
 export function unbuiltCheckClaims(text) {
-	return sentencesOf(text).filter((s) => MACHINERY.test(s) && RUNNING.test(s) && !PLANNED.test(s));
+	return sentencesOf(text).filter(
+		(s) => MACHINERY.test(s) && clausesOf(s).some((c) => runningVerbsOf(c).length > 0 && !GOVERNS.test(c)),
+	);
 }
 
 /**
@@ -116,6 +156,8 @@ export const OLD_PHRASINGS = [
 	/\bpolyjose implements the JOSE (specifications|standards)\b/i,
 	/\bVerifying works\b/i,
 	/\bencrypting to an RSA public key work\b/i,
+	/\bEach library is pinned to an exact version\b/i,
+	/\bIt is required to pass the RFC, NIST and Wycheproof\b/i,
 ];
 
 /** A data note that says an operation already "works" (verified behaviour). */
@@ -158,13 +200,74 @@ describe('the unbuilt-check check itself', () => {
 			"A CI check is planned that fails when the core's dependency tree contains a crate that isn't on an allowlist.",
 			'Conformance tests that check them on every platform are planned before release.',
 			'A RustSec advisory check is planned for every pull request.',
-			'It is required to pass the RFC, NIST and Wycheproof test vectors at that exact version.',
+			"It will be required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.",
 			'An upgrade will go only through a change that reruns the full test suite.',
 			'Its examples are test vectors for the algorithms polyjose implements.',
 			'polyjose runs its checks in a fixed order.',
 		]) {
 			assert.deepEqual(unbuiltCheckClaims(now), [], now);
 		}
+	});
+	test('flags the added running verbs: tested, fuzzed, blocks, scanned, enforces, covers', () => {
+		for (const old of [
+			'polyjose is tested against the Wycheproof vectors on every platform.',
+			'The test suite tests every binding.',
+			'Conformance vectors test each binding.',
+			'The JWS and JWE parsers are fuzzed in CI.',
+			'We fuzz every parser in CI.',
+			'cargo deny blocks any crate that is not on the allowlist in CI.',
+			'CI checks block a merge when a vector fails.',
+			'CI scans each pull request for RustSec advisories.',
+			'Every pull request is scanned for RustSec advisories.',
+			'The CI job enforces the allowlist.',
+			'The conformance suite covers every algorithm.',
+			'Wycheproof vectors cover the edge cases.',
+		]) {
+			assert.equal(unbuiltCheckClaims(old).length, 1, old);
+		}
+	});
+	test('excuses a running verb only when "designed to", "designed so that", "is/are planned" or "will" governs it in the same clause', () => {
+		for (const now of [
+			'The JWS and JWE parsers are designed to be fuzzed in CI.',
+			'CI is designed so that a failing test vector blocks the merge.',
+			'A CI job is planned that scans every pull request for RustSec advisories.',
+			'Conformance tests that cover every algorithm are planned before release.',
+			'cargo deny will block any crate that is not on the allowlist in CI.',
+		]) {
+			assert.deepEqual(unbuiltCheckClaims(now), [], now);
+		}
+		for (const old of [
+			// A stray "designed" elsewhere in the sentence.
+			'polyjose is designed around RFC 8725, and its parsers are fuzzed in CI.',
+			'The designed API is tested on every platform.',
+			// A plan or "will" in another clause.
+			'An interop suite is planned; the conformance vectors already pass.',
+			'Bindings will follow, and every pull request is scanned for advisories.',
+			// Markers that excused a sentence before and no longer do.
+			'It is required to pass the RFC, NIST and Wycheproof test vectors at that exact version.',
+			"It is required to pass the test vectors, in polyjose's planned conformance tests.",
+			'The plan is that CI blocks any crate outside the allowlist.',
+			'Conformance vectors run before release.',
+		]) {
+			assert.equal(unbuiltCheckClaims(old).length, 1, old);
+		}
+	});
+	test('does not read a noun, or "hard to test", as a running verb', () => {
+		for (const now of [
+			'The test suite and its fuzz targets are listed in the repository.',
+			"polyjose's conformance tests are listed in the repository.",
+			'Cryptographic primitives are easy to get subtly wrong and hard to test into correctness.',
+			'That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys and generated keys.',
+		]) {
+			assert.deepEqual(unbuiltCheckClaims(now), [], now);
+		}
+	});
+	test('splits a sentence into clauses at semicolons, colons, dashes and a comma before a conjunction', () => {
+		assert.deepEqual(clausesOf('A is planned; B runs.'), ['A is planned', 'B runs.']);
+		assert.deepEqual(clausesOf('Audited: a report covers it.'), ['Audited', 'a report covers it.']);
+		assert.deepEqual(clausesOf('A will run — B passes.'), ['A will run', 'B passes.']);
+		assert.deepEqual(clausesOf('A will run, and B passes, which C checks.'), ['A will run', 'and B passes', 'which C checks.']);
+		assert.deepEqual(clausesOf('It passes the RFC, NIST and Wycheproof vectors.'), ['It passes the RFC, NIST and Wycheproof vectors.']);
 	});
 	test('the old-phrasing list matches each old sentence and none of the rewrites', () => {
 		for (const old of [
@@ -175,6 +278,8 @@ describe('the unbuilt-check check itself', () => {
 			'polyjose implements the JOSE standards (JWS, JWE, JWK and JWT).',
 			'Verifying works, so tokens from identity providers can be checked.',
 			'Verifying RSA signatures and encrypting to an RSA public key work.',
+			'Each library is pinned to an exact version.',
+			"It is required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.",
 		]) {
 			assert.ok(OLD_PHRASINGS.some((re) => re.test(old)), old);
 		}
@@ -184,6 +289,8 @@ describe('the unbuilt-check check itself', () => {
 			'Yes means the operation is part of the 0.1.0 design.',
 			'polyjose 0.1.0 is designed to implement the JOSE specifications below.',
 			'Verify only, so that tokens from identity providers can be checked.',
+			'Each library will be pinned to an exact version.',
+			"It will be required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.",
 		]) {
 			assert.ok(!OLD_PHRASINGS.some((re) => re.test(now)), now);
 		}
