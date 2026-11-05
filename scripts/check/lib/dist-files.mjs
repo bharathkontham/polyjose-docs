@@ -1,12 +1,21 @@
 // What lint:refs reads from the built site, beyond the reader-visible page text
-// (lib/html-text.mjs): the URLs that pages link to or load, and the built files
-// that are not HTML (the sitemap, robots.txt, JSON and web manifests).
+// (lib/html-text.mjs): the URLs that pages link to or load, the built files
+// that are not HTML (the sitemap, robots.txt, JSON and web manifests), and the
+// built scripts, styles, images and source maps (assets), whose content is
+// always read, under /_astro/ too. Only hashed asset file *names* in page URLs
+// are left out (isAssetUrl).
 
 import { listFiles } from './files.mjs';
 import { decodeEntities, tokens } from './html-text.mjs';
 
 /** Built files that are text but not HTML, by extension (any case). */
 export const DIST_TEXT_EXTENSIONS = ['.xml', '.txt', '.json', '.webmanifest'];
+
+/**
+ * Built files whose content is minified code or markup, by extension (any
+ * case): scripts, style sheets, SVG images and source maps.
+ */
+export const ASSET_EXTENSIONS = ['.js', '.mjs', '.cjs', '.css', '.svg', '.map'];
 
 const URL_ATTRS = new Set(['href', 'src', 'srcset']);
 
@@ -20,18 +29,31 @@ const extension = (file) => {
 };
 
 /**
- * The built pages (`html`) and the other built text files (`text`) under
- * `root`/dist, as root-relative paths with `/` separators, sorted.
+ * True for a script, style sheet, SVG image or source map of the built site
+ * (`dist/`) or of `public/`, which is copied into it as is. Their content is
+ * scanned with the patterns that are safe on minified code. A script under
+ * `samples/` or `src/` is source we write, and is not an asset.
+ */
+export function isAssetFile(file) {
+  return /^(?:dist|public)\//.test(file) && ASSET_EXTENSIONS.includes(extension(file));
+}
+
+/**
+ * The built pages (`html`), the other built text files (`text`) and the built
+ * assets (`assets`, see ASSET_EXTENSIONS) under `root`/dist, as root-relative
+ * paths with `/` separators, sorted.
  */
 export function listDistFiles(root) {
   const html = [];
   const text = [];
+  const assets = [];
   for (const file of listFiles(root, 'dist')) {
     const ext = extension(file);
     if (ext === '.html') html.push(file);
     else if (DIST_TEXT_EXTENSIONS.includes(ext)) text.push(file);
+    else if (ASSET_EXTENSIONS.includes(ext)) assets.push(file);
   }
-  return { html, text };
+  return { html, text, assets };
 }
 
 /**
