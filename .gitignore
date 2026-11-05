@@ -10,4 +10,4 @@ playwright-report/
 samples/.generated/
 
 # Local checkout of the polyjose repo used to build and run the samples
-samples/.polyjose/
+samples/.polyjose
