@@ -1,6 +1,23 @@
 ---
 title: API reference
-description: Where to find the generated API reference for each platform.
+description: Where to find the generated API reference for Rust, JavaScript, Kotlin and Swift.
 ---
 
-This page arrives with the 0.1.0 release and will link to the generated API reference for Rust, JavaScript, Kotlin and Swift.
+import { Badge } from '@astrojs/starlight/components';
+
+Each platform's API reference is generated from the code and hosted where developers on that platform expect to find it. polyjose is pre-1.0 and not published yet, so these references don't exist yet. Each one becomes available when 0.1.0 is published.
+
+## Where each reference lives
+
+- **Rust:** [polyjose on docs.rs](https://docs.rs/polyjose) <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The rustdoc reference for the `polyjose` crate, which docs.rs builds for every release.
+- **JavaScript** (`@polyjose/node` and `@polyjose/wasm`): `/api/js/` on this site <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  One TypeDoc reference for both packages, which share the same API and the same type definitions.
+- **Kotlin:** [polyjose-jvm on javadoc.io](https://javadoc.io/doc/dev.polyjose/polyjose-jvm) <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The reference for the Kotlin API that the Android library and the desktop JVM jar share, served by javadoc.io from the published Maven artifacts.
+- **Swift:** [polyjose on Swift Package Index](https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose) <Badge text="available when 0.1.0 is published" variant="caution" /><br />
+  The DocC reference for the `Polyjose` module, hosted by Swift Package Index.
+
+## The same names on every platform
+
+Every operation has the same name on every platform, written in that language's usual casing: `snake_case` in Rust and `camelCase` in JavaScript, Kotlin and Swift. Record types are `UpperCamelCase` everywhere. Once you know an operation on one platform, you can look it up by name in any of the references above. [One API on every platform](/concepts/one-api/) lists the operations side by side.
