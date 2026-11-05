@@ -232,6 +232,12 @@ describe('landing page', () => {
 		}
 	});
 
+	test('card descriptions contain no inline code (it fails dark-theme contrast inside cards)', () => {
+		const descriptions = [...body.matchAll(/<div class="sl-link-card[\s\S]*?<span class="description[^"]*">([\s\S]*?)<\/span>/g)].map((m) => m[1]);
+		assert.equal(descriptions.length, 8, 'expected a description on each of the eight cards');
+		for (const d of descriptions) assert.doesNotMatch(d, /<code\b/i, d);
+	});
+
 	test('three cards link the security pages', () => {
 		const cards = [...body.matchAll(/<div class="sl-link-card[\s\S]*?<a\b[^>]*href="(\/security\/[^"]+)"/g)].map((m) => m[1]);
 		assert.equal(new Set(cards).size, 3, `security cards: ${cards.join(', ')}`);
