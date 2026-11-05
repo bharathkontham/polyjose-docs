@@ -1,0 +1,5 @@
+{
+  "rsa-private": "Signing and decrypting with an RSA private key is not available, because the `rsa` crate is affected by RUSTSEC-2023-0071. Verifying RSA signatures and encrypting to an RSA public key work.",
+  "sha1": "Nothing that needs SHA-1 is available, including `RSA-OAEP` and computing `x5t` thumbprints. Use `RSA-OAEP-256` and `x5t#S256` instead.",
+  "zip-bindings": "Compression (`zip`) is available only in the Rust crate, with the `deflate` feature."
+}
