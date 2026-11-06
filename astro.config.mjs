@@ -11,7 +11,7 @@ const sidebar = [
     items: [
       { slug: 'start/rust', label: 'Rust' },
       { slug: 'start/node', label: 'Node.js' },
-      { slug: 'start/web', label: 'Web and edge' },
+      { slug: 'start/web', label: 'Web (WASM)' },
       { slug: 'start/android', label: 'Android (Kotlin)' },
       { slug: 'start/swift', label: 'Swift (iOS)' },
     ],
