@@ -260,7 +260,7 @@ describe('landing page', () => {
 	test('a card grid links each of the five platforms to its get-started page', () => {
 		assert.ok((body.match(/class="card-grid/g) ?? []).length >= 2, 'expected a platform grid and a security grid');
 		const hrefs = linksOf(body).map((l) => l.href);
-		for (const p of ['rust', 'node', 'web', 'android', 'apple']) {
+		for (const p of ['rust', 'node', 'web', 'android', 'swift']) {
 			assert.ok(hrefs.includes(`/start/${p}/`), `no card for /start/${p}/`);
 		}
 	});

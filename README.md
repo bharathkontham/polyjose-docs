@@ -35,7 +35,7 @@ Pages live in `src/content/docs/`, one `.mdx` file each. Slugs are final: change
 
 ```
 index.mdx                          home
-start/        rust, node, web, android, apple
+start/        rust, node, web, android, swift
 guides/       sign-and-verify, encrypt-and-decrypt, validate-jwt, manage-keys, jwk-sets
 guides/migrate/  index (overview), panva-jose, nimbus, joseswift
 concepts/     algorithms, one-api, errors, standards
