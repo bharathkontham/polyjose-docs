@@ -13,7 +13,7 @@ const sidebar = [
       { slug: 'start/node', label: 'Node.js' },
       { slug: 'start/web', label: 'Web and edge' },
       { slug: 'start/android', label: 'Android (Kotlin)' },
-      { slug: 'start/apple', label: 'Apple platforms (Swift)' },
+      { slug: 'start/swift', label: 'Swift (iOS)' },
     ],
   },
   {
@@ -63,7 +63,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'polyjose',
-      description: 'Pure-Rust JOSE (JWS, JWE, JWK, JWT) for Rust, Node, Web, Android and Apple platforms.',
+      description: 'Pure-Rust JOSE (JWS, JWE, JWK, JWT) for Rust, Node.js, the web, Android (Kotlin) and Swift (iOS).',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/bharathkontham/polyjose' }],
       components: { Banner: './src/components/overrides/Banner.astro' },
       sidebar,
