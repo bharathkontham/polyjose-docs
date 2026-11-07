@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500" role="img" aria-labelledby="t">
+<title id="t">fixture avatar.svg</title>
+<!-- Test fixture placeholder for the brand export tests, not a brand asset. -->
+<rect width="500" height="500" fill="#16255A"/>
+<circle cx="250" cy="250" r="150" fill="#F2B22E"/>
+</svg>
