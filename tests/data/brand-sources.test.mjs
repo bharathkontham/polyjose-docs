@@ -379,6 +379,19 @@ function darkRules(styleText) {
 	return rules;
 }
 
+/** WCAG 2.x relative luminance of a #RRGGBB colour. */
+function luminance(hex) {
+	const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+	const [r, g, b] = v.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG 2.x contrast ratio between two #RRGGBB colours. */
+export function contrast(a, b) {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return (hi + 0.05) / (lo + 0.05);
+}
+
 // ---------------------------------------------------------------- tests
 
 describe('brand/src SVG sources', () => {
@@ -458,6 +471,22 @@ describe('colours match the table in brand/README.md', () => {
 			}
 		}
 		for (const [cls, c] of Object.entries(rules)) assert.equal(c, roles[cls]?.dark, `favicon.svg: dark rule .${cls} uses the dark colour`);
+	});
+
+	// R4: the favicon's light colours must also read on a dark tab strip,
+	// because some browsers (Safari 26, Firefox's stored icons) ignore the dark
+	// media query in SVG favicons. For a tiled mark the tile is the ground and
+	// the letter carries the shape: on a light strip the tile's silhouette
+	// shows, and on a dark strip the white p does, inside its own opaque tile.
+	// So contrast is measured on the fill that carries the shape on each
+	// strip, not on the tile against the dark strip.
+	test('favicon.svg: the light colours read on light and dark tab strips (3:1, WCAG 2.x contrast)', () => {
+		const roles = palette();
+		const tile = roles.tile.light;
+		const letter = roles.letter.light;
+		assert.ok(contrast(tile, '#FFFFFF') >= 3, `tile ${tile} on a light strip #FFFFFF: ${contrast(tile, '#FFFFFF').toFixed(2)}:1`);
+		assert.ok(contrast(letter, tile) >= 3, `letter ${letter} on the tile ${tile}: ${contrast(letter, tile).toFixed(2)}:1`);
+		assert.ok(contrast(letter, '#202124') >= 3, `letter ${letter} on a dark strip #202124: ${contrast(letter, '#202124').toFixed(2)}:1`);
 	});
 
 	test('the icons and social images use only palette colours', () => {
