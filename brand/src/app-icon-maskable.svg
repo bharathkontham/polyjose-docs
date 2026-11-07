@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 40 40" width="512" height="512" role="img">
+<title>polyjose</title>
+<!--
+  polyjose maskable icon for the web app manifest ("purpose": "maskable").
+  Opaque, full-bleed background. The platform may crop the icon to any shape
+  that contains the centred circle of radius 40% of the size (W3C Web App
+  Manifest, icon masks), so the p keeps the mark's coordinates on a 40-unit
+  canvas centred on the mark's centre (16, 16): its farthest point, the
+  bottom-left of the stem's foot, is 14.4 units from the centre, inside the
+  16-unit safe circle.
+-->
+<rect class="bg" x="-4" y="-4" width="40" height="40" fill="#16255A"/>
+<g class="letter" fill="#FFFFFF">
+  <path d="M6 7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v18a3 3 0 0 1-6 0Z"/>
+  <circle cx="16" cy="14" r="8"/>
+</g>
+<path class="key" fill="#F2B22E" d="M16 9a3 3 0 0 1 1.4 5.653L18 18h-4l.6-3.347A3 3 0 0 1 16 9Z"/>
+</svg>
