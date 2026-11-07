@@ -12,6 +12,8 @@
     "test:scripts": "node --test \"scripts/**/*.test.mjs\" \"tests/data/*.test.mjs\"",
     "samples:coverage": "node scripts/samples/check-coverage.mjs",
     "a11y": "node tests/a11y/run.mjs",
+    "brand:export": "node scripts/brand/export.mjs",
+    "brand:export:test": "node --test scripts/brand/test/export.integration.mjs",
     "verify": "npm run check && npm run build && npm run lint:refs && npm run lint:honesty && npm run test:scripts && npm run samples:coverage && npm run a11y"
   },
   "dependencies": {
