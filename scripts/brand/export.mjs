@@ -168,7 +168,13 @@ export async function exportBrand({ src, out, targets = TARGETS, log = console.l
     height: Math.max(1, ...rasters.flatMap((t) => (t.kind === 'ico' ? t.sizes : [t.height]))),
   };
 
-  const browser = await chromium.launch();
+  let browser;
+  try {
+    browser = await chromium.launch();
+  } catch (err) {
+    const reason = String(err?.message ?? err).split('\n')[0];
+    throw new ExportError(`cannot launch Playwright Chromium (run \`npx playwright install chromium\`): ${reason}`);
+  }
   const results = [];
   try {
     const context = await browser.newContext({

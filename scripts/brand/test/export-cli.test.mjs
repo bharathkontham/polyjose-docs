@@ -92,6 +92,16 @@ test('the CLI exits non-zero when the source directory does not exist', () => {
   assert.match(r.stderr, /missing source/);
 });
 
+test('without a Playwright browser the CLI exits 1 with the install hint and writes nothing', () => {
+  // PLAYWRIGHT_BROWSERS_PATH=/nonexistent (see run) makes the launch fail at
+  // once, so this needs no browser and starts none.
+  const out = tmp('brand-out-');
+  const r = run(['--src', FIXTURE_SRC, '--out', out]);
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stderr, /npx playwright install chromium/);
+  assert.deepEqual(readdirSync(out), []);
+});
+
 test('the CLI exits 2 on a usage error and 0 on --help, without a browser', () => {
   const bad = run(['--bogus']);
   assert.equal(bad.status, 2, bad.stderr);
