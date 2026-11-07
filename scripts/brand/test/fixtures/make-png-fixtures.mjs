@@ -22,7 +22,7 @@ function chunk(type, data) {
   return Buffer.concat([len, typeAndData, crc]);
 }
 
-/** Channels per pixel for each colour type (PNG spec §6.1 table 11). */
+/** Channels per pixel for each colour type (PNG spec §6.1 table 9). */
 const CHANNELS = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 
 function png({ width, height, bitDepth, colorType, palette }) {
