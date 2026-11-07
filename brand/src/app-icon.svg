@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="180" height="180" role="img">
+<title>polyjose</title>
+<!--
+  polyjose app icon: the apple-touch-icon (180 px) and the web app manifest
+  "any" icons (192 and 512 px). The tile becomes an opaque, square, full-bleed
+  background (iOS shows transparency as black and rounds the corners itself).
+  The p keeps the mark's coordinates, so its padding is 6 units (19%) at the
+  top and left, 8 (25%) at the right and 4 (12.5%) at the bottom.
+-->
+<rect class="bg" x="0" y="0" width="32" height="32" fill="#16255A"/>
+<g class="letter" fill="#FFFFFF">
+  <path d="M6 7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v18a3 3 0 0 1-6 0Z"/>
+  <circle cx="16" cy="14" r="8"/>
+</g>
+<path class="key" fill="#F2B22E" d="M16 9a3 3 0 0 1 1.4 5.653L18 18h-4l.6-3.347A3 3 0 0 1 16 9Z"/>
+</svg>

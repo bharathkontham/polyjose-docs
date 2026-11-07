@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 36 36" width="500" height="500" role="img">
+<title>polyjose</title>
+<!--
+  polyjose avatar for GitHub, npm (through Gravatar) and similar profiles.
+  Opaque, full-bleed background. Avatars are often shown as circles, so the
+  p keeps the mark's coordinates on a 36-unit canvas centred on the mark's
+  centre (16, 16): its farthest point is 14.4 units from the centre, inside
+  the 18-unit inscribed circle.
+-->
+<rect class="bg" x="-2" y="-2" width="36" height="36" fill="#16255A"/>
+<g class="letter" fill="#FFFFFF">
+  <path d="M6 7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v18a3 3 0 0 1-6 0Z"/>
+  <circle cx="16" cy="14" r="8"/>
+</g>
+<path class="key" fill="#F2B22E" d="M16 9a3 3 0 0 1 1.4 5.653L18 18h-4l.6-3.347A3 3 0 0 1 16 9Z"/>
+</svg>
