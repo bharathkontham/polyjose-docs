@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="t">
+<title id="t">fixture mark-light.svg</title>
+<!-- Test fixture placeholder for the brand export tests, not a brand asset. -->
+<rect width="32" height="32" rx="7.5" fill="#16255A"/>
+<circle cx="16" cy="16" r="8" fill="#FFFFFF"/>
+</svg>

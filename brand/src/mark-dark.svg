@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img">
+<title>polyjose</title>
+<!--
+  polyjose mark, dark. The lowercase p of the wordmark on a rounded tile, its
+  counter cut as a keyhole. Drawn on a 32 x 32 grid: the straight edges of the
+  stem sit on even units, so they land on whole pixels at 16 px and 32 px.
+-->
+<rect class="tile" width="32" height="32" rx="7" fill="#2F4BA6"/>
+<g class="letter" fill="#FFFFFF">
+  <path d="M6 7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v18a3 3 0 0 1-6 0Z"/>
+  <circle cx="16" cy="14" r="8"/>
+</g>
+<path class="key" fill="#F7C04A" d="M16 9a3 3 0 0 1 1.4 5.653L18 18h-4l.6-3.347A3 3 0 0 1 16 9Z"/>
+</svg>
