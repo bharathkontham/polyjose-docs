@@ -100,6 +100,16 @@ export default defineConfig({
     starlight({
       title: 'polyjose',
       description: 'Pure-Rust JOSE (JWS, JWE, JWK, JWT) for Rust, Node.js, the web, Android (Kotlin) and Swift (iOS).',
+      // The lockup, light and dark, in place of the text title. It is outlined
+      // artwork, so it looks the same on every system. Starlight keeps the title
+      // as screen-reader-only text, so the images are decorative (alt '') and
+      // "polyjose" is read once.
+      logo: {
+        light: './src/assets/brand/logo-light.svg',
+        dark: './src/assets/brand/logo-dark.svg',
+        alt: '',
+        replacesTitle: true,
+      },
       // The SVG favicon, with its own dark-scheme colours. Starlight emits it as
       // <link rel="shortcut icon" type="image/svg+xml">, after the ICO.
       favicon: '/favicon.svg',
