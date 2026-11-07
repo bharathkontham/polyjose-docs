@@ -19,6 +19,7 @@ The SVG files in [`src/`](src/) are the master artwork. They are hand-written, s
 | `src/og.svg` | 1200 x 630 card: lockup, tagline and platforms | `og.png`, the site's Open Graph and X card image |
 | `src/social-preview.svg` | 1280 x 640 card, content inside the central 1200 x 600 | The GitHub repository social preview |
 | `tools/outline.mjs` | Turns text into SVG paths with Inter | How the wordmark, tagline and platform names were made |
+| [`PUBLISHING.md`](PUBLISHING.md) | Checklist of the images the account owner uploads by hand | GitHub social preview and avatars, Gravatar for npm |
 
 Use the light files on light backgrounds and the dark files on dark backgrounds. Where only one image can be given and the background is unknown, use the mark (`mark-light.svg`): its tile carries its own background.
 
