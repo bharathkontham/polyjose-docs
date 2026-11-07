@@ -631,8 +631,14 @@ describe('brand/ files', () => {
 	});
 
 	test('no internal identifier or local path in brand/ (these files are published)', () => {
+		// The exported PNG and ICO files are compressed pixel data, where short
+		// letter-number runs such as "F25" turn up by chance. They are scanned
+		// with the asset patterns only, as lint:refs scans built images; text
+		// files (SVG, Markdown, scripts) get the full pattern set.
+		const binary = new Set(['.png', '.ico']);
 		for (const f of files()) {
-			const found = findPrivateRefs(readFileSync(f, 'utf8'));
+			const asset = binary.has(extname(f).toLowerCase());
+			const found = findPrivateRefs(readFileSync(f, 'utf8'), { asset });
 			assert.deepEqual(found, [], `${relative(root, f)}: ${found.map((x) => `line ${x.line} "${x.match}" (${x.label})`).join(', ')}`);
 		}
 	});
