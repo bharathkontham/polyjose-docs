@@ -10,8 +10,9 @@ publish = false
 
 [dependencies]
 # polyjose at the commit in samples/pins/rust.json: scripts/samples/platforms/rust.sh exports that
-# commit to samples/.polyjose/export/polyjose. Default features only, as `cargo add polyjose` gives.
-polyjose = { path = "../.polyjose/export/polyjose/crates/polyjose" }
+# commit to samples/.polyjose/export/polyjose. Plus the `deflate` feature (no extra dependencies),
+# which only the Encrypt and decrypt guide's `zip` sample needs; the start/ samples use nothing it adds.
+polyjose = { path = "../.polyjose/export/polyjose/crates/polyjose", features = ["deflate"] }
 
 # A package of its own, never a member of another workspace.
 [workspace]

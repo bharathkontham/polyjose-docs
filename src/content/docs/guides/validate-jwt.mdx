@@ -1,6 +1,117 @@
 ---
 title: Validate a JWT
-description: Verify a JSON Web Token and check its claims.
+description: Issue a JSON Web Token and validate it with an allow-list, issuer and audience, under safe defaults for expiry, leeway, audience and typ, plus access tokens, the clock and nested JWTs.
 ---
 
-This guide arrives with the 0.1.0 release and will show how to verify a JSON Web Token and check its expiry, issuer, audience and other claims, with the same steps on every platform.
+import Samples from '../../../components/samples/Samples.astro';
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+A JSON Web Token (JWT, [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519)) is a set of claims, such as who issued the token, who it is about and when it expires, carried in a signed JWS or an encrypted JWE. Validating one means verifying the signature and then checking the claims ([RFC 7519 §7.2](https://www.rfc-editor.org/rfc/rfc7519#section-7.2)), following the current best practices of [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725).
+
+The operations are `jwtSign`, `jwtVerify`, `jwtEncryptNested` and `jwtDecryptNested` in JavaScript, Kotlin and Swift. In Rust they are `jwt::sign` with `jwt::IssueOptions`, `jwt::verify` with a `jwt::Policy`, `jwt::encrypt_nested` and `jwt::decrypt_nested`. A JWT is always in the compact serialization ([RFC 7519 §1](https://www.rfc-editor.org/rfc/rfc7519#section-1)).
+
+## Issue a JWT
+
+`jwtSign` signs a JSON Claims Set. The registered claims ([RFC 7519 §4.1](https://www.rfc-editor.org/rfc/rfc7519#section-4.1)) are `iss` (issuer), `sub` (subject), `aud` (audience), `exp` (expiry), `nbf` (not before), `iat` (issued at) and `jti` (token ID). Times are NumericDates, whole seconds since 1970-01-01T00:00:00Z ([§2](https://www.rfc-editor.org/rfc/rfc7519#section-2)). The header gets `"typ": "JWT"` ([§5.1](https://www.rfc-editor.org/rfc/rfc7519#section-5.1)), and the key's `kid`, if it has one.
+
+<Samples id="validate-jwt/issue" />
+
+## Verify a JWT
+
+`jwtVerify` takes the token, the issuer's public key and the validation options. `allowedAlgs` is required, as for every verify. Name the issuers you accept and your own audience: the issuer check binds the token to the party whose key you used ([RFC 8725 §3.8](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)), and the audience check keeps a token meant for another service out of yours ([§3.9](https://www.rfc-editor.org/rfc/rfc8725#section-3.9)). The claims come back in the result only after every check passes.
+
+<Samples id="validate-jwt/verify" />
+
+## The defaults
+
+Every option you don't set has a safe default:
+
+<table tabindex="0">
+	<caption>JWT validation defaults</caption>
+	<thead>
+		<tr>
+			<th scope="col">Check</th>
+			<th scope="col">Default</th>
+			<th scope="col">Change with</th>
+			<th scope="col">Specification</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>exp</code></th><td>Required. A token without one fails with <code>InvalidClaim</code>, and an expired one with <code>TokenExpired</code>.</td><td><code>allowMissingExp</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4">RFC 7519 §4.1.4</a></td></tr>
+		<tr><th scope="row"><code>nbf</code></th><td>Checked when present: <code>TokenNotYetValid</code> before that time.</td><td>(none)</td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.5">RFC 7519 §4.1.5</a></td></tr>
+		<tr><th scope="row">Leeway</th><td>60 seconds on <code>exp</code>, <code>nbf</code> and <code>iat</code>; at most 600.</td><td><code>leeway</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.4">RFC 7519 §4.1.4</a></td></tr>
+		<tr><th scope="row"><code>aud</code></th><td>No audience accepted: a token that has <code>aud</code> fails with <code>InvalidClaim</code> until you name your audiences.</td><td><code>audiences</code>, <code>ignoreAudience</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.3">RFC 7519 §4.1.3</a>, <a href="https://www.rfc-editor.org/rfc/rfc8725#section-3.9">RFC 8725 §3.9</a></td></tr>
+		<tr><th scope="row"><code>iss</code>, <code>sub</code></th><td>Not checked. Once set, the claim is required and must match exactly.</td><td><code>issuers</code>, <code>subject</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.1">RFC 7519 §4.1.1–§4.1.2</a>, <a href="https://www.rfc-editor.org/rfc/rfc8725#section-3.8">RFC 8725 §3.8</a></td></tr>
+		<tr><th scope="row"><code>iat</code></th><td>Its type only; a future value is accepted.</td><td><code>maxAge</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc7519#section-4.1.6">RFC 7519 §4.1.6</a></td></tr>
+		<tr><th scope="row"><code>typ</code> header</th><td>Absent or <code>JWT</code>; any other value fails with <code>InvalidHeader</code>.</td><td><code>typ</code>, <code>profile</code>, <code>anyTyp</code></td><td><a href="https://www.rfc-editor.org/rfc/rfc8725#section-3.11">RFC 8725 §3.11–§3.12</a></td></tr>
+	</tbody>
+</table>
+
+In Rust the same settings are methods of `jwt::Policy`, such as `issuer`, `audience`, `leeway`, `max_age`, `require`, `allow_missing_exp`, `ignore_audience`, `expect_typ` and `any_typ`.
+
+## When validation fails
+
+An expired token fails with `TokenExpired`:
+
+<Samples id="validate-jwt/expired" />
+
+A token used before its `nbf` fails with `TokenNotYetValid`:
+
+<Samples id="validate-jwt/not-yet-valid" />
+
+A token that names an audience fails with `InvalidClaim` when you haven't said which audiences you accept. Configure `audiences` rather than turning the check off:
+
+<Samples id="validate-jwt/aud-not-configured" />
+
+The checks always run in the same order, and the first one that fails decides the error: the token's format and header, the signature, then the required claims, `exp`, `nbf`, `iat`, `iss`, `sub` and `aud`. So a token that is both expired and from the wrong issuer is reported as expired, and a token whose payload was changed is `InvalidSignature`, never a claim error. [Errors › The order of JWT checks](/concepts/errors/#the-order-of-jwt-checks) has the full list.
+
+<Samples id="validate-jwt/check-order" />
+
+A server should map all of these codes to one opaque client error, such as `invalid_token` ([RFC 6750 §3.1](https://www.rfc-editor.org/rfc/rfc6750#section-3.1)), and keep the specific code for its own logs.
+
+## Tune the checks
+
+`leeway` sets the allowed clock skew in seconds, up to 600; a larger value fails with `InvalidClaim`. The sample passes a fixed `now`, explained under [The clock](#the-clock):
+
+<Samples id="validate-jwt/leeway" />
+
+`maxAge` rejects tokens issued longer ago than the given number of seconds, and so makes `iat` required ([RFC 7519 §4.1.6](https://www.rfc-editor.org/rfc/rfc7519#section-4.1.6)):
+
+<Samples id="validate-jwt/max-age" />
+
+`requiredClaims` names claims that must be present, whatever their value:
+
+<Samples id="validate-jwt/required-claims" />
+
+## Explicit typing and access tokens
+
+A token type in `typ` keeps one kind of JWT from being accepted as another ([RFC 8725 §3.11](https://www.rfc-editor.org/rfc/rfc8725#section-3.11), [§3.12](https://www.rfc-editor.org/rfc/rfc8725#section-3.12)). OAuth access tokens ([RFC 9068](https://www.rfc-editor.org/rfc/rfc9068)) have the type `at+jwt` ([§2.1](https://www.rfc-editor.org/rfc/rfc9068#section-2.1)). Issue one with `accessToken`, and validate it with `profile: "access_token"` (in Rust, `Policy::access_token`). The profile requires the issuers and audiences, requires the claims `iss`, `exp`, `aud`, `sub`, `client_id`, `iat` and `jti` ([§2.2](https://www.rfc-editor.org/rfc/rfc9068#section-2.2)), and expects `typ` to be `at+jwt` ([§4](https://www.rfc-editor.org/rfc/rfc9068#section-4)).
+
+<Samples id="validate-jwt/access-token" />
+
+Because the default accepts only an absent `typ` or `JWT`, an access token offered where a plain JWT is expected fails with `InvalidHeader`. Set `typ` to accept one specific type instead.
+
+<Samples id="validate-jwt/typed-rejected" />
+
+## The clock
+
+`exp`, `nbf` and `iat` are compared with the current time. An explicit `now`, in whole seconds since the epoch, always wins: use it in tests, or to validate a token as of a past instant.
+
+<Samples id="validate-jwt/fixed-now" />
+
+Without `now`, the JavaScript packages read `Date.now()`, the same way in Node.js and on the Web, and the Kotlin and Swift packages read the operating system's clock. Rust never reads a clock implicitly: a `jwt::Policy` takes a clock, `jwt::SystemClock` or a `jwt::FixedClock`. `SystemClock` isn't available on `wasm32-unknown-unknown`, which has no system clock.
+
+## Nested JWTs: sign, then encrypt
+
+A nested JWT is a signed JWT encrypted as a JWE, with `"cty": "JWT"` ([RFC 7519 §5.2](https://www.rfc-editor.org/rfc/rfc7519#section-5.2), [§11.2](https://www.rfc-editor.org/rfc/rfc7519#section-11.2)). `jwtEncryptNested` encrypts a signed JWT. `jwtDecryptNested` decrypts it with your key and allow-lists, then verifies and validates the inner JWT with the issuer's key and the usual options; both layers are always checked ([RFC 8725 §3.3](https://www.rfc-editor.org/rfc/rfc8725#section-3.3)).
+
+<Samples id="validate-jwt/nested" />
+
+Signed and nested JWTs have separate entry points, so you always know which protection a token had: `jwtVerify` refuses a nested JWT with `InvalidFormat`, and `jwtDecryptNested` needs one.
+
+Nesting gives confidentiality. It doesn't prove who encrypted the token: anyone who can decrypt it can take out the signed inner JWT and use it on its own, and with ECDH-ES or RSA-OAEP-256 anyone can encrypt a signed JWT to the recipient. If a token must only be accepted in nested form, say so inside the signed JWT, with a distinct `typ` or `aud`, and check it in the options. See [Encrypt and decrypt](/guides/encrypt-and-decrypt/) for the JWE options.
+
+## Unknown header parameters
+
+A header parameter polyjose doesn't know is ignored unless the header lists it in `crit` ([RFC 7515 §4](https://www.rfc-editor.org/rfc/rfc7515#section-4)). RFC 7519's verified [erratum 8060](https://www.rfc-editor.org/errata/eid8060) corrects §7.2 to say the same for JWTs; see [Standards › Erratum 8060 on RFC 7519](/concepts/standards/#erratum-8060-on-rfc-7519). To validate with a key set from the issuer's `jwks_uri`, see [JWK Sets](/guides/jwk-sets/), and for what polyjose checks and why, the [Security model](/security/model/#jwt-defaults).

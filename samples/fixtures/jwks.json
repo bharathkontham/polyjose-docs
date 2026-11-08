@@ -1,0 +1,22 @@
+{
+  "note": "Stands in for the response of an issuer's jwks_uri. The keys are the public halves of the example keys in keys.json (RFC 7515 Appendix A.3.1 and RFC 8037 Appendix A.1), with a kid, alg and use added. Use them only to run the samples.",
+  "keys": [
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+      "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0",
+      "kid": "p256-2026",
+      "alg": "ES256",
+      "use": "sig"
+    },
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "kid": "ed25519-2026",
+      "alg": "Ed25519",
+      "use": "sig"
+    }
+  ]
+}
