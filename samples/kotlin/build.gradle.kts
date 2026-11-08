@@ -30,7 +30,8 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     val keys = layout.projectDirectory.file("../fixtures/keys.json").asFile
-    inputs.file(keys).withPropertyName("keys").withPathSensitivity(PathSensitivity.NONE)
+    // Every fixture file is an input, so editing any of them re-runs the tests.
+    inputs.dir(keys.parentFile).withPropertyName("fixtures").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("samples.keys", keys.path)
     testLogging {
         events("passed", "skipped", "failed")
