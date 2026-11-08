@@ -1,7 +1,7 @@
 ---
 // Renders the install snippet for one platform from a pin. Pages use
 // <Install>, which reads the pin from samples/pins/.
-import { Badge, Code } from '@astrojs/starlight/components';
+import { Code } from '@astrojs/starlight/components';
 import { installSnippets } from '../../lib/samples/install.mjs';
 
 interface Props {
@@ -10,17 +10,9 @@ interface Props {
 }
 
 const { platform, pin } = Astro.props;
-const { version, published, snippets } = installSnippets(platform, pin);
+const { published, snippets } = installSnippets(platform, pin);
 ---
 
 <div class="install" data-install-status={published ? 'published' : 'unpublished'}>
-	{
-		!published && (
-			<p class="install-note">
-				<Badge text="Not yet published" variant="caution" /> polyjose {version} is not published yet. These are the
-				lines to use once it is.
-			</p>
-		)
-	}
 	{snippets.map((s) => <Code code={s.code} lang={s.lang} title={s.title} />)}
 </div>

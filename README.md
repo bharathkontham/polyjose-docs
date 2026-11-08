@@ -2,8 +2,6 @@
 
 This is the public documentation site for [polyjose](https://github.com/bharathkontham/polyjose). It's built with Astro + Starlight (pinned exactly) and deployed to GitHub Pages at **https://polyjose.dev**.
 
-polyjose is pre-1.0 and not published yet. Every page says so in a site-wide notice.
-
 ## Working on the site
 
 Use Node 24.
@@ -52,7 +50,7 @@ Code samples are not typed into pages. They live as real, tested source files un
 
 ## Writing rules
 
-These rules apply to every page, data file and sample. `npm run lint:refs` checks the private-reference rule, and `npm run lint:honesty` checks the pre-1.0 notice, the audit wording and which pages may say "constant-time", on every built page. Everything the scripts can't check, including the benchmark and adoption rule, is checked in review.
+These rules apply to every page, data file and sample. `npm run lint:refs` checks the private-reference rule, and `npm run lint:honesty` checks the audit wording, which pages may say "constant-time", and that no page carries pre-release wording, on every built page. Everything the scripts can't check, including the benchmark and adoption rule, is checked in review.
 
 **No private references.** Pages stand on their own. Don't cite internal planning documents: no decision-record, requirement or task numbers, internal file paths, or internal tool and role names. Explain a decision in your own words. Public identifiers are fine: RFC sections, IANA names, error codes, advisory ids such as RUSTSEC numbers.
 
@@ -65,7 +63,7 @@ These rules apply to every page, data file and sample. `npm run lint:refs` check
 - Built scripts, style sheets and SVG images are checked too, for record and feature numbers, paths, repository, role and process names, but not for short task numbers, which minified code is full of.
 
 **Honesty.**
-- polyjose is pre-1.0. Every page carries the site-wide notice.
+- No pre-release wording: no page says polyjose is pre-1.0 or not published.
 - Never describe polyjose as audited. Credit the libraries it builds on. What review they have had is quoted in their maintainers' own words only in the audit register on Security › Cryptographic foundations: the primitives table and its status legend. The word "audited" appears nowhere else on the site, About included.
 - Never claim constant-time behaviour beyond what the underlying library documents, and only on the Security pages.
 - No benchmark or adoption numbers until they have been measured and can be reproduced.

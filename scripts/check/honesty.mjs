@@ -3,9 +3,9 @@
 //
 // Checks the reader-visible text of every built page against the site's
 // honesty rules:
-//   (a) every page shows the pre-1.0 notice in its fixed place, the site
-//       banner (see noticeProblem below), visibly, saying "Pre-1.0" and
-//       "not published";
+//   (a) no page carries the pre-release notice the site showed before 0.1.0
+//       (an element with class prerelease-notice or data-prerelease-notice),
+//       and no page's text says "pre-1.0" or "not published";
 //   (b) no page claims that polyjose, or the library, is audited, has passed
 //       or completed an audit, is "fully" or "third-party" audited, or that an
 //       audit of it found nothing or passed: no independent audit of polyjose
@@ -30,18 +30,19 @@
 import { join, resolve, sep } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { htmlText, elementTree, elementChildren, hasClass, isRendered, visibleText } from './lib/html-text.mjs';
+import { htmlText, elementTree, elementChildren, hasClass } from './lib/html-text.mjs';
 import { listFiles, lineIndex } from './lib/files.mjs';
 import { normalizeForMatch, normalizeWithMap } from './lib/normalize.mjs';
 
-/** Marks the pre-1.0 notice (rule a). */
+/** Marked the pre-release notice; no page may carry it (rule a). */
 export const NOTICE_ATTRIBUTE = 'data-prerelease-notice';
 
-/** The class of the pre-1.0 notice element (rule a). */
+/** The class of the pre-release notice element; no page may carry it (rule a). */
 export const NOTICE_CLASS = 'prerelease-notice';
 
-/** Marks the Banner override's container, the first element in <main> (rule a). */
-export const BANNER_ATTRIBUTE = 'data-site-banner';
+// Pre-release wording (rule a): "pre-1.0", "not published", "not yet
+// published", "isn't published".
+const PRERELEASE_WORDING = /\bpre[\s\u2010\u2011-]*1\.0\b|\b(?:not|isn['\u2019]t)\s+(?:yet\s+)?published\b/gi;
 
 /** The only page that may use the word "audited", inside its register (rule c). */
 export const AUDITED_PAGES = new Set(['/security/cryptographic-foundations/']);
@@ -136,56 +137,18 @@ function findElement(node, pred) {
   return null;
 }
 
-/**
- * Why the page does not show the pre-1.0 notice in its fixed place, or null
- * when it does (rule a).
- *
- * The fixed place follows Starlight 0.42.9's page layout (Page.astro): the
- * Banner override renders first inside <main>, before the page title and
- * content. The override wraps its output in a container marked
- * data-site-banner. The notice counts only when:
- * - that container is the first element child of the page's first <main>;
- * - the first element with class prerelease-notice inside the container is a
- *   direct child of it and carries data-prerelease-notice. A notice anywhere
- *   else on the page is not looked at;
- * - neither the notice nor any element around it is hidden (`isRendered` in
- *   lib/html-text.mjs: hidden, aria-hidden, display:none, visibility:hidden,
- *   opacity:0, zero size, sr-only or visually-hidden classes, <details>,
- *   <noscript>, <template>, ...);
- * - its shown text, without hidden parts and attributes, says "Pre-1.0" and
- *   "not published".
- * A change to Starlight's layout that moves the banner fails this check, so
- * the notice's place is looked at again.
- */
-export function noticeProblem(html) {
-  const main = findElement(elementTree(html), (e) => e.name === 'main');
-  if (!main) return 'the page has no <main> element';
-  const [first] = elementChildren(main);
-  if (!first || !first.attrs.has(BANNER_ATTRIBUTE)) {
-    return `the first element in <main> is not the site banner (${BANNER_ATTRIBUTE})`;
-  }
-  const notice = findElement(first, (e) => hasClass(e, NOTICE_CLASS));
-  if (!notice) return `the site banner has no element with class ${NOTICE_CLASS}`;
-  if (notice.parent !== first) {
-    return `the first element with class ${NOTICE_CLASS} is not a direct child of the site banner`;
-  }
-  if (!notice.attrs.has(NOTICE_ATTRIBUTE)) return `the notice has no ${NOTICE_ATTRIBUTE} attribute`;
-  if (!isRendered(notice)) return 'the notice, or an element around it, is hidden';
-  const text = visibleText(notice);
-  if (!/\bpre-1\.0\b/i.test(text) || !/\bnot\s+published\b/i.test(text)) {
-    return 'the notice text does not say "Pre-1.0" and "not published"';
-  }
-  return null;
+/** Whether any element on the page is the pre-release notice (rule a). */
+function hasNotice(html) {
+  return findElement(elementTree(html), (e) => e.attrs.has(NOTICE_ATTRIBUTE) || hasClass(e, NOTICE_CLASS)) !== null;
 }
 
 /** Findings for one built page: `{ rule, line?, match?, message }`. */
 export function checkPage(route, html) {
   const findings = [];
-  const problem = noticeProblem(html);
-  if (problem) {
+  if (hasNotice(html)) {
     findings.push({
       rule: 'prerelease-notice',
-      message: `no pre-1.0 notice in the site banner: ${problem}. Every page must render the site banner (${BANNER_ATTRIBUTE}) as the first element in <main>, with the notice (class ${NOTICE_CLASS}, ${NOTICE_ATTRIBUTE}) as its first such child, not hidden, saying "Pre-1.0" and "not published".`,
+      message: `the page carries the pre-release notice (class ${NOTICE_CLASS} or ${NOTICE_ATTRIBUTE}). The site no longer shows it.`,
     });
   }
   const text = htmlText(html, { blockSeparator: BLOCK });
@@ -202,6 +165,9 @@ export function checkPage(route, html) {
       findings.push({ rule, line: at(a), match: show(source.slice(a, b)), message });
     }
   };
+
+  // (a) Pre-release wording, anywhere in the page text.
+  each(text, PRERELEASE_WORDING, 'prerelease-wording', 'is pre-release wording, which the site no longer uses.');
 
   // (b) Each sentence is reported once, whichever patterns it matches.
   const claimed = [];
@@ -274,7 +240,7 @@ function main(argv) {
     console.error(`\nlint:honesty: ${count} problem(s) in ${results.length} pages.`);
     return 1;
   }
-  console.log(`lint:honesty: ${results.length} pages carry the pre-1.0 notice and make no unsupported claims.`);
+  console.log(`lint:honesty: ${results.length} pages carry no pre-release wording and make no unsupported claims.`);
   return 0;
 }
 

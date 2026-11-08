@@ -385,10 +385,10 @@ test('page: shows the subtle review\'s limits next to its entry', { skip }, () =
   assert.ok(row.includes('href="https://blog.quarkslab.com/security-audit-of-dalek-libraries.html"'), 'links the post');
 });
 
-test('page: says polyjose itself has not been audited yet, plans one before 1.0, and is pre-1.0', { skip }, () => {
-  assert.match(text, /polyjose itself has not yet had an independent audit/);
-  assert.match(text, /planned before 1\.0/);
-  assert.match(text, /pre-1\.0/);
+test('page: says polyjose itself has not had an independent audit yet, without pre-release wording', { skip }, () => {
+  assert.match(text, /polyjose itself has not had an independent audit yet\./);
+  assert.match(text, /It is built on the libraries above/);
+  assert.doesNotMatch(text, /pre-1\.0|not (yet )?published|before 1\.0/i);
   assert.doesNotMatch(text, /polyjose[^.]{0,60}\b(is|has been|was|are)\s+(independently\s+|professionally\s+)?audited\b/i);
 });
 
@@ -415,7 +415,7 @@ test('page: each row shows the crate\'s locked version, and says where the versi
   }
   assert.match(text, /Cargo\.lock/);
   assert.match(text, /commit 30a4a72/);
-  assert.match(text, /can change before 0\.1\.0 is published/);
+  assert.doesNotMatch(text, /before 0\.1\.0 is published/);
 });
 
 test('page: thanks the upstream maintainers by project name, and shows versions only in the table', { skip }, () => {
@@ -425,9 +425,9 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   }
   // The page's "as designed" framing sentence names the polyjose release it
   // describes. Only that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.';
+  const framing = 'This page describes polyjose 0.1.0 as designed.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)], ['0.1.0'], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.0'), [], 'outside the table, only the release the page describes');
 });

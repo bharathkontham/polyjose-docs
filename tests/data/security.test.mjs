@@ -179,7 +179,8 @@ test('Security model: each fact is stated', async (t) => {
   });
 
   await t.test('10. status', () => {
-    assertPhrases(text, 'status', ['pre-1.0', /independent (security )?review[^.]*\bis planned before 1\.0/i]);
+    assert.ok(links.includes('/security/cryptographic-foundations/#polyjose-itself'), 'links polyjose\'s own audit status');
+    assert.doesNotMatch(text, /pre-1\.0|not (yet )?published|planned before 1\.0|polyjose itself has not/i, 'no pre-release or audit-plan wording; the audit status lives on Cryptographic foundations');
   });
 });
 

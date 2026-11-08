@@ -13,8 +13,8 @@
  * - `{ "source": "registry", "version": "0.1.0" }`: after a release, the
  *   samples run against that exact published version.
  *
- * Install snippets show `upcoming` with a "not yet published" note in the
- * first two modes, and `version` in the third. Unknown fields are rejected,
+ * Install snippets show `upcoming` in the first two modes, and `version` in
+ * the third. Unknown fields are rejected,
  * so a misspelt key fails instead of being ignored.
  */
 
