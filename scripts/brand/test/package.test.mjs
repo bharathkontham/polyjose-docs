@@ -1,7 +1,8 @@
 // ADR 0053: the brand pipeline adds no dependency. These are the dependency
 // lists of package.json on origin/main (8d9aa1a) when the pipeline was added;
 // a change to them is a separate, deliberate decision, not part of the brand
-// work, and must update this snapshot in the same commit.
+// work, and must update this snapshot in the same commit. Since then: typedoc,
+// which renders the JavaScript API reference at /api/js/ (typedoc.json).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,6 +22,7 @@ const DEV_DEPENDENCIES = {
   '@astrojs/check': '0.9.12',
   '@axe-core/playwright': '4.14.0',
   '@playwright/test': '1.64.1',
+  typedoc: '0.28.20',
   typescript: '6.0.3',
 };
 const OVERRIDES = { 'playwright-core': '$@playwright/test' };

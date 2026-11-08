@@ -22,7 +22,7 @@ Everything that is not a cryptographic primitive, such as JSON, base64url and DE
 polyjose uses a cryptographic library only when all of these hold:
 
 - It comes from the RustCrypto or dalek-cryptography projects, is written in pure Rust, and is actively maintained.
-- It has no unresolved RustSec advisory at the version polyjose pins. A RustSec advisory check is planned for every pull request. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
+- It has no unresolved RustSec advisory at the version polyjose pins. polyjose's test suite is designed to fail on any RustSec advisory against a version it pins. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
 - Its algorithm is not broken for the way JOSE uses it.
 - It will be required to pass the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's planned conformance tests.
 - Its audit status is disclosed, on this page.
@@ -31,11 +31,13 @@ Where more than one library qualifies, polyjose prefers the one with the stronge
 
 Randomness comes only from the operating system's random number generator, through `getrandom` from the rust-random project.
 
-Each library will be pinned to an exact version. An upgrade will go only through a change that reruns the full test suite and rechecks the library's audit status. The exact versions will be listed here once polyjose is published.
+The table below shows the exact version of each library in polyjose's lockfile (`Cargo.lock`) at commit `30a4a72` of its main branch. These versions can change before 0.1.0 is published. An upgrade will go only through a change that reruns the full test suite and rechecks the library's audit status.
 
 Pure Rust gives memory safety, not freedom from side channels. How well each library resists timing attacks is described in its own documentation.
 
 ## The libraries
+
+The table lists the primitive libraries polyjose calls and the main crates beneath them. polyjose's [`CREDITS.md`](https://github.com/bharathkontham/polyjose/blob/main/CREDITS.md) credits every crate in the core's dependency tree, including the traits, helpers and build-time crates these libraries use.
 
 Audit status is given as the reviewers and the libraries' maintainers published it. A review of an earlier release does not cover code written since, so each entry says what was reviewed where that matters.
 
