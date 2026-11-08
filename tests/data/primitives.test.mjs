@@ -31,6 +31,17 @@ const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
 // Quarkslab post names subtle among the libraries it audited.
 const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa', 'crypto-bigint', 'subtle'];
 
+// Each crate's exact version in polyjose's Cargo.lock at commit 30a4a72, copied
+// by hand. A fixture on purpose: the data file is compared with the lockfile's
+// values, not with itself.
+const LOCKED = {
+  aes: '0.9.4', 'aes-gcm': '0.11.1', 'aes-kw': '0.3.1', cbc: '0.2.1', hmac: '0.13.0', sha2: '0.11.1',
+  pbkdf2: '0.13.0', p256: '0.14.0', p384: '0.14.0', p521: '0.14.0', k256: '0.14.0', ecdsa: '0.17.0',
+  'elliptic-curve': '0.14.3', rsa: '0.10.0-rc.21', 'crypto-bigint': '0.7.10', zeroize: '1.9.1',
+  'curve25519-dalek': '5.0.0', 'ed25519-dalek': '3.0.0', 'x25519-dalek': '3.0.0', subtle: '2.6.1',
+  getrandom: '0.4.3',
+};
+
 const STATUSES = ['audited', 'partial', 'none-found'];
 const NONE_FOUND_NOTE = 'No public independent audit found';
 
@@ -53,7 +64,7 @@ test('every entry has every field, and none is empty', () => {
   for (const p of primitives) {
     assert.deepEqual(
       Object.keys(p).sort(),
-      ['audit', 'crate', 'license', 'purpose', 'repo', 'sources', 'upstream'],
+      ['audit', 'crate', 'license', 'purpose', 'repo', 'sources', 'upstream', 'version'],
       `${p.crate}: unexpected or missing fields`,
     );
     for (const key of ['crate', 'upstream', 'repo', 'license', 'purpose']) {
@@ -273,10 +284,16 @@ test('rsa: Include Security, 2019, one minor finding, predates Marvin, public-ke
   assert.equal(audit.status, 'partial', 'the current rewrite has no published audit');
 });
 
-test('the data never calls polyjose audited, carries no versions, and claims no constant-time behaviour', () => {
+test('each crate carries its exact Cargo.lock version, and no other field names a version', () => {
+  assert.deepEqual(Object.keys(LOCKED).sort(), [...ALL].sort());
+  for (const p of primitives) assert.equal(p.version, LOCKED[p.crate], `${p.crate}: version`);
+  const text = JSON.stringify(primitives.map(({ version: _version, ...p }) => p));
+  assert.doesNotMatch(text, /\bv?\d+\.\d+\.\d+/, 'an exact version belongs in the version field only');
+});
+
+test('the data never calls polyjose audited, carries no version requirements, and claims no constant-time behaviour', () => {
   const text = JSON.stringify(primitives);
   assert.doesNotMatch(text, /polyjose[^.]{0,60}\b(is|has been|was|are)\s+(independently\s+|professionally\s+)?audited\b/i);
-  assert.doesNotMatch(text, /\bv?\d+\.\d+\.\d+/, 'exact versions come from the lockfile later');
   assert.doesNotMatch(text, /\bv\d+\b|=\d/, 'no version requirements');
   assert.doesNotMatch(text, /constant[- ]time/i, 'quote constant-time claims on the page, with a link');
 });
@@ -390,7 +407,18 @@ test('page: covers the trust rule, subtle and zeroize, the notices file and the 
   for (const crate of ['syn', 'quote', 'proc-macro2']) assert.match(text, new RegExp(`\\b${crate}\\b`));
 });
 
-test('page: thanks the upstream maintainers by project name and shows no versions', { skip }, () => {
+test('page: each row shows the crate\'s locked version, and says where the versions come from', { skip }, () => {
+  for (const p of primitives) {
+    const row = (main.match(new RegExp(`<tr data-crate="${p.crate}"[\\s\\S]*?</tr>`)) ?? [''])[0];
+    assert.ok(row, `no ${p.crate} row`);
+    assert.match(row, new RegExp(`<td class="version[^"]*"[^>]*>\\s*<code[^>]*>${p.version.replace(/\./g, '\\.')}</code>`), `${p.crate}: version cell`);
+  }
+  assert.match(text, /Cargo\.lock/);
+  assert.match(text, /commit 30a4a72/);
+  assert.match(text, /can change before 0\.1\.0 is published/);
+});
+
+test('page: thanks the upstream maintainers by project name, and shows versions only in the table', { skip }, () => {
   assert.match(text, /[Tt]hank/);
   for (const project of ['RustCrypto', 'dalek-cryptography', 'rust-random']) {
     assert.ok(text.includes(project), `page does not name ${project}`);
@@ -399,5 +427,7 @@ test('page: thanks the upstream maintainers by project name and shows no version
   // describes. Only that exact sentence is exempt; any other x.y.z still fails.
   const framing = 'This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
-  assert.doesNotMatch(text.split(framing).join(' '), /\bv?\d+\.\d+\.\d+/, 'no exact crate versions yet');
+  const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
+  const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
+  assert.deepEqual([...new Set(versions)], ['0.1.0'], 'outside the table, only the release the page describes');
 });

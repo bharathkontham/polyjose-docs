@@ -19,7 +19,7 @@ Pure Rust gives memory safety, not freedom from side channels. How well each pri
 
 The core crate depends only on cryptographic primitive crates and two small support crates. One of the primitive crates is `getrandom`, the operating-system randomness primitive. The two support crates are `subtle` and `zeroize`, which are part of the primitives' own security model. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
 
-A CI check is planned that fails when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
+polyjose's test suite is designed to fail when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
 
 ## Algorithm verification
 
@@ -84,8 +84,8 @@ polyjose never fetches a JWK Set itself. You fetch the issuer's set and pass it 
   - Swift: `data.resetBytes(in: data.startIndex..<data.endIndex)`
 
   This clears that buffer only, not copies made earlier by your code or the runtime.
-- **The Kotlin and Swift bindings leave copies in Rust memory.** Their generated interface layer leaves one un-wiped copy in Rust heap memory per secret byte argument, per secret field inside a record argument (such as the key in a `JwsSigner`), and per returned secret value. That memory is freed but not overwritten. String arguments leave none. The Node.js and Web packages don't leave these copies.
-- **Two records print their key.** The generated Kotlin and Swift records `JwsSigner` and `JweRecipient` hold a key, and their generated `toString` (Kotlin) and `description` (Swift) print every field, including the key. Never log them or put them into strings.
+- **The Kotlin and Swift bindings leave copies in Rust memory.** Their generated interface layer passes values through buffers that it frees without overwriting. It leaves one un-wiped copy in Rust heap memory per secret byte argument, per secret field inside a record argument (such as the key in a `JwsSigner`), and per returned secret string. A returned secret byte array (a payload, plaintext or DER key) leaves at least two. A string passed as an argument on its own leaves none. The generated Kotlin and Swift code also copies secrets through temporary buffers of its own that it doesn't wipe. The Node.js and Web packages don't leave the Rust-side copies.
+- **Printed records hide their secrets.** In Kotlin and Swift, printing a record that holds a secret, such as `JwsSigner` and `JweRecipient` with their key, shows only the secret's length: `<redacted, 120 bytes>` in Kotlin, and `<redacted, 120 chars>` for a string or `<redacted, 32 bytes>` for bytes in Swift. That covers `toString` (Kotlin) and `description` (Swift). Reading the field still gives you the secret, so never log a field such as a signer's `key`. JWT claims are not treated as secret, and print in full.
 
 ## Errors
 
@@ -93,6 +93,6 @@ Every failure carries a stable error code, such as `InvalidSignature`, `Algorith
 
 ## Status
 
-polyjose is pre-1.0 and not yet published. An independent security review of polyjose itself is planned before 1.0. Until then, the protections on this page rest on the RFCs and on the libraries listed under [Cryptographic foundations](/security/cryptographic-foundations/). Conformance tests that check them on every platform are planned before release.
+polyjose is pre-1.0 and not yet published. An independent security review of polyjose itself is planned before 1.0. Until then, the protections on this page rest on the RFCs and on the libraries listed under [Cryptographic foundations](/security/cryptographic-foundations/). polyjose is designed so that the same conformance test vectors check this behaviour on every platform.
 
 To report a problem, see [Reporting a vulnerability](/security/reporting/).

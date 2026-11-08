@@ -394,16 +394,21 @@ describe('Reference › API reference', () => {
 		}
 	}
 
-	test('names /api/js/ for both JavaScript packages, as plain text until it is generated', () => {
+	test('links the generated JavaScript reference for both packages, and the build produced it', () => {
 		assert.match(text, /\/api\/js\//);
 		assert.match(text, /@polyjose\/node/);
 		assert.match(text, /@polyjose\/wasm/);
-		assert.ok(!links.some((l) => l.href.includes('/api/js')), 'the /api/js/ reference must not be a link yet');
+		assert.match(text, /commit 30a4a72/, 'says which source the reference was generated from');
+		const js = links.filter((l) => l.href.startsWith('/api/js'));
+		assert.deepEqual(js.map((l) => l.href), ['/api/js/index.html'], 'one link, to the generated index page');
+		assert.ok(existsSync(`${dist}api/js/index.html`), 'npm run build generates dist/api/js/index.html');
 	});
 
-	test('badges each reference "available when 0.1.0 is published"', () => {
+	test('badges Rust "available when 0.1.0 is published", and Kotlin and Swift "not generated yet"', () => {
 		const badges = [...body.matchAll(/<span class="sl-badge[^"]*"[^>]*>([\s\S]*?)<\/span>/g)].map((m) => textOf(m[1]));
-		assert.equal(badges.filter((b) => b === 'available when 0.1.0 is published').length, 4, badges.join(' | '));
+		assert.deepEqual(badges, ['available when 0.1.0 is published', 'not generated yet', 'not generated yet'], badges.join(' | '));
+		assert.match(text, /empty documentation archive/, 'says why there is no Kotlin reference');
+		assert.match(text, /doesn.t opt in yet/, 'says why there is no Swift reference');
 	});
 
 	test('explains the shared operation names and links Concepts › One API', () => {
