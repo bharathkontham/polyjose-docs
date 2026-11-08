@@ -231,7 +231,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     assert.ok(start !== -1 && end > start, 'no decode-without-verify section');
     const section = textOf(html.slice(start, end));
     assert.ok(links.includes('/guides/jwk-sets/'), 'links the JWK Sets guide');
-    assert.match(section, /pass the issuer's whole JWK Set and let polyjose select candidates; the JWK Sets guide shows how\./);
+    assert.match(section, /pass the issuer[’']s whole JWK Set and let polyjose select candidates; the JWK Sets guide shows how\./);
     assert.doesNotMatch(section, /will cover|when it arrives/, 'the guide is written now');
   });
 });
