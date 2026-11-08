@@ -5,7 +5,7 @@ description: The pure-Rust cryptographic libraries polyjose builds on, their lic
 
 import PrimitivesTable from '../../../components/PrimitivesTable.astro';
 
-This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+This page describes polyjose 0.1.0 as designed.
 
 polyjose is designed to implement the JOSE standards (JWS, JWE, JWK and JWT) without implementing any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
 
@@ -31,7 +31,7 @@ Where more than one library qualifies, polyjose prefers the one with the stronge
 
 Randomness comes only from the operating system's random number generator, through `getrandom` from the rust-random project.
 
-The table below shows the exact version of each library in polyjose's lockfile (`Cargo.lock`) at commit `30a4a72` of its main branch. These versions can change before 0.1.0 is published. An upgrade will go only through a change that reruns the full test suite and rechecks the library's audit status.
+The table below shows the exact version of each library in polyjose's lockfile (`Cargo.lock`) at commit `30a4a72` of its main branch. An upgrade will go only through a change that reruns the full test suite and rechecks the library's audit status.
 
 Pure Rust gives memory safety, not freedom from side channels. How well each library resists timing attacks is described in its own documentation.
 
@@ -73,6 +73,6 @@ On x86_64 targets, `curve25519-dalek` uses its own code generator, [`curve25519-
 
 ## polyjose itself
 
-polyjose itself has not yet had an independent audit. One is planned before 1.0. It will cover polyjose's own code: its JSON, base64url and DER/PEM handling, the Concat KDF, and the way it combines the primitives.
+polyjose itself has not had an independent audit yet. No third party has reviewed polyjose's own code: its JSON, base64url and DER/PEM handling, the Concat KDF, its key handling, and the way it combines the primitives. It is built on the libraries above, whose audit status the table gives.
 
-polyjose is pre-1.0. Until that audit is published, treat polyjose as code without an independent review of its own, built on the libraries above. To report a security issue, see [Reporting a vulnerability](/security/reporting/).
+To report a security issue, see [Reporting a vulnerability](/security/reporting/).
