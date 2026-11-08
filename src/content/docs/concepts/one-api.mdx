@@ -68,7 +68,7 @@ Rust callers use the crate's own types, which the [API reference](/reference/api
 
 Calls run on the thread that makes them and throw on failure. Move work off the main thread yourself, for example with `Dispatchers.Default` in Kotlin or a `Task` in Swift.
 
-Kotlin data classes and Swift structs print every field in `toString()` and `description`. `JwsSigner` and `JweRecipient` hold a key, so don't log them.
+Kotlin data classes and Swift structs print their fields in `toString()` and `description`, except secret fields, which print as their length only, such as `<redacted, 32 bytes>`. Reading a secret field, such as the key of a `JwsSigner` or a `JweRecipient`, gives the secret itself, so don't log it.
 
 ## Operations
 

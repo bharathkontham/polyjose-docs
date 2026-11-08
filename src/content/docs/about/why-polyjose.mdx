@@ -20,7 +20,7 @@ This isn't a criticism of the existing libraries. panva/jose, Nimbus JOSE + JWT 
 
 This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.
 
-1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), the web (WebAssembly, which also runs in edge runtimes), Android and the JVM (Kotlin), and Swift (iOS first; the same package also builds for iPadOS, macOS, tvOS, watchOS and visionOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.1.0. polyjose is designed so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
+1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), the web (WebAssembly, which also runs in edge runtimes), Android and the JVM (Kotlin), and Swift (iOS first; the same package also builds for macOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.1.0. polyjose is designed so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
 2. **Pure-Rust cryptography.** There is no OpenSSL, ring or aws-lc-rs. The primitives come from the RustCrypto and dalek projects, so polyjose builds with `cargo` alone and no C toolchain enters its supply chain.
 3. **RFC coverage.** polyjose 0.1.0 is designed to implement:
    - RFC 7515 (JWS), RFC 7516 (JWE), RFC 7517 (JWK), RFC 7518 (JWA) and RFC 7519 (JWT), with the examples of RFC 7520 (the JOSE Cookbook)
@@ -39,7 +39,7 @@ This list describes polyjose 0.1.0 as designed. The library is in development an
    - every decryption failure returns the same error, so a failure doesn't reveal which check failed
    - PBES2 iteration counts are bounded
    - key material in the Rust core is designed to be wiped from memory when it is dropped; the [security model](/security/model/) lists where copies can remain in the bindings
-5. **Built for independent review.** No independent audit of polyjose has been published yet. The design aims to make one practical: the core depends only on cryptographic primitive libraries, and polyjose writes its own small utilities (base64url, JSON, error handling, DER and PEM), so a reviewer reads polyjose plus a short, documented list of primitives. A CI check is planned to stop the dependency tree from growing without anyone noticing.
+5. **Built for independent review.** No independent audit of polyjose has been published yet. The design aims to make one practical: the core depends only on cryptographic primitive libraries, and polyjose writes its own small utilities (base64url, JSON, error handling, DER and PEM), so a reviewer reads polyjose plus a short, documented list of primitives. polyjose's test suite is designed to stop the dependency tree from growing without anyone noticing.
 6. **Honest about its foundations.** Every primitive library polyjose builds on is credited by name, with its license and its review status in its maintainers' own words, on [Cryptographic foundations](/security/cryptographic-foundations/). That page says plainly which libraries have had an independent review and which haven't.
 
 ## Who it's for
