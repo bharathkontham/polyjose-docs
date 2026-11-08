@@ -7,7 +7,7 @@ import ErrorCodes from '../../../components/ErrorCodes.astro';
 
 This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
 
-Every polyjose failure carries exactly one error code from a fixed set. The codes are the same strings on every platform, because every package reports the code the Rust core produced and never adds codes of its own. `errorCodes()` returns the full list in JavaScript, Kotlin and Swift, and `Error::CODES` holds it in Rust.
+Every polyjose failure carries exactly one error code from a fixed set. The codes are the same strings on every platform, because every package reports the code the Rust core produced and adds no codes of its own to its operations. `errorCodes()` returns the full list in JavaScript, Kotlin and Swift, and `Error::CODES` holds it in Rust.
 
 ## Reading the code
 
@@ -29,6 +29,8 @@ Every polyjose failure carries exactly one error code from a fixed set. The code
 </table>
 
 In JavaScript, passing an argument of the wrong type (a number where a string belongs, for example) throws the host's own `TypeError` before polyjose runs. That is a programming error, not one of the codes below, so `err.code` is always one of the codes whenever `err instanceof PolyjoseError`. Kotlin and Swift reject the same mistakes at compile time.
+
+Loading `@polyjose/node` can fail too, before any operation runs: the package loads only the native addon whose SHA-256 it was built with, and otherwise the import throws a plain `Error` (not a `PolyjoseError`) with `code` `ERR_POLYJOSE_ADDON_REFUSED`.
 
 ## Branch on the code, never on the message
 

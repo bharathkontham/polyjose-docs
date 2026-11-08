@@ -247,7 +247,7 @@ test('findUsages rejects an unavailable value it cannot read', () => {
 test('the command exits 0 with a summary on the real tree', () => {
   const run = spawnSync(process.execPath, [CLI], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /Sample coverage OK: 0 usages, 0 regions/);
+  assert.match(run.stdout, /Sample coverage OK: [1-9]\d* usages, [1-9]\d* regions/);
 });
 
 test('the command exits 1 and lists the problems', () => {

@@ -1,8 +1,84 @@
 ---
 title: Web (WASM)
-description: Use polyjose in browsers and bundlers through WebAssembly (@polyjose/wasm).
+description: Add @polyjose/wasm to a web app, a Web Worker or a Cloudflare Worker, then sign and verify your first JWS.
 ---
 
-Use polyjose in browsers and bundlers through WebAssembly (`@polyjose/wasm`). The same package also runs in serverless and edge runtimes such as Cloudflare Workers and Deno.
+import Install from '../../../components/samples/Install.astro';
+import Sample from '../../../components/samples/Sample.astro';
 
-This page arrives with the 0.1.0 release and will show how to load polyjose through WebAssembly and sign and verify your first token.
+polyjose 0.1.0 is not published yet. The code on this page is run as tests against the polyjose source that will become 0.1.0: in Node.js, and the Web Worker sample in headless Chromium. So it shows the API as it will ship.
+
+`@polyjose/wasm` is the polyjose Rust core compiled to WebAssembly. It has the same API as [`@polyjose/node`](/start/node/), so moving between the two means changing the import.
+
+## Install
+
+<Install platform="web" />
+
+The package is ESM only, and every call returns a Promise. The WebAssembly module loads on the first call: importing the package does nothing, and it never uses top-level await.
+
+### Where it runs
+
+The package's `exports` picks an entry point for your runtime:
+
+<table tabindex="0">
+	<caption>Entry points of @polyjose/wasm, by export condition</caption>
+	<thead>
+		<tr>
+			<th scope="col">Condition</th>
+			<th scope="col">Entry point</th>
+			<th scope="col">How it loads the module</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>workerd</code></th><td><code>workerd.mjs</code></td><td>Cloudflare Workers: a static <code>.wasm</code> import, which arrives compiled</td></tr>
+		<tr><th scope="row"><code>node</code></th><td><code>node.mjs</code></td><td>Node.js: reads the file and checks its SHA-384 first</td></tr>
+		<tr><th scope="row"><code>browser</code>, <code>import</code>, <code>default</code></th><td><code>browser.mjs</code></td><td>browsers, Web Workers and bundlers: fetches the file next to it with Subresource Integrity</td></tr>
+	</tbody>
+</table>
+
+- **Tested:** polyjose's own tests run the package in Node.js 22.12 or later, in headless Chrome and in Cloudflare Workers (workerd).
+- **Expected to work:** current Firefox and Safari, and bundlers that handle `new URL("…", import.meta.url)`, such as webpack 5, Vite and esbuild.
+- **Untested:** Deno and Bun are not tested for 0.1.0. Both resolve the `node` or `default` condition.
+
+### Serving the module
+
+- **Content Security Policy.** A page with a CSP must allow WebAssembly compilation with `script-src 'wasm-unsafe-eval'`, and the fetch of `polyjose_wasm_bg.wasm` (`connect-src`). Without `'wasm-unsafe-eval'`, the first call rejects.
+- **Serve the `.wasm` byte for byte,** as `application/wasm`. The browser entry fetches it with Subresource Integrity, so a server, CDN or bundler that rewrites the file makes the first call reject.
+
+## Sign your first token
+
+These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.
+
+<Sample platform="web" id="start/js-imports" />
+
+A JWS needs a protected header with an `alg`. Here it is `ES256`, ECDSA with P-256 and SHA-256 (RFC 7518 §3.4). Keys are JWKs, either as JSON text or as plain objects; `privateKey` is the example key's JWK.
+
+<Sample platform="web" id="start/js-first-sign" />
+
+`token` is a JWS in the compact serialization: three base64url parts joined by dots (RFC 7515 §7.1).
+
+## Verify it
+
+Verifying always takes an explicit `allowedAlgs`. polyjose never trusts the `alg` in the token's header on its own, and `none` is never accepted (RFC 8725 §3.1). `publicKey` is the same JWK without its private member `d`.
+
+<Sample platform="web" id="start/js-first-verify" />
+
+`verified.payload` is a plain `Uint8Array`, and printing `verified` prints it. When the payload is secret, don't log the result, and wipe the bytes with `verified.payload.fill(0)` once you are done with them.
+
+## Handle an error
+
+A failed call rejects with a `PolyjoseError`. Its `code` is one of a fixed set of strings, the same on every platform. Here the verifier accepts only `Ed25519`, so the ES256 token is refused before any cryptography runs:
+
+<Sample platform="web" id="start/js-error-code" />
+
+Branch on `code`, never on the message. [Errors](/concepts/errors/) lists every code and when it happens.
+
+## Keep the page responsive
+
+The work runs on the thread that calls polyjose. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. To keep a page responsive, call polyjose from a Web Worker. Web Workers use the same `browser.mjs` entry point as a page. In the worker:
+
+<Sample platform="web" id="start/web-worker" />
+
+On the page:
+
+<Sample platform="web" id="start/web-worker-page" />

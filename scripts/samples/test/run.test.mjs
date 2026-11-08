@@ -88,8 +88,11 @@ function run(args, { docs, env = {} } = {}) {
 
 const resultLines = (out) => out.split('\n').filter((l) => /^(PASS|FAIL|SKIPPED) \(/.test(l));
 
-test('on the real tree every platform is skipped and nothing passes', () => {
-  const r = run(['all']);
+// The real tree's pins name a polyjose commit and its runners build polyjose, so these two run a
+// stub tree whose pins are all none. `scripts/samples/run.sh all` runs the real samples.
+test('with every pin none, every platform is skipped and nothing passes', () => {
+  const { docs } = docsTree({ runners: { rust: 'pass', js: 'pass', kotlin: 'pass', swift: 'pass' } });
+  const r = run(['all'], { docs });
   assert.equal(r.status, 0, r.err);
   assert.deepEqual(resultLines(r.out), [
     'SKIPPED (rust: no polyjose build pinned)',
@@ -101,7 +104,8 @@ test('on the real tree every platform is skipped and nothing passes', () => {
 });
 
 test('one platform can be run on its own', () => {
-  const r = run(['kotlin']);
+  const { docs } = docsTree();
+  const r = run(['kotlin'], { docs });
   assert.equal(r.status, 0);
   assert.deepEqual(resultLines(r.out), ['SKIPPED (kotlin: no polyjose build pinned)']);
 });
