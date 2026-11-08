@@ -153,13 +153,28 @@ fn rsa_oaep_256() -> Result<(), Error> {
     Ok(())
 }
 
+/// Stands in for a password the user enters: the random bytes of a generated `oct` key, so no
+/// password is written in source.
+fn example_password() -> Result<Vec<u8>, Error> {
+    let key = keys::generate(KeySpec::Oct { bytes: 24 })?;
+    let k = key
+        .to_object()
+        .get("k")
+        .and_then(|k| k.as_str())
+        .map(str::to_owned)
+        .expect("an oct JWK has k");
+    b64url_decode(&k)
+}
+
 #[test]
 fn pbes2() -> Result<(), Error> {
+    let password_bytes = example_password()?;
     // docs:start encrypt-and-decrypt/pbes2
+    // `password_bytes` holds the password as the user entered it: never a literal in source code.
     // A password is an `oct` key whose `k` is the password's octets (RFC 7518 §4.8).
     let mut password = Object::new();
     password.insert("kty", "oct");
-    password.insert("k", b64url_encode(b"correct horse battery staple"));
+    password.insert("k", b64url_encode(&password_bytes));
     let password = Jwk::from_object(&password)?;
 
     let token = Encryptor::new(ContentEncAlg::A256GCM)
@@ -184,7 +199,7 @@ fn pbes2() -> Result<(), Error> {
 fn pbes2_limit() -> Result<(), Error> {
     let mut password = Object::new();
     password.insert("kty", "oct");
-    password.insert("k", b64url_encode(b"correct horse battery staple"));
+    password.insert("k", b64url_encode(&example_password()?));
     let password = Jwk::from_object(&password)?;
     // docs:start encrypt-and-decrypt/pbes2-limit
     // A `p2c` above the decrypting side's limit (10,000 by default) is refused (RFC 7518 §4.8.1.2,

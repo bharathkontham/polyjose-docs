@@ -87,48 +87,24 @@ func rsaPrivateJwk() throws -> String {
     return try jsonText(object)
 }
 
-// TEMPORARY (phase 1): replace with the samples project's own fixture helper once it lands
-/// `samples/fixtures`, found by walking up from this file's path.
-private func fixturesDirectory() throws -> URL {
-    var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-    while dir.path != "/" {
-        if FileManager.default.fileExists(atPath: dir.appendingPathComponent("fixtures/keys.json").path) {
-            return dir.appendingPathComponent("fixtures")
-        }
-        dir = dir.deletingLastPathComponent()
-    }
-    throw GuideFixtureError(description: "no fixtures/keys.json above \(#filePath)")
-}
-
-private func fixtureJwkObject(_ name: String) throws -> [String: Any] {
-    let url = try fixturesDirectory().appendingPathComponent("keys.json")
-    let doc = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
-    guard let keys = (doc as? [String: Any])?["keys"] as? [String: Any],
-        let jwk = (keys[name] as? [String: Any])?["jwk"] as? [String: Any]
-    else {
-        throw GuideFixtureError(description: "keys.json has no keys.\(name).jwk object")
-    }
-    return jwk
-}
-
 /// The fixture JWK named `name` as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`.
 func fixtureJwk(_ name: String) throws -> String {
-    try jsonText(fixtureJwkObject(name))
+    try Fixtures.jwk(name)
 }
 
 /// The public half of the fixture JWK named `name` (RFC 7517 §4, RFC 7518 §6): `d` removed.
 func fixturePublicJwk(_ name: String) throws -> String {
-    var jwk = try fixtureJwkObject(name)
-    guard jwk["kty"] as? String != "oct" else {
-        throw GuideFixtureError(description: "keys.\(name) is an oct key, which has no public half")
-    }
-    jwk.removeValue(forKey: "d")
-    return try jsonText(jwk)
+    try Fixtures.publicJwk(name)
 }
 
-/// The text of `fixtures/jwks.json`, a JWK Set (RFC 7517 §5) of the public P-256 and Ed25519 keys.
+/// The text of `samples/fixtures/jwks.json`, a JWK Set (RFC 7517 §5) of the public P-256 and
+/// Ed25519 keys, found from this file's path as `Fixtures` finds `keys.json`.
 func fixtureJwks() throws -> String {
-    let url = try fixturesDirectory().appendingPathComponent("jwks.json")
+    let url = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()  // SamplesTests
+        .deletingLastPathComponent()  // Tests
+        .deletingLastPathComponent()  // swift
+        .deletingLastPathComponent()  // samples
+        .appendingPathComponent("fixtures/jwks.json")
     return String(decoding: try Data(contentsOf: url), as: UTF8.self)
 }
-// END TEMPORARY
