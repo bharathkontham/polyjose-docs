@@ -1,0 +1,2 @@
+# js.sh links samples/js/node_modules here, so TypeScript and the browser test resolve @polyjose/wasm.
+/node_modules

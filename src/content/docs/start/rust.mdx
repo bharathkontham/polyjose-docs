@@ -1,6 +1,52 @@
 ---
 title: Rust
-description: Add polyjose to a Rust project.
+description: Add the polyjose crate to a Rust project, then sign and verify your first JWS.
 ---
 
-This page arrives with the 0.1.0 release and will show how to add polyjose to a Rust project and sign and verify your first token.
+import Install from '../../../components/samples/Install.astro';
+import Sample from '../../../components/samples/Sample.astro';
+
+polyjose 0.1.0 is not published yet. The code on this page is compiled and run as tests against the polyjose source that will become 0.1.0, so it shows the API as it will ship.
+
+## Install
+
+<Install platform="rust" />
+
+- **Rust 1.89 or later.** That is the crate's minimum supported Rust version (`rust-version`).
+- **Pure Rust.** The cryptography comes from RustCrypto and dalek crates, so there is no C library to install and nothing links OpenSSL.
+
+### The `deflate` feature
+
+JWE compression (`"zip": "DEF"`, RFC 7516 §4.1.3) is behind a Cargo feature, `deflate`, which is **off by default**. Compressing a plaintext before encrypting it can leak what the plaintext says through the length of the ciphertext (RFC 8725 §3.6), so you have to ask for it. Enable it only when you must exchange compressed JWEs with another system, with `features = ["deflate"]` on the dependency. It adds no dependencies. Without it, a JWE with `zip` fails with `UnsupportedAlgorithm`, both when you encrypt and when you decrypt.
+
+The crate has one other feature, `insecure-test-vectors`. It adds a deterministic byte source that polyjose's own tests use to reproduce published test vectors, so it is insecure by design. Never enable it.
+
+## Sign your first token
+
+These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.
+
+The functions live in modules named after the specifications: `jws` for signatures (RFC 7515), `jwk` for keys, `jwa` for algorithm names.
+
+<Sample platform="rust" id="start/rust-imports" />
+
+A JWS needs a protected header with an `alg`. Here it is `ES256`, ECDSA with P-256 and SHA-256 (RFC 7518 §3.4). `private_key` is a `Jwk`, for example from `Jwk::from_json`.
+
+<Sample platform="rust" id="start/rust-first-sign" />
+
+`token` is a JWS in the compact serialization: three base64url parts joined by dots (RFC 7515 §7.1).
+
+## Verify it
+
+Verifying always takes an explicit list of the algorithms you accept. polyjose never trusts the `alg` in the token's header on its own, and `none` can't be put in the list (RFC 8725 §3.1). The key is the public half: `private_key.to_public()` gives it.
+
+<Sample platform="rust" id="start/rust-first-verify" />
+
+`verified.payload` may be secret, so polyjose wipes it from memory when `verified` is dropped.
+
+## Handle an error
+
+Every failure is a `polyjose::Error`. Match on its variant, or compare `err.code()`, which returns the same stable string on every platform. Here the verifier accepts only `Ed25519`, so the ES256 token is refused before any cryptography runs:
+
+<Sample platform="rust" id="start/rust-error-code" />
+
+[Errors](/concepts/errors/) lists every code and when it happens.
