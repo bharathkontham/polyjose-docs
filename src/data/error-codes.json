@@ -150,6 +150,15 @@
       ]
     },
     {
+      "code": "MultipleMatchingKeys",
+      "meaning": "More than one key in the JWK Set matches the selector passed to `jwksSelect`, and polyjose does not guess between them.",
+      "causes": [
+        "Two members share the selected `kid`: distinct `kid` values in a set are only recommended (RFC 7517 §4.5)",
+        "A selector without `kid`, or an empty one, on a set with several keys that fit it",
+        "Only `jwksSelect` reports it; verifying a JWT against a JWK Set tries each candidate instead"
+      ]
+    },
+    {
       "code": "RandomnessUnavailable",
       "meaning": "The operating system's secure random number generator could not be read.",
       "causes": [

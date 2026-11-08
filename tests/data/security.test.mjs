@@ -109,7 +109,7 @@ test('Security model: each fact is stated', async (t) => {
   await t.test('2. dependencies', () => {
     assertPhrases(text, 'core dependencies', ['subtle', 'zeroize', 'getrandom']);
     assertPhrases(text, 'own utilities', ['base64url', 'JSON', 'DER', 'PEM', /\berror (types|handling)\b|\berrors\b/]);
-    assertPhrases(text, 'allowlist', [/CI\b[^.]*\ballowlist\b/]);
+    assertPhrases(text, 'allowlist', [/\btest suite\b[^.]*\ballowlist\b/]);
     assert.ok(links.includes('/security/cryptographic-foundations/'), 'links to Security › Cryptographic foundations');
   });
 
@@ -168,7 +168,9 @@ test('Security model: each fact is stated', async (t) => {
     assertPhrases(text, 'host strings', [/strings/i, 'Uint8Array', 'ByteArray', 'Data']);
     assertPhrases(text, 'how to wipe', ['fill(0)', 'resetBytes']);
     assertPhrases(text, 'UniFFI residuals', [/one un-wiped copy/i, /record argument/i, /returned secret/i]);
-    assertPhrases(text, 'records that print keys', ['JwsSigner', 'JweRecipient', 'toString', 'description', /never log/i]);
+    assertPhrases(text, 'UniFFI residuals, byte results', [/returned secret byte array[^.]*at least two/i]);
+    assertPhrases(text, 'records redact their secrets', ['JwsSigner', 'JweRecipient', 'toString', 'description', '<redacted, ', /never log/i]);
+    assert.doesNotMatch(text, /print every field, including the key/i, 'the Kotlin and Swift records redact their keys');
   });
 
   await t.test('9. errors', () => {
