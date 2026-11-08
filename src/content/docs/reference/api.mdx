@@ -11,8 +11,10 @@ import swiftPin from '../../../../samples/pins/swift.json';
 
 {/*
   A registry page for a name that isn't published yet could be claimed by
-  someone else, so each reference is a link only once that platform's pin in
-  samples/pins/ is `registry`. Until then the URL is shown as text.
+  someone else, so each external reference is a link only once that
+  platform's pin in samples/pins/ is `registry`. Until then the URL is shown
+  as text. The JavaScript reference is generated into this site by TypeDoc
+  (typedoc.json) from the declarations vendored in api/js/.
 */}
 
 export const published = {
@@ -21,18 +23,18 @@ export const published = {
   swift: pinRelease(parsePin(swiftPin, 'swift')).published,
 };
 
-Each platform's API reference is generated from the code and hosted where developers on that platform expect to find it. polyjose is pre-1.0 and not published yet, so these references don't exist yet. Each one becomes available when 0.1.0 is published.
+Each platform's API reference is generated from the code. polyjose is pre-1.0 and not published yet, so only the JavaScript reference exists today, and it describes the code in the polyjose repository rather than a release.
 
 ## Where each reference lives
 
+- **JavaScript** (`@polyjose/node` and `@polyjose/wasm`): <a href="/api/js/index.html">the JavaScript API reference</a> on this site, at `/api/js/`<br />
+  One TypeDoc reference for both packages, which export the same functions and types. It is generated from the packages' TypeScript declarations in the polyjose repository, at commit `30a4a72`, so it can change before 0.1.0 is published.
 - **Rust:** {published.rust ? <a href="https://docs.rs/polyjose">polyjose on docs.rs</a> : <>polyjose on docs.rs, at <code dir="auto">https://docs.rs/polyjose</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
-  The rustdoc reference for the `polyjose` crate, which docs.rs builds for every release.
-- **JavaScript** (`@polyjose/node` and `@polyjose/wasm`): `/api/js/` on this site <Badge text="available when 0.1.0 is published" variant="caution" /><br />
-  One TypeDoc reference for both packages, which share the same API and the same type definitions.
-- **Kotlin:** {published.kotlin ? <a href="https://javadoc.io/doc/dev.polyjose/polyjose-jvm">polyjose-jvm on javadoc.io</a> : <>polyjose-jvm on javadoc.io, at <code dir="auto">https://javadoc.io/doc/dev.polyjose/polyjose-jvm</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
-  The reference for the Kotlin API that the Android library and the desktop JVM jar share, served by javadoc.io from the published Maven artifacts.
-- **Swift:** {published.swift ? <a href="https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose">polyjose on Swift Package Index</a> : <>polyjose on Swift Package Index, at <code dir="auto">https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose</code></>} <Badge text="available when 0.1.0 is published" variant="caution" /><br />
-  The DocC reference for the `Polyjose` module, hosted by Swift Package Index.
+  The rustdoc reference for the `polyjose` crate, which docs.rs builds for every release published on crates.io.
+- **Kotlin:** {published.kotlin ? <a href="https://javadoc.io/doc/dev.polyjose/polyjose-jvm">polyjose-jvm on javadoc.io</a> : <>polyjose-jvm on javadoc.io, at <code dir="auto">https://javadoc.io/doc/dev.polyjose/polyjose-jvm</code></>} <Badge text="not generated yet" variant="caution" /><br />
+  javadoc.io shows the documentation that is published with each Maven artifact. polyjose's build doesn't generate Kotlin documentation yet: it packages an empty documentation archive with the Android library and the desktop JVM jar. Until it does, [One API on every platform](/concepts/one-api/) lists the Kotlin names.
+- **Swift:** {published.swift ? <a href="https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose">polyjose on Swift Package Index</a> : <>polyjose on Swift Package Index, at <code dir="auto">https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose</code></>} <Badge text="not generated yet" variant="caution" /><br />
+  Swift Package Index builds DocC documentation for packages that opt in to it. The polyjose package doesn't opt in yet, so there is no hosted Swift reference for the `Polyjose` module.
 
 ## The same names on every platform
 

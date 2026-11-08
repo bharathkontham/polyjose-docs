@@ -1,7 +1,8 @@
 ---
 // The audit register on Security › Cryptographic foundations: the status
 // legend, then the credits table with one row per cryptographic primitive
-// crate, from src/data/primitives.json.
+// crate, from src/data/primitives.json. Each row shows the crate's exact
+// version from polyjose's Cargo.lock at the commit the page names.
 //
 // The legend and every table row carry `data-audit-register`. The honesty
 // check (scripts/check/honesty.mjs) allows the word "audited" on this page only
@@ -62,12 +63,13 @@ function lead(note: string): [string, string] {
 
 <table class="primitives" data-primitives>
 	<caption>
-		The cryptographic libraries polyjose builds on, with their upstream project, license, what polyjose uses
-		each one for, and its public audit status
+		The cryptographic libraries polyjose builds on, with the version polyjose locks, their upstream project,
+		license, what polyjose uses each one for, and its public audit status
 	</caption>
 	<thead>
 		<tr>
 			<th scope="col">Crate</th>
+			<th scope="col">Version</th>
 			<th scope="col">Upstream</th>
 			<th scope="col">License</th>
 			<th scope="col">What polyjose uses it for</th>
@@ -85,6 +87,9 @@ function lead(note: string): [string, string] {
 								<code>{p.crate}</code>
 							</a>
 						</th>
+						<td class="version">
+							<code>{p.version}</code>
+						</td>
 						<td>{p.upstream}</td>
 						<td>{p.license}</td>
 						<td>{p.purpose}</td>
@@ -123,6 +128,9 @@ function lead(note: string): [string, string] {
 	}
 	.primitives :is(th, td) {
 		padding-inline: 0.5rem;
+	}
+	.primitives .version {
+		white-space: nowrap;
 	}
 	.primitives .audit {
 		min-width: 13rem;

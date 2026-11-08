@@ -99,11 +99,12 @@ const STATUSES = ['yes', 'verify-only', 'encrypt-only', 'no'];
 // Fixed heading ids on Security › Not supported.
 const NOT_SUPPORTED_IDS = ['rsa-private-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
 
+// polyjose's Error::CODES (crates/polyjose/src/error.rs) at commit 30a4a72, in its order.
 const ERROR_CODES = [
-	'InvalidBase64', 'InvalidJson', 'InvalidHeader', 'InvalidFormat', 'UnsupportedAlgorithm',
-	'AlgorithmNotAllowed', 'InvalidKey', 'KeyAlgorithmMismatch', 'InvalidSignature', 'DecryptionFailed',
-	'UnknownCritical', 'TokenExpired', 'TokenNotYetValid', 'InvalidClaim', 'NoMatchingKey',
-	'RandomnessUnavailable',
+	'InvalidBase64', 'InvalidJson', 'InvalidHeader', 'UnsupportedAlgorithm', 'AlgorithmNotAllowed',
+	'InvalidKey', 'KeyAlgorithmMismatch', 'InvalidSignature', 'DecryptionFailed', 'UnknownCritical',
+	'TokenExpired', 'TokenNotYetValid', 'InvalidClaim', 'RandomnessUnavailable', 'InvalidFormat',
+	'NoMatchingKey', 'MultipleMatchingKeys',
 ];
 
 const RFC_TITLES = {
