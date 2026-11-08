@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "polyjose JavaScript API",
+  "entryPoints": [
+    "api/js/index.d.ts"
+  ],
+  "tsconfig": "api/js/tsconfig.json",
+  "readme": "api/js/README.md",
+  "out": "public/api/js",
+  "plugin": [
+    "./scripts/api/typedoc-plugin.mjs"
+  ],
+  "theme": "polyjose",
+  "customCss": "scripts/api/typedoc.css",
+  "favicon": "public/favicon.svg",
+  "navigationLinks": {
+    "polyjose docs": "/"
+  },
+  "disableSources": true,
+  "githubPages": false,
+  "lang": "en",
+  "treatWarningsAsErrors": true,
+  "intentionallyNotExported": [
+    "api/js/facade/api.d.ts:PolyjoseError"
+  ]
+}

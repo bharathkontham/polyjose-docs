@@ -1,0 +1,9 @@
+{
+  // The Web Worker side of the Web samples (WebWorker instead of DOM; the two libraries can't
+  // share one program). See tsconfig.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"]
+  },
+  "files": ["start/worker.ts"]
+}

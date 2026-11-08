@@ -1,6 +1,55 @@
 ---
 title: Swift (iOS)
-description: Use polyjose from Swift in iOS apps. The same package also builds for iPadOS, macOS, tvOS, watchOS and visionOS.
+description: Add the polyjose Swift package to an iOS or macOS app, then sign and verify your first JWS.
 ---
 
-This page arrives with the 0.1.0 release and will show how to add polyjose to a Swift project, with iOS as the main target, and sign and verify your first token. The same Swift package also builds for iPadOS, macOS, tvOS, watchOS and visionOS.
+import Install from '../../../components/samples/Install.astro';
+import Sample from '../../../components/samples/Sample.astro';
+
+polyjose 0.1.0 is not published yet. The code on this page is compiled and run as tests against the polyjose source that will become 0.1.0, on macOS, so it shows the API as it will ship.
+
+The polyjose Swift package calls the polyjose Rust core, which it links as a static XCFramework. iOS is its main target.
+
+## Install
+
+Add the package with Swift Package Manager, in `Package.swift` or in Xcode under **File › Add Package Dependencies**, and depend on the product `Polyjose`:
+
+<Install platform="swift" />
+
+- **iOS 16 or later, and macOS 13 or later.** Those are the minimums the package declares.
+- **Swift 6.** The package's manifest needs Swift tools 6.0.
+- **No other Rust static library in the same app.** polyjose links its own copy of the Rust standard library, so a second Rust static library can make the link fail with duplicate symbols.
+
+## Sign your first token
+
+These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.
+
+<Sample platform="swift" id="start/swift-imports" />
+
+A JWS needs a protected header with an `alg`. Here it is `ES256`, ECDSA with P-256 and SHA-256 (RFC 7518 §3.4). Keys are JWKs as JSON text; `privateKey` is the example key's JWK.
+
+<Sample platform="swift" id="start/swift-first-sign" />
+
+`token` is a JWS in the compact serialization: three base64url parts joined by dots (RFC 7515 §7.1).
+
+## Verify it
+
+Verifying always takes an explicit `allowedAlgs`, with no default, so leaving it out doesn't compile. polyjose never trusts the `alg` in the token's header on its own, and `none` is never accepted (RFC 8725 §3.1). `publicKey` is the same JWK without its private member `d`.
+
+<Sample platform="swift" id="start/swift-first-verify" />
+
+Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them once you are done: `resetBytes(in:)` on a `var` that holds them. `Data` is copy-on-write, so this wipes only bytes that no other copy shares.
+
+## Handle an error
+
+Calls are synchronous and throw a `PolyjoseError` when they fail. Its `code()` is one of a fixed set of strings, the same on every platform. Here the verifier accepts only `Ed25519`, so the ES256 token is refused before any cryptography runs:
+
+<Sample platform="swift" id="start/swift-error-code" />
+
+Branch on `code()`, never on the message or the case name. [Errors](/concepts/errors/) lists every code and when it happens.
+
+## Stay off the main thread
+
+Every call runs on the thread that makes it, until it returns. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. In an app, keep them off the main actor, for example in a detached task:
+
+<Sample platform="swift" id="start/swift-background" />

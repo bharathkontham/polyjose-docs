@@ -10,12 +10,16 @@ test('pin files exist for rust, js, kotlin and swift', () => {
   assert.deepEqual([...PIN_PLATFORMS], ['rust', 'js', 'kotlin', 'swift']);
 });
 
-test('the committed pins start with no build pinned and 0.1.0 upcoming', () => {
+test('the committed pins name one polyjose commit, with 0.1.0 upcoming', () => {
+  const revs = new Set();
   for (const platform of PIN_PLATFORMS) {
     const raw = JSON.parse(readFileSync(new URL(`../../../samples/pins/${platform}.json`, import.meta.url), 'utf8'));
-    assert.deepEqual(raw, { source: 'none', upcoming: '0.1.0' }, platform);
-    assert.deepEqual(parsePin(raw, platform), { source: 'none', upcoming: '0.1.0' });
+    const pin = parsePin(raw, platform);
+    assert.equal(pin.source, 'git', platform);
+    assert.equal(pin.upcoming, '0.1.0', platform);
+    revs.add(pin.rev);
   }
+  assert.equal(revs.size, 1, 'every platform is tested against the same commit');
 });
 
 test('none mode', () => {

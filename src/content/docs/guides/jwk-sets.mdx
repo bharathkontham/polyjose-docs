@@ -1,6 +1,60 @@
 ---
 title: Work with JWK Sets
-description: Select verification keys from a JSON Web Key Set.
+description: Validate JWTs against an issuer's JSON Web Key Set, understand how a key is selected, bind the set to its issuer, and pick a key from a set yourself.
 ---
 
-This guide arrives with the 0.1.0 release and will show how to read a JSON Web Key Set and pick the right key to verify a token, including during key rotation.
+import Samples from '../../../components/samples/Samples.astro';
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)), a JSON object with a `keys` array, often at the `jwks_uri` of its OpenID Connect or OAuth metadata. Each key carries a `kid`, so the issuer can rotate keys and a token can say which one signed it ([RFC 7515 §4.1.4](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4)).
+
+## Verify a JWT against a set
+
+`jwtVerifyWithJwks` takes the token, the whole set and the usual validation options (see [Validate a JWT](/guides/validate-jwt/)). The result says which key verified: its `kid` and its `keyIndex` in the set. In Rust, parse the set with `jwk::JwkSet::from_json` and pass `jwt::Keys::Set` to `jwt::verify`.
+
+<Samples id="jwk-sets/verify" />
+
+Fetching and caching the set is your application's job: polyjose never does any network I/O, and never follows a `jku` or `x5u` header. A typical service fetches the issuer's `jwks_uri` over HTTPS at start-up, keeps the set in memory, refreshes it on a schedule, and passes the cached text to every verify call. When a token names a `kid` that isn't in the cached set, it may refetch the set, rate-limited, so that an attacker can't make it fetch on every request. The sample's set is a local file that stands in for that response.
+
+Don't read the token's header yourself to pick a key before verifying. Pass the whole set and let polyjose choose candidates from the protected header, as described below. polyjose has no way to read a token without verifying it: see [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+
+## How a key is chosen
+
+For the token's `alg`, polyjose takes the keys of the set that can serve it: the right key type and curve, a JWK `alg` that is absent or equal, a `use` that is absent or `sig`, and `key_ops` that are absent or contain `verify` ([RFC 7517 §4.2–§4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.2)). If the token's protected header has a `kid`, only keys with exactly that `kid` remain. The candidates are then tried in set order, and the first that verifies wins.
+
+- No candidate fails with `NoMatchingKey`, before any signature is checked.
+- More than 8 candidates also fail with `NoMatchingKey`, so a token without a `kid` can't make polyjose try every key of a large set. Change the limit with `maxKeyCandidates`.
+- Members polyjose doesn't support, such as an unknown `kty` or curve, or members that are invalid, are skipped rather than failing the set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)).
+
+<Samples id="jwk-sets/no-matching-key" />
+
+`NoMatchingKey`, `MultipleMatchingKeys` and the JWT error codes tell a prober which `kid`s exist and why a token failed. A server should map all of them to one opaque client error, such as `invalid_token` ([RFC 6750 §3.1](https://www.rfc-editor.org/rfc/rfc6750#section-3.1)).
+
+Never allow an `HS*` algorithm when you verify with a set you fetched. A set can mix secret `oct` keys with public keys, and an `oct` key that an attacker published, or could read, would verify tokens they sign ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1), [§3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)). List only the public-key algorithms the issuer uses.
+
+## Bind the set to its issuer
+
+A key set says nothing about which issuer it belongs to. Pass each issuer's set together with that issuer in `issuers` ([RFC 8725 §3.8](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)). Otherwise a token from another issuer whose keys you also trust, or a token you issued for a different purpose, could be accepted. With several issuers, keep one set per issuer and choose the set by the configuration of the endpoint, not by the token.
+
+<Samples id="jwk-sets/issuer" />
+
+## Pick a key yourself
+
+`jwksSelect` returns the one key of a set that matches a selector of `kid`, `alg` and `keyUse` (in Rust, `JwkSet::select` with a `jwk::JwkSelector`). Use it to find, for example, the key to encrypt to, or the signing key in a set of your own:
+
+<Samples id="jwk-sets/select" />
+
+A set's order has no meaning ([RFC 7517 §5.1](https://www.rfc-editor.org/rfc/rfc7517#section-5.1)), so a selector that matches more than one key fails with `MultipleMatchingKeys` instead of picking one. No match fails with `NoMatchingKey`.
+
+<Samples id="jwk-sets/select-ambiguous" />
+
+Selecting a key doesn't decide which algorithm it may be used with. Pass the key only to an operation with an allow-list, and when a `kid` comes from an untrusted header, select with an `alg` as well. Give every `oct` key an `alg`, or select it by `kid`: an `oct` key without `alg` matches every symmetric algorithm. The selected key may be private, so call `jwkToPublic` before publishing it (see [Manage keys](/guides/manage-keys/#publish-only-the-public-half)).
+
+## A set with an RSA private key
+
+A set that contains an RSA private key, for example one published by mistake, is refused as a whole with `UnsupportedAlgorithm`, because RSA private keys aren't supported (see [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys)).
+
+<Samples id="jwk-sets/rsa-private" />
+
+[Security model › JWK Sets](/security/model/#jwk-sets) summarises these rules.

@@ -16,6 +16,12 @@
 // Any violation fails unless tests/a11y/allow.json lists its rule and selector
 // with a reason; an allow entry that matches nothing fails too.
 //
+// Not covered: the JavaScript API reference under /api/js/. TypeDoc generates
+// it (typedoc.json) with its own theme, outside Starlight, and it is not in the
+// sitemap. Its markup and styles are TypeDoc's, so they are excluded here
+// rather than allow-listed rule by rule. The honesty and private-reference
+// checks (npm run lint:honesty, npm run lint:refs) still cover those pages.
+//
 // The preview server runs in this process (Astro's programmatic preview API),
 // so no server can outlive the run; it is also stopped explicitly on success,
 // failure, error and on SIGINT/SIGTERM/SIGHUP.

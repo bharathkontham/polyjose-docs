@@ -109,7 +109,7 @@ test('Security model: each fact is stated', async (t) => {
   await t.test('2. dependencies', () => {
     assertPhrases(text, 'core dependencies', ['subtle', 'zeroize', 'getrandom']);
     assertPhrases(text, 'own utilities', ['base64url', 'JSON', 'DER', 'PEM', /\berror (types|handling)\b|\berrors\b/]);
-    assertPhrases(text, 'allowlist', [/CI\b[^.]*\ballowlist\b/]);
+    assertPhrases(text, 'allowlist', [/\btest suite\b[^.]*\ballowlist\b/]);
     assert.ok(links.includes('/security/cryptographic-foundations/'), 'links to Security › Cryptographic foundations');
   });
 
@@ -168,7 +168,9 @@ test('Security model: each fact is stated', async (t) => {
     assertPhrases(text, 'host strings', [/strings/i, 'Uint8Array', 'ByteArray', 'Data']);
     assertPhrases(text, 'how to wipe', ['fill(0)', 'resetBytes']);
     assertPhrases(text, 'UniFFI residuals', [/one un-wiped copy/i, /record argument/i, /returned secret/i]);
-    assertPhrases(text, 'records that print keys', ['JwsSigner', 'JweRecipient', 'toString', 'description', /never log/i]);
+    assertPhrases(text, 'UniFFI residuals, byte results', [/returned secret byte array[^.]*at least two/i]);
+    assertPhrases(text, 'records redact their secrets', ['JwsSigner', 'JweRecipient', 'toString', 'description', '<redacted, ', /never log/i]);
+    assert.doesNotMatch(text, /print every field, including the key/i, 'the Kotlin and Swift records redact their keys');
   });
 
   await t.test('9. errors', () => {
@@ -222,16 +224,15 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
-  // The JWK Sets guide is not written yet (it arrives with 0.1.0), so the
-  // pointer to it must not say it already covers key selection.
-  await t.test('decode without verify: points to the JWK Sets guide in the future tense', () => {
+  // The pointer to the JWK Sets guide, which shows key selection from a set.
+  await t.test('decode without verify: points to the JWK Sets guide', () => {
     const start = html.indexOf('<h2 id="decode-without-verify"');
     const end = html.indexOf('<h2', start + 1);
     assert.ok(start !== -1 && end > start, 'no decode-without-verify section');
     const section = textOf(html.slice(start, end));
     assert.ok(links.includes('/guides/jwk-sets/'), 'links the JWK Sets guide');
-    assert.doesNotMatch(section, /JWK Sets guide (covers|explains|shows)\b/, 'the guide is not written yet');
-    assert.match(section, /JWK Sets guide will cover this/);
+    assert.match(section, /pass the issuer[’']s whole JWK Set and let polyjose select candidates; the JWK Sets guide shows how\./);
+    assert.doesNotMatch(section, /will cover|when it arrives/, 'the guide is written now');
   });
 });
 
