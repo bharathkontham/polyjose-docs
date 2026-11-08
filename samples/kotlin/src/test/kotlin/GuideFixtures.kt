@@ -5,6 +5,7 @@
 // in the RFCs, so they protect nothing. Never use them in an application.
 
 import dev.polyjose.*
+import dev.polyjose.samples.Fixtures
 import java.io.File
 import org.json.JSONObject
 
@@ -60,28 +61,20 @@ fun withKid(jwk: String, kid: String): String = JSONObject(jwk).put("kid", kid).
 fun protectedHeaderOf(token: String): JSONObject =
     JSONObject(base64urlDecode(token.substringBefore('.')).decodeToString())
 
-// TEMPORARY (phase 1): replace with the samples project's own fixture helper once it lands
-private val fixturesDir: File by lazy {
-    var dir: File? = File(System.getProperty("user.dir")).absoluteFile
-    while (dir != null && !File(dir, "fixtures/keys.json").isFile) dir = dir.parentFile
-    File(dir ?: error("no fixtures/keys.json above ${System.getProperty("user.dir")}"), "fixtures")
-}
-
-private val fixtureKeys: JSONObject by lazy {
-    JSONObject(File(fixturesDir, "keys.json").readText()).getJSONObject("keys")
-}
-
 /** The fixture JWK named [name] as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`. */
-fun fixtureJwk(name: String): String = fixtureKeys.getJSONObject(name).getJSONObject("jwk").toString()
+fun fixtureJwk(name: String): String = Fixtures.jwk(name)
 
 /** The public half of the fixture JWK named [name] (RFC 7517 §4, RFC 7518 §6): `d` removed. */
-fun fixturePublicJwk(name: String): String {
-    val jwk = JSONObject(fixtureJwk(name))
-    check(jwk.getString("kty") != "oct") { "keys.$name is an oct key, which has no public half" }
-    jwk.remove("d")
-    return jwk.toString()
+fun fixturePublicJwk(name: String): String = Fixtures.publicJwk(name)
+
+/**
+ * The text of `samples/fixtures/jwks.json`, a JWK Set (RFC 7517 §5) of the public P-256 and
+ * Ed25519 keys. It sits beside `keys.json`, which the `samples.keys` system property names.
+ */
+fun fixtureJwks(): String {
+    val keys = System.getProperty("samples.keys") ?: error("the samples.keys system property is not set")
+    return File(File(keys).parentFile, "jwks.json").readText()
 }
 
-/** The text of `fixtures/jwks.json`, a JWK Set (RFC 7517 §5) of the public P-256 and Ed25519 keys. */
-fun fixtureJwks(): String = File(fixturesDir, "jwks.json").readText()
-// END TEMPORARY
+/** Stands in for a password the user enters: random bytes, so no password is written in source. */
+fun examplePassword(): ByteArray = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }

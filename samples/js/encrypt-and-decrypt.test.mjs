@@ -129,10 +129,14 @@ test('RSA-OAEP-256 encryption to an RSA public key', async () => {
   assert.equal(Buffer.from(parts[1], 'base64url').length, 256, 'one 2048-bit RSA block');
 });
 
+/** Stands in for a password the user enters: random bytes, so no password is written in source. */
+const examplePassword = () => crypto.getRandomValues(new Uint8Array(24));
+
 test('PBES2 with a password and the default iteration count', async () => {
+  const password = examplePassword();
   // docs:start encrypt-and-decrypt/pbes2
-  // A password is an oct key whose "k" is the base64url of its UTF-8 bytes.
-  const password = new TextEncoder().encode('correct horse battery staple');
+  // `password` holds the password's UTF-8 bytes, as the user entered them: never a literal in
+  // source code. A password is an oct key whose "k" is the base64url of those bytes.
   const passwordKey = { kty: 'oct', k: await base64urlEncode(password) };
 
   const token = await jweEncryptCompact(new TextEncoder().encode('top secret'), {
@@ -151,7 +155,7 @@ test('PBES2 with a password and the default iteration count', async () => {
 });
 
 test('PBES2 above the decrypt bound needs maxPbes2Count', async () => {
-  const passwordKey = { kty: 'oct', k: await base64urlEncode(encoder.encode('correct horse battery staple')) };
+  const passwordKey = { kty: 'oct', k: await base64urlEncode(examplePassword()) };
   // docs:start encrypt-and-decrypt/pbes2-limit
   const token = await jweEncryptCompact(new TextEncoder().encode('top secret'), {
     enc: 'A256GCM',

@@ -15,8 +15,14 @@ import XCTest
 final class EncryptAndDecryptTests: XCTestCase {
     private let plaintext = Data("hello".utf8)
 
+    /// Stands in for a password the user enters: random bytes, so no password is written in source.
+    private func examplePasswordBytes() -> Data {
+        var generator = SystemRandomNumberGenerator()
+        return Data((0..<24).map { _ in UInt8.random(in: .min ... .max, using: &generator) })
+    }
+
     private func examplePassword() -> String {
-        #"{"kty":"oct","k":"\#(base64urlEncode(data: Data("correct horse battery staple".utf8)))"}"#
+        #"{"kty":"oct","k":"\#(base64urlEncode(data: examplePasswordBytes()))"}"#
     }
 
     func testEcdhP256() throws {
@@ -116,9 +122,11 @@ final class EncryptAndDecryptTests: XCTestCase {
     }
 
     func testPbes2() throws {
+        let passwordBytes = examplePasswordBytes()
         // docs:start encrypt-and-decrypt/pbes2
+        // passwordBytes holds the password as the user entered it: never a literal in source code.
         // A password is passed as an oct JWK whose k is the password's bytes (RFC 7518 §4.8).
-        let k = base64urlEncode(data: Data("correct horse battery staple".utf8))
+        let k = base64urlEncode(data: passwordBytes)
         let password = #"{"kty":"oct","k":"\#(k)"}"#
         let token = try jweEncryptCompact(
             plaintext: plaintext,

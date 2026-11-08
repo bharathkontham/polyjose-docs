@@ -118,9 +118,11 @@ class EncryptAndDecryptTest {
 
     @Test
     fun pbes2() {
+        val passwordBytes = examplePassword()
         // docs:start encrypt-and-decrypt/pbes2
+        // passwordBytes holds the password as the user entered it: never a literal in source code.
         // A password is passed as an oct JWK whose k is the password's bytes (RFC 7518 §4.8).
-        val k = base64urlEncode("correct horse battery staple".toByteArray())
+        val k = base64urlEncode(passwordBytes)
         val password = """{"kty":"oct","k":"$k"}"""
         val token = jweEncryptCompact(
             plaintext,
@@ -138,7 +140,7 @@ class EncryptAndDecryptTest {
 
     @Test
     fun pbes2Limit() {
-        val password = """{"kty":"oct","k":"${base64urlEncode("correct horse battery staple".toByteArray())}"}"""
+        val password = """{"kty":"oct","k":"${base64urlEncode(examplePassword())}"}"""
         // docs:start encrypt-and-decrypt/pbes2-limit
         val token = jweEncryptCompact(
             plaintext,
