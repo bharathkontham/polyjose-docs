@@ -377,7 +377,7 @@ test('One API: types, rules and every operation name', () => {
 		assert.ok(all(html, /<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/gi).some((m) => textOf(m[1]).trim() === group), `no ${group} heading`);
 		for (const n of names) assert.ok(codes.has(n), `operation ${n} missing`);
 	}
-	assert.match(text, /not published yet/);
+	assert.doesNotMatch(text, /not published|nothing to install/i);
 });
 
 test('Errors: every code, how each platform exposes it, and the JWT order', () => {

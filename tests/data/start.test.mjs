@@ -59,7 +59,8 @@ describe('every Get started page', () => {
 			const { body, text } = page(route);
 			assert.doesNotMatch(text, /arrives with the 0\.1\.0 release/, 'the stub text is gone');
 			assert.match(body, /data-install-status="unpublished"/, 'an <Install> block for the unpublished pin');
-			assert.match(text, /is not published yet/);
+			assert.doesNotMatch(text, /not (yet )?published|will become 0\.1\.0/i);
+			assert.match(text, /run as tests against the polyjose source/);
 			const code = codeBlocks(body).join('\n');
 			assert.match(code, /SignCompact|sign_compact/, 'a first sign');
 			assert.match(code, /VerifyCompact|verify_compact/, 'a first verify');

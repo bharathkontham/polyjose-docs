@@ -115,7 +115,6 @@ export default defineConfig({
       favicon: '/favicon.svg',
       head,
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/bharathkontham/polyjose' }],
-      components: { Banner: './src/components/overrides/Banner.astro' },
       sidebar,
       plugins: [
         // Fails `astro build` on a broken internal link or #hash. Links to this

@@ -7,16 +7,12 @@ import { spawnSync } from 'node:child_process';
 import { checkPage, routeOf, sentences, AUDITED_PAGES, REGISTER_ATTRIBUTE, CONSTANT_TIME_PREFIX } from './honesty.mjs';
 
 const SCRIPT = new URL('./honesty.mjs', import.meta.url).pathname;
-const NOTICE =
-  '<div class="prerelease-notice" role="note" data-prerelease-notice><p><strong>Pre-1.0:</strong> polyjose is not published yet.</p></div>';
-/** The Banner override's container, the first element in <main>. */
-const banner = (inner) => `<div class="site-banner" data-site-banner>${inner}</div>`;
 const FOUNDATIONS = '/security/cryptographic-foundations/';
 /** Wraps a fragment in an audit-register element (the table rows and the legend). */
 const register = (body, tag = 'ul') => `<${tag} data-audit-register>${body}</${tag}>`;
-const page = (body, notice = NOTICE) =>
-  `<!DOCTYPE html><html><head><title>t</title></head><body><header class="header"><a href="/">polyjose</a></header>` +
-  `<main>${banner(notice)}${body}</main></body></html>`;
+const page = (body) =>
+  `<!DOCTYPE html><html><head><title>t</title></head><body><header class="header"><a href="/">polyjose</a><p>Site header.</p></header>` +
+  `<main>${body}</main></body></html>`;
 const rules = (route, html) => checkPage(route, html).map((f) => f.rule);
 
 test('routeOf maps built files to their URL path', () => {
@@ -31,138 +27,43 @@ test('the allow-lists are exact', () => {
   assert.equal(CONSTANT_TIME_PREFIX, '/security/');
 });
 
-// (a) the pre-1.0 notice
-test('(a) fails on a page without the pre-1.0 notice', () => {
-  assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', '')), ['prerelease-notice']);
-});
+// (a) the pre-release notice and wording the site carried before 0.1.0
+const NOTICE =
+  '<div class="prerelease-notice" role="note" data-prerelease-notice><p><strong>Pre-1.0:</strong> polyjose is not published yet.</p></div>';
 
-test('(a) does not count the marker written as text, in a class or in a script', () => {
-  const fake = '<p>data-prerelease-notice</p><div class="data-prerelease-notice"></div><script>"<div data-prerelease-notice>"</script>';
-  assert.deepEqual(rules('/guides/x/', page(fake, '')), ['prerelease-notice']);
-});
-
-test('(a) fails when the marked element does not say "Pre-1.0" and "not published"', () => {
+test('(a) fails on a page that carries the pre-release notice, wherever it is', () => {
   for (const notice of [
-    '<div class="prerelease-notice" data-prerelease-notice></div>',
-    '<div class="prerelease-notice" data-prerelease-notice><p>Beta</p></div>',
-    '<div class="prerelease-notice" data-prerelease-notice><p>Pre-1.0</p></div>',
-    '<div class="prerelease-notice" data-prerelease-notice><p>polyjose is not published yet.</p></div>',
-    '<div class="prerelease-notice" data-prerelease-notice aria-label="Pre-1.0: not published"></div>',
-    '<div class="prerelease-notice" data-prerelease-notice title="Pre-1.0: not published"><img alt="Pre-1.0: not published"></div>',
+    '<div data-prerelease-notice></div>',
+    '<div class="prerelease-notice"></div>',
+    '<div class="site-banner" data-site-banner><div class="prerelease-notice astro-x" data-prerelease-notice hidden></div></div>',
   ]) {
-    assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', notice)), ['prerelease-notice'], notice);
+    assert.deepEqual(rules('/guides/x/', page(`<p>Hello</p>${notice}`)), ['prerelease-notice'], notice);
   }
+  assert.deepEqual(rules('/guides/x/', page(NOTICE)), ['prerelease-notice', 'prerelease-wording', 'prerelease-wording']);
 });
 
-test('(a) a notice in a template, or hidden, or aria-hidden, does not count', () => {
-  for (const notice of [
-    `<template>${NOTICE}</template>`,
-    NOTICE.replace('data-prerelease-notice', 'data-prerelease-notice hidden'),
-    NOTICE.replace('data-prerelease-notice', 'data-prerelease-notice aria-hidden="true"'),
-    `<div aria-hidden="true">${NOTICE}</div>`,
-    `<div hidden>${NOTICE}</div>`,
-    '<div class="prerelease-notice" data-prerelease-notice><p>Pre-1.0: polyjose is <span hidden>not published</span> ready.</p></div>',
-    '<div class="prerelease-notice" data-prerelease-notice><p>Pre-1.0: polyjose is <span class="sr-only">not published</span> ready.</p></div>',
+test('(a) fails on pre-release wording in the page text', () => {
+  for (const words of [
+    'polyjose is pre-1.0.',
+    'polyjose is Pre\u20111.0.',
+    'polyjose 0.1.0 is not published yet.',
+    'polyjose is not yet published.',
+    'A name that isn\u2019t published yet.',
+    'polyjose is <em>not</em>\n published.',
   ]) {
-    assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', notice)), ['prerelease-notice'], notice);
+    assert.deepEqual(rules('/guides/x/', page(`<p>${words}</p>`)), ['prerelease-wording'], words);
   }
 });
 
-test('(a) allowed: a page carrying the notice passes', () => {
-  assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>')), []);
-  const spread = '<div class="prerelease-notice" data-prerelease-notice><p><strong>PRE-1.0:</strong> polyjose is <em>not</em>\n published yet</p></div>';
-  assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', spread)), []);
-});
-
-test('(a) allowed: the banner as built, with Starlight\'s own page banner before the notice', () => {
-  const built =
-    '<div class="prerelease-notice astro-cytafyf4" role="note" data-prerelease-notice data-pagefind-ignore>' +
-    '<p class="astro-cytafyf4"><strong class="astro-cytafyf4">Pre-1.0:</strong> polyjose is not published yet, and its APIs may change before 1.0. ' +
-    'Read the <a href="/security/reporting/" class="astro-cytafyf4">security policy</a> before you rely on it.</p></div>';
-  assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', built)), []);
-  assert.deepEqual(rules('/guides/x/', page('<p>Hello</p>', `<div class="sl-banner" data-pagefind-ignore>Page banner</div>${built}`)), []);
-  const spaced = page('<p>Hello</p>').replace('<main>', '<main data-pagefind-body lang="en">\n  ').replace(banner(NOTICE), `${banner(`\n${NOTICE}\n`)}\n`);
-  assert.deepEqual(rules('/guides/x/', spaced), []);
-});
-
-// The notice counts only in its fixed place: the Banner override's container
-// (data-site-banner) is the first element in <main>, and the first element
-// with class prerelease-notice in it is a direct child that carries
-// data-prerelease-notice.
-const shell = (header, main) =>
-  `<!DOCTYPE html><html><head><title>t</title></head><body><header>${header}</header>${main}</body></html>`;
-
-test('(a) a notice anywhere but its fixed place does not count', () => {
-  for (const [why, html] of [
-    ['in the header', shell(NOTICE, `<main>${banner('')}<p>Hello</p></main>`)],
-    ['in the body, before <main>', shell('', `${NOTICE}<main>${banner('')}<p>Hello</p></main>`)],
-    ['in the body, after <main>', shell('', `<main>${banner('')}<p>Hello</p></main>${NOTICE}`)],
-    ['in the content', page(`<p>Hello</p>${NOTICE}`, '')],
-    ['in a second banner container in the content', page(`<p>Hello</p>${banner(NOTICE)}`, '')],
-    ['first in <main>, without the banner container', shell('', `<main>${NOTICE}<p>Hello</p></main>`)],
-    ['the banner container is not the first element in <main>', shell('', `<main><p>Hello</p>${banner(NOTICE)}</main>`)],
-    ['the banner container is nested in <main>', shell('', `<main><div>${banner(NOTICE)}</div></main>`)],
-    ['the banner container is outside <main>', shell(banner(NOTICE), '<main><p>Hello</p></main>')],
-    ['no <main>', shell('', `<div>${banner(NOTICE)}</div>`)],
-    ['not a direct child of the banner container', page('<p>Hello</p>', `<div>${NOTICE}</div>`)],
-    ['the marker without the class', page('<p>Hello</p>', NOTICE.replace('class="prerelease-notice" ', ''))],
-    ['the class without the marker', page('<p>Hello</p>', NOTICE.replace(' data-prerelease-notice', ''))],
-    ['a decoy with the class comes first', page('<p>Hello</p>', `<p class="prerelease-notice">Beta</p>${NOTICE}`)],
-    ['a hidden copy comes first', page('<p>Hello</p>', NOTICE.replace('data-prerelease-notice', 'data-prerelease-notice hidden') + NOTICE)],
+test('(a) allowed: release wording, and the words in markup, scripts or class names', () => {
+  for (const ok of [
+    '<p>polyjose 0.1.0 is published on crates.io.</p>',
+    '<p>Migration guides are planned for after the 0.1.0 release.</p>',
+    '<div class="install" data-install-status="unpublished"><p>Install</p></div>',
+    '<p class="prerelease">x</p><script>"pre-1.0, not published"</script>',
   ]) {
-    assert.deepEqual(rules('/guides/x/', html), ['prerelease-notice'], why);
+    assert.deepEqual(rules('/guides/x/', page(ok)), [], ok);
   }
-});
-
-// Each way of hiding the notice, on the notice itself and on each element around it.
-const HIDING = [
-  'hidden',
-  'hidden="until-found"',
-  'aria-hidden="true"',
-  'style="display:none"',
-  'style="visibility: hidden"',
-  'style="opacity:0"',
-  'style="opacity: 0.0"',
-  'style="width:0"',
-  'style="height:0px"',
-  'style="max-height:0;overflow:hidden"',
-  'class="sr-only"',
-  'class="visually-hidden"',
-  'class="sl-sr-only"',
-];
-
-for (const how of HIDING) {
-  const cls = /^class="(.*)"$/.exec(how)?.[1];
-  const add = (tag) => (cls ? tag.replace(/class="/, `class="${cls} `) : tag.replace(/^<(\w+)/, `<$1 ${how}`));
-  test(`(a) a notice hidden by ${how} does not count`, () => {
-    const onNotice = page('<p>Hello</p>', NOTICE.replace(/^<div class="prerelease-notice"/, add('<div class="prerelease-notice"')));
-    const onBanner = page('<p>Hello</p>').replace('<div class="site-banner" data-site-banner>', add('<div class="site-banner" data-site-banner>'));
-    const onMain = page('<p>Hello</p>').replace('<main>', add('<main class="m">'));
-    const onBody = page('<p>Hello</p>').replace('<body>', add('<body class="b">'));
-    for (const [where, html] of [['notice', onNotice], ['banner', onBanner], ['main', onMain], ['body', onBody]]) {
-      assert.notEqual(html, page('<p>Hello</p>'), `${where}: the probe changed the page`);
-      assert.deepEqual(rules('/guides/x/', html), ['prerelease-notice'], `${where}: ${html}`);
-    }
-  });
-}
-
-test('(a) a notice inside <details>, <noscript> or <template> does not count', () => {
-  for (const wrap of ['details', 'details open', 'noscript', 'template']) {
-    const name = wrap.split(' ')[0];
-    const html = page('<p>Hello</p>').replace('<main>', `<${wrap}><main>`).replace('</main>', `</main></${name}>`);
-    assert.deepEqual(rules('/guides/x/', html), ['prerelease-notice'], wrap);
-  }
-});
-
-test('(a) the finding says why the notice does not count', () => {
-  const why = (html) => checkPage('/guides/x/', html).find((f) => f.rule === 'prerelease-notice').message;
-  assert.match(why(shell('', '<div></div>')), /no <main> element/);
-  assert.match(why(shell('', `<main><p>x</p>${banner(NOTICE)}</main>`)), /first element in <main> is not the site banner/);
-  assert.match(why(page('<p>x</p>', '')), /no element with class prerelease-notice/);
-  assert.match(why(page('<p>x</p>', `<div>${NOTICE}</div>`)), /not a direct child of the site banner/);
-  assert.match(why(page('<p>x</p>', NOTICE.replace(' data-prerelease-notice', ''))), /no data-prerelease-notice attribute/);
-  assert.match(why(page('<p>x</p>', NOTICE.replace('role="note"', 'hidden'))), /hidden/);
-  assert.match(why(page('<p>x</p>', NOTICE.replace('not published', 'published'))), /"Pre-1\.0" and "not published"/);
 });
 
 // (b) claiming that polyjose is audited, on any page, the allowed pages included
@@ -227,13 +128,13 @@ for (const claim of CLAIMS) {
   }
 }
 
-test('(b) allowed: statements that polyjose is not audited, and the pre-1.0 framing', () => {
+test('(b) allowed: statements that polyjose is not audited, and the page framing', () => {
   for (const ok of [
-    'This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.',
-    'This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.',
+    'This page describes polyjose 0.1.0 as designed.',
+    'This list describes polyjose 0.1.0 as designed.',
     'No independent audit of polyjose has been published yet.',
-    'polyjose itself has not yet had an independent audit. One is planned before 1.0.',
-    'polyjose is pre-1.0. Until that audit is published, treat polyjose as code without an independent review of its own.',
+    'polyjose itself has not had an independent audit yet. It is built on the libraries above, whose audit status the table gives.',
+    'Until an audit of polyjose is published, treat polyjose as code without an independent review of its own.',
     'polyjose passes the RFC, NIST and Wycheproof test vectors against that exact version.',
     'Built for independent review. The design aims to make an audit of polyjose practical.',
     // The audit wording on the site today, outside the register's bare word.
@@ -335,7 +236,7 @@ for (const [name, word] of [
 }
 
 test('(c) the line of a finding after a register is still right', () => {
-  const html = `<main>${banner(NOTICE)}\n${register('<li>\nAudited\n</li>')}\n<p>\naudited\n</p></main>`;
+  const html = `<main>\n${register('<li>\nAudited\n</li>')}\n<p>\naudited\n</p></main>`;
   const [f] = checkPage(FOUNDATIONS, html);
   assert.equal(f.rule, 'audited-word');
   assert.equal(f.line, 6);
@@ -379,13 +280,13 @@ test('ignores the words inside scripts, styles and asset names', () => {
 });
 
 test('findings carry the line and the matched text', () => {
-  const [f] = checkPage('/guides/x/', `<main>${banner(NOTICE)}\n<p>\nsee constant-time\n</p></main>`);
+  const [f] = checkPage('/guides/x/', `<main>\n<p>\nsee constant-time\n</p></main>`);
   assert.equal(f.line, 3);
   assert.equal(f.match, 'constant-time');
 });
 
 test('findings report the text as written, not as folded for matching', () => {
-  const html = `<main>${banner(NOTICE)}\n<p>An aud\u0456ted library.</p>\n<p>\uFF43onstant-time</p>\n<p>p\u043Elyjose is ａｕｄｉｔｅｄ.</p></main>`;
+  const html = `<main>\n<p>An aud\u0456ted library.</p>\n<p>\uFF43onstant-time</p>\n<p>p\u043Elyjose is ａｕｄｉｔｅｄ.</p></main>`;
   const found = checkPage('/guides/x/', html).map((f) => [f.rule, f.line, f.match]);
   assert.deepEqual(found, [
     ['audit-claim', 4, 'p\u043Elyjose is ａｕｄｉｔｅｄ.'],
@@ -412,13 +313,14 @@ test('the CLI exits 1 and names each failing page and rule', (t) => {
   const root = dist({
     'index.html': page('<p>fine</p>'),
     'guides/x/index.html': page('<p>constant-time</p>'),
-    'start/rust/index.html': page('<p>hi</p>', ''),
+    'start/rust/index.html': page(NOTICE),
   });
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const run = spawnSync(process.execPath, [SCRIPT, '--dist', join(root, 'dist')], { encoding: 'utf8' });
   assert.equal(run.status, 1, run.stdout + run.stderr);
   assert.match(run.stderr, /dist\/guides\/x\/index\.html:1 \(\/guides\/x\/\): "constant-time"/);
-  assert.match(run.stderr, /dist\/start\/rust\/index\.html \(\/start\/rust\/\): no pre-1\.0 notice/);
+  assert.match(run.stderr, /dist\/start\/rust\/index\.html \(\/start\/rust\/\): the page carries the pre-release notice/);
+  assert.match(run.stderr, /dist\/start\/rust\/index\.html:1 \(\/start\/rust\/\): "not published": is pre-release wording/);
   assert.doesNotMatch(run.stderr, /dist\/index\.html/);
   assert.doesNotMatch(run.stdout + run.stderr, /brain/i);
 });
