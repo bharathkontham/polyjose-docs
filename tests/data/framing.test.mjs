@@ -1,7 +1,7 @@
 // Framing tests for every Security and Concepts page. They read the built
 // HTML, so run `npm run build` first (`npm run verify` does).
 //
-// polyjose 0.1.0 is in development and not published, so these pages describe
+// These pages describe polyjose 0.1.0
 // it as designed, the same way About › Why polyjose frames its list. Each page
 // opens with one framing sentence, and the design statements below it stay
 // short. What the framing does not cover is checking machinery that doesn't
@@ -23,7 +23,7 @@ const readJson = (path) => JSON.parse(readFileSync(new URL(path, root), 'utf8'))
 
 /** The sentence every Security and Concepts page opens with. */
 export const FRAMING =
-	'This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.';
+	'This page describes polyjose 0.1.0 as designed.';
 
 /** Every page under /security/ and /concepts/. */
 export const FRAMED_PAGES = [
@@ -175,9 +175,9 @@ describe('the framing check itself', () => {
 		assert.ok(!opensWithFraming(wrap(`<blockquote><p>${FRAMING}</p></blockquote>`)));
 	});
 	test('rejects a missing, shortened or extended sentence', () => {
-		assert.ok(!opensWithFraming(wrap('<p>This page describes polyjose 0.1.0 as designed.</p>')));
+		assert.ok(!opensWithFraming(wrap('<p>This page describes polyjose 0.1.0.</p>')));
 		assert.ok(!opensWithFraming(wrap(`<p>${FRAMING} It is fast.</p>`)));
-		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.</p>')));
+		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.1.0 as designed.</p>')));
 		assert.ok(!opensWithFraming(wrap('')));
 	});
 });

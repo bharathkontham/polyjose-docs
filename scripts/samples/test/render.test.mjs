@@ -156,15 +156,14 @@ test('<Sample> fails the build for a missing region or an unknown platform', asy
   await rejectsWith(SAMPLE_VIEW, { platform: 'android', id: 'guide/sign', regions }, /"android" is not a platform/);
 });
 
-test('<Install> before release shows the upcoming version and a not-yet-published badge', async () => {
+test('<Install> before a registry pin shows the upcoming version, with no pre-release note', async () => {
   for (const pin of [
     { source: 'none', upcoming: '0.1.0' },
     { source: 'git', rev: REV, upcoming: '0.1.0' },
   ]) {
     const html = await astro.render(INSTALL_VIEW, { platform: 'node', pin });
     assert.match(html, /data-install-status="unpublished"/, pin.source);
-    assert.match(text(html), /Not yet published/, pin.source);
-    assert.match(text(html), /0\.1\.0 is not published yet/, pin.source);
+    assert.doesNotMatch(text(html), /not (yet )?published/i, pin.source);
     assert.deepEqual(copiedCode(html), ['npm install @polyjose/node@0.1.0']);
   }
 });

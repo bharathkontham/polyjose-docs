@@ -2,7 +2,7 @@
 // reference. They read the built HTML, so run `npm run build` first.
 //
 // The rules come from the site's honesty rules (README, "Writing rules"):
-// pre-1.0 is stated, polyjose is never called audited, no unmeasured numbers,
+// no pre-release wording, polyjose is never called audited, no unmeasured numbers,
 // other JOSE libraries are named with respect, and links that would point at
 // pages that don't exist yet are not links.
 
@@ -127,7 +127,7 @@ const capabilityStatedAsBuilt = [
 ];
 
 /** The sentence that frames the About page's list as the 0.1.0 design. */
-const framingSentence = /This list describes polyjose 0\.1\.0 as designed\. The library is in development and not published yet\./;
+const framingSentence = /This list describes polyjose 0\.1\.0 as designed\./;
 
 const pages = {
 	landing: '',
@@ -155,7 +155,7 @@ describe('the capability phrasing checks themselves', () => {
 		}
 	});
 	test('the framing sentence pattern matches only the full sentence', () => {
-		assert.match('This list describes polyjose 0.1.0 as designed. The library is in development and not published yet.', framingSentence);
+		assert.match('This list describes polyjose 0.1.0 as designed.', framingSentence);
 		assert.doesNotMatch('This list describes polyjose 0.1.0.', framingSentence);
 	});
 });
@@ -210,8 +210,9 @@ for (const [name, route] of Object.entries(pages)) {
 	describe(`${name} page: site-wide rules`, () => {
 		const html = load(route);
 		const text = textOf(bodyOf(html));
-		test('carries the pre-1.0 banner', () => {
-			assert.match(html, /data-prerelease-notice/);
+		test('carries no pre-release notice or wording', () => {
+			assert.doesNotMatch(html, /data-prerelease-notice|prerelease-notice/);
+			assert.doesNotMatch(textOf(html), /pre-1\.0|not (yet )?published|isn.t published|may change before 1\.0/i);
 		});
 		test('never says constant-time (only the Security pages may)', () => {
 			assert.doesNotMatch(textOf(html), /constant[- ]time/i);
@@ -276,10 +277,6 @@ describe('landing page', () => {
 		assert.equal(new Set(cards).size, 3, `security cards: ${cards.join(', ')}`);
 	});
 
-	test('the body states pre-1.0 and not yet published', () => {
-		assert.match(text, /pre-1\.0/i);
-		assert.match(text, /not (yet )?published|not been published|nothing is published/i);
-	});
 
 	test('never uses the word "audited"', () => {
 		assert.doesNotMatch(textOf(html), /audited/i);
@@ -312,8 +309,7 @@ describe('About › Why polyjose', () => {
 		assert.match(text, /\bMIT\b/);
 	});
 
-	test('states pre-1.0 in the body and links the security policy', () => {
-		assert.match(text, /pre-1\.0/i);
+	test('links the security policy', () => {
 		assert.ok(linksOf(body).some((l) => l.href === '/security/reporting/'), 'no link to /security/reporting/');
 	});
 
@@ -349,10 +345,12 @@ describe('About › Why polyjose', () => {
 		assert.doesNotMatch(textOf(html), /audited/i);
 	});
 
-	test('"Built for independent review" is followed by the no-audit sentence', () => {
+	test('"Built for independent review" links polyjose\'s audit status, which only Cryptographic foundations states', () => {
 		const at = sentences.findIndex((s) => /^Built for independent review\.$/.test(s));
 		assert.ok(at >= 0, `no "Built for independent review." item: ${sentences.filter((s) => /review/i.test(s)).join(' | ')}`);
-		assert.match(sentences[at + 1] ?? '', /^No independent audit of polyjose has been published yet\./);
+		assert.ok(linksOf(body).some((l) => l.href === '/security/cryptographic-foundations/#polyjose-itself'), 'no link to polyjose\'s audit status');
+		assert.doesNotMatch(text, /independent audit of polyjose|polyjose itself has not/i, 'the audit status is stated on one page only');
+		assert.doesNotMatch(text, /audit[^.]*planned|planned[^.]*audit|before 1\.0/i, 'no audit plan');
 	});
 
 	test('contains none of the internal material', () => {
@@ -404,9 +402,9 @@ describe('Reference › API reference', () => {
 		assert.ok(existsSync(`${dist}api/js/index.html`), 'npm run build generates dist/api/js/index.html');
 	});
 
-	test('badges Rust "available when 0.1.0 is published", and Kotlin and Swift "not generated yet"', () => {
+	test('badges Kotlin and Swift "not generated yet", and nothing as waiting for a release', () => {
 		const badges = [...body.matchAll(/<span class="sl-badge[^"]*"[^>]*>([\s\S]*?)<\/span>/g)].map((m) => textOf(m[1]));
-		assert.deepEqual(badges, ['available when 0.1.0 is published', 'not generated yet', 'not generated yet'], badges.join(' | '));
+		assert.deepEqual(badges, ['not generated yet', 'not generated yet'], badges.join(' | '));
 		assert.match(text, /empty documentation archive/, 'says why there is no Kotlin reference');
 		assert.match(text, /doesn.t opt in yet/, 'says why there is no Swift reference');
 	});
