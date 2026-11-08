@@ -1,6 +1,60 @@
 ---
 title: Node.js
-description: Use polyjose from Node.js.
+description: Add @polyjose/node to a Node.js project, then sign and verify your first JWS.
 ---
 
-This page arrives with the 0.1.0 release and will show how to add polyjose to a Node.js project and sign and verify your first token.
+import Install from '../../../components/samples/Install.astro';
+import Sample from '../../../components/samples/Sample.astro';
+
+polyjose 0.1.0 is not published yet. The code on this page is run as tests against the polyjose source that will become 0.1.0, so it shows the API as it will ship.
+
+`@polyjose/node` is the polyjose Rust core loaded into Node.js as a native addon. For browsers, Cloudflare Workers and other WebAssembly hosts, use [`@polyjose/wasm`](/start/web/) instead: it has the same API.
+
+## Install
+
+<Install platform="node" />
+
+- **Node.js 22.12 or later** (`engines` in the package).
+- **ESM only.** Use `import`. CommonJS code can still `require("@polyjose/node")`, through Node's `require(esm)`, which needs no flag from 22.12 on.
+- **Every call returns a Promise.** The work runs on the libuv thread pool, so it doesn't block the event loop.
+
+### Prebuilt addons
+
+npm installs the matching prebuilt addon, `@polyjose/node-<platform>`, as an optional dependency at exactly the same version. Nothing is compiled on your machine. There are addons for:
+
+- macOS: x64 and arm64
+- Linux with glibc: x64 and arm64
+- Linux with musl (Alpine): x64 and arm64
+- Windows: x64 and arm64
+
+The glibc addons need **glibc 2.28 or later**, the same floor as the official Node.js 22 builds for Linux. So RHEL 8 and its rebuilds, Debian 11, Ubuntu 20.04 and anything newer work. Amazon Linux 2 (glibc 2.26) doesn't.
+
+If you install with `--omit=optional`, no addon is installed and the import throws. The package also refuses to load any addon file other than the one it was built with, and throws an error with the code `ERR_POLYJOSE_ADDON_REFUSED`.
+
+## Sign your first token
+
+These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.
+
+<Sample platform="node" id="start/js-imports" />
+
+A JWS needs a protected header with an `alg`. Here it is `ES256`, ECDSA with P-256 and SHA-256 (RFC 7518 §3.4). Keys are JWKs, either as JSON text or as plain objects; `privateKey` is the example key's JWK.
+
+<Sample platform="node" id="start/js-first-sign" />
+
+`token` is a JWS in the compact serialization: three base64url parts joined by dots (RFC 7515 §7.1).
+
+## Verify it
+
+Verifying always takes an explicit `allowedAlgs`. polyjose never trusts the `alg` in the token's header on its own, and `none` is never accepted (RFC 8725 §3.1). `publicKey` is the same JWK without its private member `d`.
+
+<Sample platform="node" id="start/js-first-verify" />
+
+`verified.payload` is a plain `Uint8Array`, and printing `verified` prints it. When the payload is secret, don't log the result, and wipe the bytes with `verified.payload.fill(0)` once you are done with them.
+
+## Handle an error
+
+A failed call rejects with a `PolyjoseError`. Its `code` is one of a fixed set of strings, the same on every platform. Here the verifier accepts only `Ed25519`, so the ES256 token is refused before any cryptography runs:
+
+<Sample platform="node" id="start/js-error-code" />
+
+Branch on `code`, never on the message. [Errors](/concepts/errors/) lists every code and when it happens.

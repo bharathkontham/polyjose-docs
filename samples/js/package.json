@@ -1,0 +1,9 @@
+{
+  "name": "polyjose-docs-samples-js",
+  "private": true,
+  "description": "The Node.js and Web code samples of the polyjose docs. scripts/samples/platforms/js.sh installs the polyjose packages for the pin.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  }
+}

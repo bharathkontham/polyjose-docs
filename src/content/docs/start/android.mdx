@@ -1,6 +1,68 @@
 ---
 title: Android and JVM (Kotlin)
-description: Use polyjose from Kotlin on Android and the JVM.
+description: Add polyjose to an Android app or a JVM project in Kotlin, then sign and verify your first JWS.
 ---
 
-This page arrives with the 0.1.0 release and will show how to add polyjose to an Android or JVM project in Kotlin and sign and verify your first token.
+import Install from '../../../components/samples/Install.astro';
+import Sample from '../../../components/samples/Sample.astro';
+
+polyjose 0.1.0 is not published yet. The code on this page is compiled and run as tests against the polyjose source that will become 0.1.0, on the JVM, so it shows the API as it will ship.
+
+polyjose's Kotlin library comes in two artifacts with the same API, in the package `dev.polyjose`. Both call the polyjose Rust core through JNA.
+
+## Install
+
+<Install platform="kotlin" />
+
+<table tabindex="0">
+	<caption>The two Kotlin artifacts</caption>
+	<thead>
+		<tr>
+			<th scope="col">Artifact</th>
+			<th scope="col">For</th>
+			<th scope="col">Native code inside</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>dev.polyjose:polyjose</code> (AAR)</th><td>Android, minSdk 23 (compileSdk 36)</td><td><code>arm64-v8a</code>, <code>armeabi-v7a</code>, <code>x86_64</code> and <code>x86</code></td></tr>
+		<tr><th scope="row"><code>dev.polyjose:polyjose-jvm</code> (jar)</th><td>the desktop and server JVM, Java 17 or later</td><td>macOS (arm64, x86-64), Linux (arm64, x86-64) and Windows (x86-64)</td></tr>
+	</tbody>
+</table>
+
+- **A Kotlin 2.4 compiler or newer.** The jar is compiled with Kotlin 2.4, and an older Kotlin compiler can't read its classes.
+- **JNA** comes in as a dependency of both artifacts.
+- **Java works, but is awkward.** The functions are Kotlin top-level functions, so Java sees them as static methods of `dev.polyjose.Polyjose_ffiKt`, and sizes are Kotlin unsigned types. Kotlin is the supported language.
+
+## Sign your first token
+
+These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.
+
+<Sample platform="kotlin" id="start/kotlin-imports" />
+
+A JWS needs a protected header with an `alg`. Here it is `ES256`, ECDSA with P-256 and SHA-256 (RFC 7518 §3.4). Keys are JWKs as JSON text; `privateKey` is the example key's JWK.
+
+<Sample platform="kotlin" id="start/kotlin-first-sign" />
+
+`token` is a JWS in the compact serialization: three base64url parts joined by dots (RFC 7515 §7.1).
+
+## Verify it
+
+Verifying always takes an explicit `allowedAlgs`, with no default, so leaving it out doesn't compile. polyjose never trusts the `alg` in the token's header on its own, and `none` is never accepted (RFC 8725 §3.1). `publicKey` is the same JWK without its private member `d`.
+
+<Sample platform="kotlin" id="start/kotlin-first-verify" />
+
+Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them with `verified.payload.fill(0)` once you are done.
+
+## Handle an error
+
+Calls are synchronous and throw a `PolyjoseException` when they fail. Its `code()` is one of a fixed set of strings, the same on every platform. Here the verifier accepts only `Ed25519`, so the ES256 token is refused before any cryptography runs:
+
+<Sample platform="kotlin" id="start/kotlin-error-code" />
+
+Branch on `code()`, never on the message or the exception's class name. [Errors](/concepts/errors/) lists every code and when it happens.
+
+## Stay off the main thread
+
+Every call runs on the thread that makes it, until it returns. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. On Android, call polyjose from a background thread, never from the main thread. Any executor works, as does a coroutine on a background dispatcher:
+
+<Sample platform="kotlin" id="start/kotlin-background" />

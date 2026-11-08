@@ -1,0 +1,19 @@
+{
+  // The page side of the Web samples (DOM). tsconfig.worker.json checks the Web Worker side.
+  // scripts/samples/platforms/js.sh runs both with the site's TypeScript, against the .d.ts of
+  // the @polyjose/wasm package it installs, and passes --outDir.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": false,
+    "rootDir": "."
+  },
+  "files": ["start/page.ts"]
+}
