@@ -1,6 +1,82 @@
 ---
 title: Sign and verify (JWS)
-description: Create and check JSON Web Signatures.
+description: Create JSON Web Signatures with ES256, Ed25519 and HS256, verify them against an explicit allow-list, and use the JSON serialization, detached and unencoded payloads.
 ---
 
-This guide arrives with the 0.1.0 release and will show how to sign data and verify a JSON Web Signature, with the same steps on every platform.
+import Samples from '../../../components/samples/Samples.astro';
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+A JSON Web Signature (JWS, [RFC 7515](https://www.rfc-editor.org/rfc/rfc7515)) protects a payload with a digital signature or a MAC. Every sample on this page is a test that runs against polyjose on each platform; pick your platform in any tab and the others follow. The keys are the published RFC example keys, so never use them in an application.
+
+The same operations exist everywhere under the same names (see [One API](/concepts/one-api/)): `jwsSignCompact`, `jwsVerifyCompact`, `jwsSignFlattened`, `jwsSignGeneral` and `jwsVerifyJson` in JavaScript, Kotlin and Swift, and `jws::sign_compact`, `jws::verify_compact`, `jws::sign_flattened`, `jws::sign_general` and `jws::verify_json` in Rust.
+
+## Sign in the compact serialization
+
+The compact serialization ([RFC 7515 §7.1](https://www.rfc-editor.org/rfc/rfc7515#section-7.1)) is `header.payload.signature`, three base64url parts. The protected header names the algorithm in `alg` ([§4.1.1](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.1)), and the key must belong to that algorithm's family. ES256 is ECDSA with P-256 and SHA-256 ([RFC 7518 §3.4](https://www.rfc-editor.org/rfc/rfc7518#section-3.4)):
+
+<Samples id="sign-and-verify/es256" />
+
+For Ed25519 keys, use the algorithm name `Ed25519` ([RFC 9864 §2.2](https://www.rfc-editor.org/rfc/rfc9864#section-2.2)). It names exactly one algorithm, so a verifier's allow-list says precisely what it accepts:
+
+<Samples id="sign-and-verify/ed25519" />
+
+RFC 9864 deprecates the older, polymorphic name `EdDSA` ([RFC 8037 §3.1](https://www.rfc-editor.org/rfc/rfc8037#section-3.1)). Sign new tokens with `Ed25519`. Tokens that issuers already sign with `EdDSA` still verify with an Ed25519 key, when you put `EdDSA` in the allow-list. This sample verifies the example from [RFC 8037 Appendix A.4](https://www.rfc-editor.org/rfc/rfc8037#appendix-A.4):
+
+<Samples id="sign-and-verify/eddsa" />
+
+HS256 is an HMAC with a shared secret ([RFC 7518 §3.2](https://www.rfc-editor.org/rfc/rfc7518#section-3.2)), which must be at least as long as the hash output: 32 bytes for HS256. `jwkGenerateForAlg("HS256")` returns a random 32-byte `oct` key from the operating system's random number generator, with `"alg": "HS256"` set. Keep that `alg` on secret keys: a key that names its algorithm can't be used for any other one ([RFC 7517 §4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.4)).
+
+<Samples id="sign-and-verify/hs256" />
+
+## Verify with an allow-list
+
+Every verify call takes the list of algorithms you accept, and there is no default list. The token's own `alg` is never trusted on its own, and `none` is never accepted ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1), [§3.2](https://www.rfc-editor.org/rfc/rfc8725#section-3.2)). List only the algorithms your keys are meant for. A token signed with an algorithm outside the list fails with `AlgorithmNotAllowed`, before any cryptography runs:
+
+<Samples id="sign-and-verify/not-allowed" />
+
+The key also has to fit the algorithm. A key of another family fails with `KeyAlgorithmMismatch`, so an RSA public key can never be used as an HMAC secret ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1)). See [Security model › Algorithm verification](/security/model/#algorithm-verification).
+
+A token whose header, payload or signature was changed fails with `InvalidSignature`:
+
+<Samples id="sign-and-verify/tampered" />
+
+Branch on the error code, never on the message. [Errors](/concepts/errors/) lists every code.
+
+## Verify RS256 tokens from an identity provider
+
+Many identity providers sign with RS256, RSASSA-PKCS1-v1_5 with SHA-256 ([RFC 7518 §3.3](https://www.rfc-editor.org/rfc/rfc7518#section-3.3)). polyjose verifies RS256, RS384, RS512 and PS256 to PS512 signatures with the provider's RSA public JWK on every platform. This sample verifies the example token of [RFC 7515 Appendix A.2](https://www.rfc-editor.org/rfc/rfc7515#appendix-A.2):
+
+<Samples id="sign-and-verify/rs256" />
+
+Signing with an RSA private key isn't available. See [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys) for why. To sign your own tokens, use ES256 or Ed25519.
+
+## The JSON serialization
+
+The JSON serialization ([RFC 7515 §7.2](https://www.rfc-editor.org/rfc/rfc7515#section-7.2)) is a JSON object instead of three dotted parts. The flattened form has one signature, and polyjose returns it as JSON text:
+
+<Samples id="sign-and-verify/flattened" />
+
+The general form carries several signatures over the same payload, each with its own key and header ([§7.2.1](https://www.rfc-editor.org/rfc/rfc7515#section-7.2.1)). A verifier with one key accepts the token when any signature its key and allow-list fit verifies, and `signatureIndex` says which one did. It is `0` for compact and flattened tokens.
+
+<Samples id="sign-and-verify/general" />
+
+## Detached and unencoded payloads
+
+With a detached payload ([RFC 7515 Appendix F](https://www.rfc-editor.org/rfc/rfc7515#appendix-F)), the signature still covers the payload, but the token leaves it out. You send the payload some other way, and the verifier passes it back in as `detachedPayload`:
+
+<Samples id="sign-and-verify/detached" />
+
+[RFC 7797](https://www.rfc-editor.org/rfc/rfc7797) lets the signature cover the payload octets as they are, instead of their base64url form, when the protected header has `"b64": false`. The header must also list `b64` in `crit` ([RFC 7797 §6](https://www.rfc-editor.org/rfc/rfc7797#section-6)), so a verifier that doesn't understand the option rejects the token rather than misreading it. polyjose understands `b64` and no other critical extension, and refuses a token whose `crit` names anything else with `UnknownCritical`. A payload that contains a `.` can't sit inside a compact token ([RFC 7797 §5.2](https://www.rfc-editor.org/rfc/rfc7797#section-5.2)), so this sample detaches it, as RFC 7797 §4.2 does:
+
+<Samples id="sign-and-verify/unencoded" />
+
+JWTs never use `"b64": false` ([RFC 7797 §7](https://www.rfc-editor.org/rfc/rfc7797#section-7)).
+
+## Read the header after verification
+
+Read the protected header from the verified result, never from the token before it is verified: until the signature checks out, anyone could have written it. The result carries the protected header and, for the JSON serialization, the unprotected header, which the signature doesn't cover.
+
+<Samples id="sign-and-verify/read-header" />
+
+A header's `kid`, `jwk`, `jku`, `x5u` or `x5c` never chooses the key: polyjose always verifies with the key you pass. To pick a key by `kid` from an issuer's set, see [JWK Sets](/guides/jwk-sets/). For signed JSON Web Tokens with claims, see [Validate a JWT](/guides/validate-jwt/).

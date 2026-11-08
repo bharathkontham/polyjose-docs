@@ -1,6 +1,79 @@
 ---
 title: Encrypt and decrypt (JWE)
-description: Protect data with JSON Web Encryption.
+description: Encrypt with ECDH-ES, AES Key Wrap, dir, RSA-OAEP-256 and PBES2, decrypt against explicit allow-lists, and use the JSON serialization with several recipients.
 ---
 
-This guide arrives with the 0.1.0 release and will show how to encrypt data and decrypt a JSON Web Encryption message, with the same steps on every platform.
+import Samples from '../../../components/samples/Samples.astro';
+
+This page describes polyjose 0.1.0 as designed. The library is in development and not published yet.
+
+JSON Web Encryption (JWE, [RFC 7516](https://www.rfc-editor.org/rfc/rfc7516)) encrypts a payload so that only its recipients can read it, and authenticates it so that any change is detected. Two algorithms describe a JWE: `alg`, how the content encryption key reaches the recipient ([RFC 7518 §4](https://www.rfc-editor.org/rfc/rfc7518#section-4)), and `enc`, how the content is encrypted with it ([RFC 7518 §5](https://www.rfc-editor.org/rfc/rfc7518#section-5)). The samples use A256GCM, AES-256 in Galois/Counter Mode ([§5.3](https://www.rfc-editor.org/rfc/rfc7518#section-5.3)).
+
+The operations are `jweEncryptCompact`, `jweEncryptJson`, `jweDecryptCompact` and `jweDecryptJson` in JavaScript, Kotlin and Swift. In Rust, a `jwe::Encryptor` encrypts, and `jwe::decrypt_compact` and `jwe::decrypt_json` decrypt under a `jwe::DecryptPolicy`.
+
+## Encrypt to a public key with ECDH-ES
+
+ECDH-ES+A256KW ([RFC 7518 §4.6](https://www.rfc-editor.org/rfc/rfc7518#section-4.6)) lets anyone encrypt to a recipient who has published an elliptic-curve public key. Each message gets a fresh ephemeral key pair, whose public half travels in the `epk` header. The compact serialization ([RFC 7516 §7.1](https://www.rfc-editor.org/rfc/rfc7516#section-7.1)) has five base64url parts.
+
+Decryption takes two allow-lists, one for `alg` and one for `enc`, with no defaults ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)). A token that uses anything else is refused.
+
+<Samples id="encrypt-and-decrypt/ecdh-p256" />
+
+The same works with an X25519 key ([RFC 8037 §3.2](https://www.rfc-editor.org/rfc/rfc8037#section-3.2)):
+
+<Samples id="encrypt-and-decrypt/ecdh-x25519" />
+
+## Encrypt with a shared key
+
+When both sides already share a secret key, `dir` ([RFC 7518 §4.5](https://www.rfc-editor.org/rfc/rfc7518#section-4.5)) uses it directly as the content encryption key, so the token's encrypted-key part is empty. `jwkGenerateForAlg("A256GCM")` returns a random key of the right length for A256GCM, with `alg` set to it:
+
+<Samples id="encrypt-and-decrypt/dir" />
+
+A256KW ([RFC 7518 §4.4](https://www.rfc-editor.org/rfc/rfc7518#section-4.4)) instead wraps a fresh random content encryption key for every message with the shared key:
+
+<Samples id="encrypt-and-decrypt/a256kw" />
+
+## Encrypt to an RSA public key
+
+RSA-OAEP-256 ([RFC 7518 §4.3](https://www.rfc-editor.org/rfc/rfc7518#section-4.3)) encrypts to a recipient's RSA public key:
+
+<Samples id="encrypt-and-decrypt/rsa-oaep-256" />
+
+polyjose can't decrypt these tokens on any platform, because decrypting needs the RSA private key, and RSA private-key operations aren't available: see [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys). Encrypt with RSA-OAEP-256 only to a recipient that decrypts with other software. For recipients that use polyjose, publish an EC or X25519 key and use ECDH-ES. `RSA-OAEP`, which uses SHA-1, and `RSA1_5` aren't offered at all.
+
+## Encrypt with a password
+
+PBES2 ([RFC 7518 §4.8](https://www.rfc-editor.org/rfc/rfc7518#section-4.8)) derives the key-wrapping key from a password with PBKDF2. The password is an `oct` key whose `k` is the base64url encoding of the password's bytes. polyjose draws a random 16-byte salt input (`p2s`) and uses 10,000 iterations (`p2c`) unless you set `p2c` on the recipient, from 1,000 to 1,000,000.
+
+<Samples id="encrypt-and-decrypt/pbes2" />
+
+`p2c` is chosen by whoever made the token, and each iteration costs the decrypting side work, so decryption refuses a token whose `p2c` exceeds a bound before deriving anything ([RFC 7518 §8.8](https://www.rfc-editor.org/rfc/rfc7518#section-8.8)). The bound is 10,000 by default and at most 1,000,000. A token above it fails with `DecryptionFailed`, like every other decryption failure, until you raise `maxPbes2Count`:
+
+<Samples id="encrypt-and-decrypt/pbes2-limit" />
+
+Iterations only slow down guessing. A short or common password stays guessable however many iterations you use, so prefer a long, random secret, and where you can, a random key with A256KW or `dir` instead of a password.
+
+## The JSON serialization
+
+The general JSON serialization ([RFC 7516 §7.2.1](https://www.rfc-editor.org/rfc/rfc7516#section-7.2.1)) encrypts one payload to several recipients, each with its own `alg` and key. It can also carry additional authenticated data, `aad`: bytes that are not encrypted but are covered by the authentication tag, so they can't be changed. Each recipient decrypts with its own key, and `recipientIndex` says which recipient entry matched.
+
+<Samples id="encrypt-and-decrypt/json" />
+
+Only the protected header is integrity-protected. A JSON serialization can also carry shared and per-recipient unprotected headers, which polyjose returns separately: don't base decisions on them.
+
+## Compression
+
+A JWE can compress its plaintext before encrypting it, with `"zip": "DEF"` ([RFC 7516 §4.1.3](https://www.rfc-editor.org/rfc/rfc7516#section-4.1.3)). Compressing data an attacker partly controls, before encrypting it, can reveal the rest of the plaintext through the token's length ([RFC 8725 §3.6](https://www.rfc-editor.org/rfc/rfc8725#section-3.6)), so it is off by default. In Rust, enable the crate's `deflate` feature. Decompression stops with `DecryptionFailed` once the output would pass 250,000 bytes unless you change that bound. Compression isn't available in the Node.js, Web, Kotlin and Swift packages: see [Not supported › `zip` in bindings](/security/not-supported/#zip-in-bindings).
+
+<Samples
+  id="encrypt-and-decrypt/zip"
+  unavailable={{ node: "zip-bindings", web: "zip-bindings", kotlin: "zip-bindings", swift: "zip-bindings" }}
+/>
+
+## Every decryption failure looks the same
+
+A wrong key, a modified ciphertext or tag, a bad wrapped key and a PBES2 count above the bound all fail with the one code `DecryptionFailed`. A token that doesn't decrypt reveals nothing about which step failed, so an attacker can't use the errors as an oracle ([RFC 7516 §11.5](https://www.rfc-editor.org/rfc/rfc7516#section-11.5)).
+
+<Samples id="encrypt-and-decrypt/decryption-failed" />
+
+Problems found before any key is used still have their own codes: a malformed token, or an `alg` or `enc` outside your allow-lists (`AlgorithmNotAllowed`). See [Errors](/concepts/errors/) and [Security model › JWE](/security/model/#jwe). To encrypt a signed JWT, see [nested JWTs](/guides/validate-jwt/#nested-jwts-sign-then-encrypt).

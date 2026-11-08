@@ -1,0 +1,18 @@
+# The Rust code samples of the polyjose docs. Every sample is a test in tests/; the site shows the
+# marked part of it (samples/README.md). Never published.
+[package]
+name = "polyjose-samples"
+version = "0.0.0"
+edition = "2024"
+# polyjose's own MSRV (rust-version in its workspace Cargo.toml at the pin).
+rust-version = "1.89"
+publish = false
+
+[dependencies]
+# polyjose at the commit in samples/pins/rust.json: scripts/samples/platforms/rust.sh exports that
+# commit to samples/.polyjose/export/polyjose. Plus the `deflate` feature (no extra dependencies),
+# which only the Encrypt and decrypt guide's `zip` sample needs; the start/ samples use nothing it adds.
+polyjose = { path = "../.polyjose/export/polyjose/crates/polyjose", features = ["deflate"] }
+
+# A package of its own, never a member of another workspace.
+[workspace]

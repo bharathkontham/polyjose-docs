@@ -63,7 +63,7 @@ When 0.1.0 is released, it will conform as follows:
 
 **Why:** claims read from an unverified token are claims anyone could have written. RFC 8725 §3.3 ("Validate All Cryptographic Operations") requires the entire token to be rejected when any cryptographic check fails. A helper that skips the check makes it easy to act on such claims by mistake.
 
-**Instead:** verify or decrypt first. The verified result includes the headers along with the payload. If you need the `kid` to pick a key, pass the issuer's whole JWK Set and let polyjose select candidates; the [JWK Sets guide](/guides/jwk-sets/) will cover this when it arrives with the 0.1.0 release.
+**Instead:** verify or decrypt first. The verified result includes the headers along with the payload. If you need the `kid` to pick a key, pass the issuer's whole JWK Set and let polyjose select candidates; the [JWK Sets guide](/guides/jwk-sets/) shows how.
 
 ## Out of scope
 

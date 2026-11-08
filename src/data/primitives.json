@@ -1,6 +1,7 @@
 [
   {
     "crate": "aes",
+    "version": "0.9.4",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/block-ciphers/tree/master/aes",
     "license": "MIT OR Apache-2.0",
@@ -13,6 +14,7 @@
   },
   {
     "crate": "aes-gcm",
+    "version": "0.11.1",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/AEADs/tree/master/aes-gcm",
     "license": "MIT OR Apache-2.0",
@@ -32,6 +34,7 @@
   },
   {
     "crate": "aes-kw",
+    "version": "0.3.1",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/key-wraps/tree/master/aes-kw",
     "license": "MIT OR Apache-2.0",
@@ -44,6 +47,7 @@
   },
   {
     "crate": "cbc",
+    "version": "0.2.1",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/block-modes/tree/master/cbc",
     "license": "MIT OR Apache-2.0",
@@ -56,6 +60,7 @@
   },
   {
     "crate": "hmac",
+    "version": "0.13.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/MACs/tree/master/hmac",
     "license": "MIT OR Apache-2.0",
@@ -68,6 +73,7 @@
   },
   {
     "crate": "sha2",
+    "version": "0.11.1",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/hashes/tree/master/sha2",
     "license": "MIT OR Apache-2.0",
@@ -80,6 +86,7 @@
   },
   {
     "crate": "pbkdf2",
+    "version": "0.13.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2",
     "license": "MIT OR Apache-2.0",
@@ -92,6 +99,7 @@
   },
   {
     "crate": "p256",
+    "version": "0.14.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p256",
     "license": "MIT OR Apache-2.0",
@@ -104,6 +112,7 @@
   },
   {
     "crate": "p384",
+    "version": "0.14.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p384",
     "license": "MIT OR Apache-2.0",
@@ -116,6 +125,7 @@
   },
   {
     "crate": "p521",
+    "version": "0.14.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/p521",
     "license": "MIT OR Apache-2.0",
@@ -128,6 +138,7 @@
   },
   {
     "crate": "k256",
+    "version": "0.14.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/elliptic-curves/tree/master/k256",
     "license": "MIT OR Apache-2.0",
@@ -148,6 +159,7 @@
   },
   {
     "crate": "ecdsa",
+    "version": "0.17.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/signatures/tree/master/ecdsa",
     "license": "MIT OR Apache-2.0",
@@ -160,6 +172,7 @@
   },
   {
     "crate": "elliptic-curve",
+    "version": "0.14.3",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/traits/tree/master/elliptic-curve",
     "license": "MIT OR Apache-2.0",
@@ -172,6 +185,7 @@
   },
   {
     "crate": "rsa",
+    "version": "0.10.0-rc.21",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/RSA",
     "license": "MIT OR Apache-2.0",
@@ -192,6 +206,7 @@
   },
   {
     "crate": "crypto-bigint",
+    "version": "0.7.10",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/crypto-bigint",
     "license": "MIT OR Apache-2.0",
@@ -212,6 +227,7 @@
   },
   {
     "crate": "zeroize",
+    "version": "1.9.1",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/utils/tree/master/zeroize",
     "license": "MIT OR Apache-2.0",
@@ -224,6 +240,7 @@
   },
   {
     "crate": "curve25519-dalek",
+    "version": "5.0.0",
     "upstream": "dalek-cryptography",
     "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek",
     "license": "BSD-3-Clause",
@@ -245,6 +262,7 @@
   },
   {
     "crate": "ed25519-dalek",
+    "version": "3.0.0",
     "upstream": "dalek-cryptography",
     "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek",
     "license": "BSD-3-Clause",
@@ -262,6 +280,7 @@
   },
   {
     "crate": "x25519-dalek",
+    "version": "3.0.0",
     "upstream": "dalek-cryptography",
     "repo": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/x25519-dalek",
     "license": "BSD-3-Clause",
@@ -278,6 +297,7 @@
   },
   {
     "crate": "subtle",
+    "version": "2.6.1",
     "upstream": "dalek-cryptography",
     "repo": "https://github.com/dalek-cryptography/subtle",
     "license": "BSD-3-Clause",
@@ -297,6 +317,7 @@
   },
   {
     "crate": "getrandom",
+    "version": "0.4.3",
     "upstream": "rust-random",
     "repo": "https://github.com/rust-random/getrandom",
     "license": "MIT OR Apache-2.0",
