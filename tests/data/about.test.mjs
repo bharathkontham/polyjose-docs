@@ -99,7 +99,7 @@ export function presentTenseMachineryClaims(text) {
 	return sentencesOf(text).filter((s) => topic.test(s) && !planned.test(s));
 }
 
-/** Future-tense or design wording that must not return now 0.1.1 is published. */
+/** Future-tense or design wording that must not return now polyjose is published. */
 const futureWording = [
 	/\bas designed\b/i,
 	/\bis being built\b/i,
@@ -108,8 +108,8 @@ const futureWording = [
 	/\bplanned for after the 0\.1\.0 release\b/i,
 ];
 
-/** The sentence that frames the About page's list as the 0.1.1 release. */
-const framingSentence = /This list describes polyjose 0\.1\.1\./;
+/** The sentence that frames the About page's list as the 0.1.2 release. */
+const framingSentence = /This list describes polyjose 0\.1\.2\./;
 
 const pages = {
 	landing: '',
@@ -131,7 +131,7 @@ describe('the future-wording checks themselves', () => {
 	test('accept the released phrasings', () => {
 		for (const now of [
 			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
-			'RFC coverage. polyjose 0.1.1 implements: RFC 7515 (JWS)',
+			'RFC coverage. polyjose 0.1.2 implements: RFC 7515 (JWS)',
 			'The @polyjose/node package, a native addon that ships with prebuilt binaries.',
 			'Every binding passes the same conformance tests.',
 		]) {
@@ -139,8 +139,8 @@ describe('the future-wording checks themselves', () => {
 		}
 	});
 	test('the framing sentence pattern matches only the full sentence', () => {
-		assert.match('This list describes polyjose 0.1.1.', framingSentence);
-		assert.doesNotMatch('This list describes polyjose 0.1.1', framingSentence);
+		assert.match('This list describes polyjose 0.1.2.', framingSentence);
+		assert.doesNotMatch('This list describes polyjose 0.1.2', framingSentence);
 	});
 });
 
@@ -237,17 +237,37 @@ describe('landing page', () => {
 		]);
 	});
 
-	test('a card grid links each of the five platforms to its get-started page', () => {
-		assert.ok((body.match(/class="card-grid/g) ?? []).length >= 2, 'expected a platform grid and a security grid');
-		const hrefs = linksOf(body).map((l) => l.href);
-		for (const p of ['rust', 'node', 'web', 'android', 'swift']) {
-			assert.ok(hrefs.includes(`/start/${p}/`), `no card for /start/${p}/`);
-		}
+	test('"Pick your platform" has one synced tab per platform, each with install, import and a guide link', () => {
+		const start = body.indexOf('<starlight-tabs data-sync-key="platform"');
+		assert.ok(start > 0, 'no platform tab group');
+		const group = body.slice(start, body.indexOf('</starlight-tabs>', start));
+		const labels = [...group.matchAll(/<a role="tab"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => textOf(m[1]));
+		assert.deepEqual(labels, ['Rust', 'Node.js', 'Web', 'Kotlin', 'Swift']);
+		const panels = group.split(/<div[^>]*role="tabpanel"/).slice(1);
+		const expected = [
+			['rust', 'cargo add polyjose@', 'use polyjose::'],
+			['node', 'npm install @polyjose/node@', "from '@polyjose/node'", "require('@polyjose/node')"],
+			['web', 'npm install @polyjose/wasm@', "from '@polyjose/wasm'", 'no init call'],
+			['android', 'dev.polyjose:polyjose:', 'dev.polyjose:polyjose-jvm:', 'import dev.polyjose.'],
+			['swift', '.package(url: "https://github.com/bharathkontham/polyjose"', 'Add Package Dependencies', 'import Polyjose'],
+		];
+		assert.equal(panels.length, expected.length, 'one panel per platform');
+		panels.forEach((panel, i) => {
+			const [guide, ...phrases] = expected[i];
+			const text = textOf(panel);
+			for (const phrase of phrases) assert.ok(text.includes(phrase), `${labels[i]} tab lacks ${JSON.stringify(phrase)}`);
+			assert.match(panel, /data-install-status=/, `${labels[i]} tab does not use the shared install block`);
+			assert.ok(linksOf(panel).some((l) => l.href === `/start/${guide}/` && /Full guide/.test(l.text)), `${labels[i]} tab has no full guide link`);
+		});
+	});
+
+	test('the Node.js tab describes one package with prebuilt addons for every desktop and server OS', () => {
+		assert.match(textOf(body), /One package, prebuilt for macOS, Linux \(glibc and musl\) and Windows/);
 	});
 
 	test('card descriptions contain no inline code (it fails dark-theme contrast inside cards)', () => {
 		const descriptions = [...body.matchAll(/<div class="sl-link-card[\s\S]*?<span class="description[^"]*">([\s\S]*?)<\/span>/g)].map((m) => m[1]);
-		assert.equal(descriptions.length, 8, 'expected a description on each of the eight cards');
+		assert.equal(descriptions.length, 3, 'expected a description on each of the three security cards');
 		for (const d of descriptions) assert.doesNotMatch(d, /<code\b/i, d);
 	});
 
@@ -272,7 +292,7 @@ describe('About › Why polyjose', () => {
 		assert.match(text, /One JOSE implementation, every platform\./);
 	});
 
-	test('frames the "what makes polyjose different" list as the 0.1.1 release', () => {
+	test('frames the "what makes polyjose different" list as the 0.1.2 release', () => {
 		assert.match(text, framingSentence);
 		const framing = text.search(framingSentence);
 		const heading = text.search(/What makes polyjose different/);

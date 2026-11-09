@@ -221,7 +221,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
 
   await t.test('decode without verify, out of scope, Java', () => {
     assertPhrases(text, 'decode', [/decode/i, 'JWS', 'JWE']);
-    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.1']);
+    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.2']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
