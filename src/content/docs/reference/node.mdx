@@ -7,14 +7,16 @@ This page has the details of `@polyjose/node` that you don't need to get started
 
 ## Platform support
 
-npm installs the matching prebuilt addon, `@polyjose/node-<platform>`, as an optional dependency at exactly the main package's version, and only the one for your platform. Nothing is compiled on your machine. There are addons for:
+`@polyjose/node` is one package. From 0.1.2 it contains the prebuilt addons for all eight supported platforms, as `polyjose.<platform>.node` files, so npm downloads one tarball and nothing else, and nothing is compiled on your machine. At run time the package loads the one for your platform. There are addons for:
 
-- macOS: x64 and arm64
-- Linux with glibc: x64 and arm64
-- Linux with musl (Alpine): x64 and arm64
-- Windows: x64 and arm64
+- macOS: x64 and arm64 (`darwin-x64`, `darwin-arm64`)
+- Linux with glibc: x64 and arm64 (`linux-x64-gnu`, `linux-arm64-gnu`)
+- Linux with musl (Alpine): x64 and arm64 (`linux-x64-musl`, `linux-arm64-musl`)
+- Windows: x64 and arm64 (`win32-x64-msvc`, `win32-arm64-msvc`)
 
-If you install with `--omit=optional`, no addon is installed and the import throws.
+The same installed package works on all of them, so a `node_modules` built on one platform can be copied to another. On any other platform (FreeBSD, 32-bit, RISC-V and so on) the import throws `ERR_POLYJOSE_ADDON_REFUSED`, naming your platform; use [`@polyjose/wasm`](/start/web/) there, which has the same API.
+
+Up to 0.1.1, each addon was a separate package, `@polyjose/node-<platform>`, installed as an optional dependency. Those packages are deprecated and are no longer used: `@polyjose/node` 0.1.2 and later never loads them, even if they are still installed.
 
 The package is ESM only and needs **Node.js 22.12 or later**. CommonJS code can load it with `require("@polyjose/node")`, through Node's `require(esm)`, which needs no flag from 22.12 on. Every operation returns a Promise, and the work runs on the libuv thread pool, so it doesn't block the event loop. The API and its TypeScript types are the same as `@polyjose/wasm`'s, so you can switch between the two packages by changing the import.
 
@@ -37,35 +39,32 @@ Any later release of these works too. Amazon Linux 2 (glibc 2.26) is not support
 
 ## How the addon is loaded
 
-The package loads **only the polyjose addon whose SHA-256 it was built with**. Otherwise the import throws, and nothing it refused has run.
+The package loads **only the polyjose addon whose SHA-256 it was released with, from its own folder**. Otherwise the import throws, and nothing it refused has run. It doesn't use a generated napi-rs loader, so it never searches for the addon.
 
-- **The hash pin.** The package ships `addon-sha256.json`: the SHA-256 of each platform's addon, generated when the package is built. Before anything loads, the package picks the one addon file for your platform, the same one the generated napi-rs loader (`binding.cjs`) would pick:
-  1. the file named by `NAPI_RS_NATIVE_LIBRARY_PATH`, if set (see [Environment variables](#environment-variables));
-  2. else a local `polyjose.<platform>.node` next to the loader;
-  3. else the platform package `@polyjose/node-<platform>`, found through Node's normal module resolution: this package's `node_modules`, then every ancestor `node_modules`, then `NODE_PATH`.
-
-  It hashes that file and refuses it unless the hash is the pinned one. The refusal names the platform, both hashes and where the file came from. There is no fallback to another file. So a substitute is refused wherever it was planted, a native addon as much as a JavaScript file, including when the genuine platform package is missing: after `npm install --omit=optional`, or on a platform polyjose doesn't publish. A package without the map, or without an entry for your platform, loads nothing.
-- **No swap after the check.** The package writes the bytes it checked to a new private directory in `os.tmpdir()` (mode `0700`; on Windows, your own `%TEMP%`), checks the copy again, and has the loader load exactly that copy. Then it deletes the copy; the loaded addon stays in memory. Windows can't delete a loaded DLL, so there each copy (the size of the addon) stays in the temporary directory. The temporary directory must allow loading native code: if yours is mounted `noexec`, point `TMPDIR` (`TEMP` on Windows) at one that does.
-- **Every candidate is native.** Before that, everything the loader could pick must be a native `.node` file. If any candidate resolves to something else, such as a JavaScript `@polyjose/node-<platform>` in a parent folder or on `NODE_PATH`, the import throws before that file runs.
-- **After loading,** the result must be exactly the checked copy, not wrapped by any JavaScript, and its own `version()` must be this package's version. An addon from another polyjose release is refused, whatever `NAPI_RS_ENFORCE_VERSION_CHECK` says.
-- **No WebAssembly fallback.** polyjose never publishes a `wasm32-wasi` package. The napi-rs loader still has a WASI fallback, tried when the native load fails: `./polyjose.wasi.cjs`, then `@polyjose/node-wasm32-wasi`. The package never reaches it. If either WASI file or package can be found from the loader's directory, the import throws before anything is loaded. If loading the checked copy fails, the import throws "Cannot find native binding". For WebAssembly, use [`@polyjose/wasm`](/start/web/).
+- **The platform.** The package works out your platform name, for example `linux-arm64-musl` (see [Side effects of loading](#side-effects-of-loading) for how it tells musl from glibc). A platform outside the eight above is refused.
+- **The hash pin.** The package ships `addon-sha256.json`: the SHA-256 of each of its eight addons, generated when the package is built. The package reads `polyjose.<platform>.node` from its own folder, by its full path, hashes it, and refuses it unless the hash is the pinned one. The refusal names the platform, the file and both hashes. There is no fallback to another file, and no other place is ever looked at: not `node_modules` folders (the package's own or a parent's), not `NODE_PATH`, not an environment variable. So a substitute planted anywhere is never loaded, and one put in place of the addon is refused by its hash, a native addon as much as a JavaScript file. A package without the map, or without an entry for your platform, loads nothing.
+- **No swap after the check.** The package writes the bytes it checked to a new private directory in `os.tmpdir()` (mode `0700`; on Windows, your own `%TEMP%`), checks the copy again, and loads exactly that copy. Then it deletes the copy; the loaded addon stays in memory. Windows can't delete a loaded DLL, so there each copy (the size of the addon) stays in the temporary directory. The temporary directory must allow loading native code: if yours is mounted `noexec`, point `TMPDIR` (`TEMP` on Windows) at one that does.
+- **After loading,** the result must be exactly the checked copy, not wrapped by any JavaScript, and its own `version()` must be this package's version. An addon from another polyjose release is refused.
+- **No WebAssembly fallback.** polyjose never publishes a `wasm32-wasi` package, and the package has no WASI fallback: there is no generated loader to try one. If the operating system can't load the checked copy, the import throws Node's own error for loading a native addon. For WebAssembly, use [`@polyjose/wasm`](/start/web/).
 
 These checks keep the package from *choosing* a substitute. They can't protect against code that already runs in your process, which can change anything.
 
 ### `ERR_POLYJOSE_ADDON_REFUSED`
 
-Every refusal above throws a plain `Error`, not a `PolyjoseError`, with `code` set to `ERR_POLYJOSE_ADDON_REFUSED`. It happens at import, before any operation runs. Its message names the platform, where the file came from, and both SHA-256 values. There is one code for every kind of refusal, because none of them is something your code can recover from: reinstall the package, or fix the environment variable or the folder that put a different file in its way.
+Every refusal above throws a plain `Error`, not a `PolyjoseError`, with `code` set to `ERR_POLYJOSE_ADDON_REFUSED`. It happens at import, before any operation runs. Its message names your platform, and for a hash mismatch also the file and both SHA-256 values. There is one code for every kind of refusal, because none of them is something your code can recover from: reinstall the package, or, on an unsupported platform, use `@polyjose/wasm`.
 
 ### Environment variables
 
+The package reads no environment variable to decide what to load. The napi-rs variables below change other napi-rs packages, but not this one; they are listed because 0.1.1 and earlier read or refused them.
+
 | Variable | Effect |
 |---|---|
-| `NAPI_RS_NATIVE_LIBRARY_PATH` | Loads the addon from this path instead of the installed one, **only if its SHA-256 is the pinned one** for your platform. |
-| `NAPI_RS_FORCE_WASI` | **Refused.** If it is set, whatever the value (even `false` or empty), the import throws. |
-| `NAPI_RS_WASI_FLAVOR` | **Refused**, like `NAPI_RS_FORCE_WASI`. |
-| `NAPI_RS_ENFORCE_VERSION_CHECK` | Read by the generated loader only. The package checks the hash and the version anyway. |
+| `NAPI_RS_NATIVE_LIBRARY_PATH` | **Ignored.** The addon always comes from the package's own folder. (Up to 0.1.1, a file at this path was loaded if its SHA-256 was the pinned one.) |
+| `NAPI_RS_FORCE_WASI` | **Ignored.** There is no WASI fallback. (Up to 0.1.1, the import threw if it was set.) |
+| `NAPI_RS_WASI_FLAVOR` | **Ignored**, like `NAPI_RS_FORCE_WASI`. |
+| `NAPI_RS_ENFORCE_VERSION_CHECK` | **Ignored.** The package always checks the addon's hash and version. |
 
-**`NAPI_RS_NATIVE_LIBRARY_PATH` is held to the same pin.** It names the file the package checks, so it can only relocate polyjose's own addon, for example out of an archive or a bundle. A JavaScript file there is refused before it runs; any other native library is refused by its hash. The package sets the variable to its private copy while the loader runs and restores your value right after.
+The temporary directory comes from `os.tmpdir()`, so `TMPDIR` (`TEMP` on Windows) decides where the private copy goes (see "No swap after the check" above).
 
 ### A panic in the addon aborts the process
 
@@ -73,10 +72,9 @@ If the Rust code ever panics, Node.js **aborts the whole process** (SIGABRT). Th
 
 ### Side effects of loading
 
-- **Linux:** to tell musl from glibc, the package reads `/usr/bin/ldd`, as the generated loader would. If that fails, it calls `process.report.getReport()`, and before that it sets `process.report.excludeNetwork = true` for the whole process. If there is no report either, the import throws. (The loader's last resort, `ldd --version` in a child process, is never run.)
-- **Windows x64:** an embedder that runs Node as a shared library (`node_target_type` is `shared_library`), or a Node whose `shlib_suffix` is `dll.a`, maps to the `win32-x64-gnu` platform, as in the loader. polyjose doesn't publish that addon, so those hosts can't load the package.
+- **Linux:** to tell musl from glibc, the package reads `/usr/bin/ldd`, as napi-rs does. If it can't be read, the package calls `process.report.getReport()`, with `process.report.excludeNetwork` set to `true` while the report is taken and restored to your value after. If there is no report either, the import throws instead of guessing. No child process is run.
+- **Windows:** the package loads the `msvc` addon for your architecture, also when Node runs embedded as a shared library.
 - **Temporary directory:** each import that loads the addon creates one directory in `os.tmpdir()` (see "No swap after the check" above).
-- **`__napiBindingTarget`:** the loaded addon has an extra property, `__napiBindingTarget` (`"native"`), set by the loader. The package's own API doesn't export it.
 
 ## Secrets in results
 
@@ -91,4 +89,4 @@ Results are plain objects, and their byte fields are plain `Uint8Array`s. So **p
 
 ## Licenses
 
-The package is MIT licensed. Its `THIRD-PARTY-NOTICES.txt` lists the third-party code it contains, and each platform package carries its own `THIRD-PARTY-NOTICES.txt` for the Rust crates compiled into its addon.
+The package is MIT licensed. Its one `THIRD-PARTY-NOTICES.txt` lists the third-party code it contains: the Rust crates compiled into its eight addons, for every target. Its JavaScript is polyjose's own.
