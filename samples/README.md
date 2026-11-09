@@ -1,6 +1,6 @@
 # Code samples
 
-Every code block in the guides comes from a file in this directory, and each of those files is a real test. The Rust samples run under `cargo test`, the JavaScript ones under `node --test`, the Kotlin ones under Gradle and the Swift ones under `swift test`. The site shows only a marked part of each test, so what you read is code that was compiled and run against polyjose.
+Every polyjose code block in the guides comes from a file in this directory, and each of those files is a real test. The one exception is the platform code on Store keys securely (Android Keystore, Keychain, Web Crypto and WebAuthn), which is marked on that page as an untested example. The Rust samples run under `cargo test`, the JavaScript ones under `node --test`, the Kotlin ones under Gradle and the Swift ones under `swift test`. The site shows only a marked part of each test, so what you read is code that was compiled and run against polyjose.
 
 ## Layout
 
