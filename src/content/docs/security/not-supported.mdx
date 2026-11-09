@@ -3,7 +3,7 @@ title: What polyjose does not support
 description: Algorithms and features polyjose leaves out on purpose, why each one is excluded, and what to use instead.
 ---
 
-This page describes polyjose 0.1.0 as designed.
+This page describes polyjose 0.1.1.
 
 polyjose leaves some algorithms and features out on purpose. Each section below says what is excluded, why, and what to use instead.
 
@@ -11,7 +11,7 @@ Where you can still ask for an excluded algorithm, for example by passing a toke
 
 ## RSA private keys
 
-**Not supported in 0.1.0:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
+**Not supported in 0.1.1:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
 
 **Why:** the pure-Rust `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), the Marvin attack: a timing side channel that could allow recovery of the private key. It affects operations that use the private key, which are signing and decryption. No fixed release of `rsa` exists yet.
 
@@ -43,7 +43,7 @@ RSA signing, RSA decryption and RSA key generation will return once a fixed `rsa
 
 **Why:** SHA-1 isn't practically broken inside OAEP, because OAEP doesn't rely on collision resistance. But SHA-1 has been retired almost everywhere else, and leaving it out entirely means one fewer primitive to trust. `RSA-OAEP` is not a Required algorithm in RFC 7518 §4.1, so omitting it keeps polyjose conformant.
 
-When 0.1.0 is released, it will conform as follows:
+It conforms as follows:
 
 > Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits `RSA-OAEP` (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see [the security page](#rsa-private-keys)) and `RSA1_5`.
 
@@ -67,7 +67,7 @@ When 0.1.0 is released, it will conform as follows:
 
 ## Out of scope
 
-**Not in 0.1.0:**
+**Not in 0.1.1:**
 
 - **Ed448 and X448.** The pure-Rust implementations are not yet stable releases. Use `Ed25519` and `X25519`.
 - **X.509 certificate chain validation.** The `x5c` and `x5u` members are carried as data. polyjose never validates a certificate chain, and never uses one to pick a key. Validate certificates with your platform's X.509 tools, then pass polyjose the public key you trust.
@@ -76,8 +76,8 @@ When 0.1.0 is released, it will conform as follows:
 
 ## Java
 
-**Not supported in 0.1.0:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
+**Not supported in 0.1.1:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
 
-**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.0.
+**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.1.
 
 **Instead:** call polyjose from Kotlin. See [Android and JVM (Kotlin)](/start/android/).

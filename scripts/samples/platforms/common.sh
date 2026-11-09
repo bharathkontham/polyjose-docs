@@ -15,7 +15,7 @@ samples_need() {
   done
 }
 
-# samples_git_only: registry mode installs a published release, and there is none before 0.1.0.
+# samples_git_only: registry mode installs a published release; the platform runners do not implement it yet.
 samples_git_only() {
   [ "$SAMPLES_PIN_SOURCE" = git ] \
     || samples_skip "registry mode is not implemented until polyjose $SAMPLES_PIN_VERSION is published"
