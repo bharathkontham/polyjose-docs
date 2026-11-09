@@ -31,6 +31,8 @@ The glibc addons need **glibc 2.28 or later**, the same floor as the official No
 
 If you install with `--omit=optional`, no addon is installed and the import throws. The package also refuses to load any addon file other than the one it was built with, and throws an error with the code `ERR_POLYJOSE_ADDON_REFUSED`.
 
+[Node.js package](/reference/node/) has the full list of distributions, how the addon is loaded and checked, and the environment variables it reads.
+
 ## Sign your first token
 
 These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.

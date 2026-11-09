@@ -45,6 +45,8 @@ The package's `exports` picks an entry point for your runtime:
 - **Content Security Policy.** A page with a CSP must allow WebAssembly compilation with `script-src 'wasm-unsafe-eval'`, and the fetch of `polyjose_wasm_bg.wasm` (`connect-src`). Without `'wasm-unsafe-eval'`, the first call rejects.
 - **Serve the `.wasm` byte for byte,** as `application/wasm`. The browser entry fetches it with Subresource Integrity, so a server, CDN or bundler that rewrites the file makes the first call reject.
 
+[Web (WASM) package](/reference/web/) has the details: Web Workers and bundlers, loader integrity, randomness, and what stays in memory.
+
 ## Sign your first token
 
 These samples use RFC 7515's example P-256 key, from Appendix A.3. Its private part is printed in the RFC, so use it only to try things out.

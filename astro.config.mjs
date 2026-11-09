@@ -54,7 +54,16 @@ const sidebar = [
       { slug: 'security/reporting' },
     ],
   },
-  { label: 'Reference', items: [{ slug: 'reference/api' }] },
+  {
+    label: 'Reference',
+    items: [
+      { slug: 'reference/api' },
+      { slug: 'reference/node', label: 'Node.js package' },
+      { slug: 'reference/web', label: 'Web (WASM) package' },
+      { slug: 'reference/android', label: 'Kotlin library' },
+      { slug: 'reference/swift', label: 'Swift package' },
+    ],
+  },
   { label: 'About', items: [{ slug: 'about/why-polyjose' }] },
 ];
 
