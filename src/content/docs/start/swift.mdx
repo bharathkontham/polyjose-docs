@@ -38,7 +38,7 @@ Verifying always takes an explicit `allowedAlgs`, with no default, so leaving it
 
 <Sample platform="swift" id="start/swift-first-verify" />
 
-Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them once you are done: `resetBytes(in:)` on a `var` that holds them. `Data` is copy-on-write, so this wipes only bytes that no other copy shares.
+Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them once you are done: `resetBytes(in:)` on a `var` that holds them. `Data` is copy-on-write, so this wipes only bytes that no other copy shares. [Swift package](/reference/swift/) lists every redacted field and which copies of secrets stay in memory.
 
 ## Handle an error
 

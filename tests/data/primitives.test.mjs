@@ -425,9 +425,9 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   }
   // The page's framing sentence names the polyjose release it describes. Only
   // that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.1.1.';
+  const framing = 'This page describes polyjose 0.1.2.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.1'), [], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.2'), [], 'outside the table, only the release the page describes');
 });
