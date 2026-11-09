@@ -1,0 +1,450 @@
+---
+title: Store keys securely
+description: Keep a polyjose key across app launches on Android, iOS and the web by encrypting the JWK with a key the platform protects, and know what that does and doesn't protect against.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This page describes polyjose 0.1.2.
+
+When an app generates or imports a key with polyjose and needs the same key on its next launch, it has to store the key somewhere. This page shows how to do that on Android, iOS and the web, and what each approach protects.
+
+## What storage protects
+
+polyjose keys are software keys. A private or secret key is a JWK, and while polyjose signs or decrypts with it, the key is data in your app's memory. Storage protects the key **at rest**: from other apps, from someone who has a lost or stolen device, from backups and from a copied file, as far as the platform allows (a browser promises less than Android or iOS; see [What a browser key protects](#what-a-browser-key-protects)). It doesn't protect the key from code running inside your app. Such code can use the key while it's loaded, or ask the platform to decrypt it, just as your own code does.
+
+The approach is the same on every platform. Encrypt the JWK with a **wrapping key** that the platform keeps non-extractable, and in hardware where the device has it, and store only the ciphertext. To use the key, decrypt it, pass the JWK to polyjose, and let go of it when you're done ([Manage keys › Handle secrets](/guides/manage-keys/#handle-secrets)).
+
+Keys that never leave the platform's hardware, such as Secure Enclave keys, Android Keystore or StrongBox signing keys and non-extractable Web Crypto signing keys, can't be used by polyjose to sign or decrypt: polyjose needs the private key as a JWK. polyjose can verify signatures and encrypt for such a key with its **public** key, exported as a JWK: in Kotlin with `jwkFromDer(publicKey.encoded, "spki")`, in Swift with `jwkFromDer(der: publicKey.derRepresentation, format: "spki")`, and on the web with `crypto.subtle.exportKey("jwk", publicKey)`.
+
+<Aside type="caution" title="Platform examples">
+The Android Keystore, Keychain, Web Crypto and WebAuthn code on this page is an example to adapt, and unlike the other guides' code it isn't run by this site's tests. The polyjose calls in it (`jwkGenerateForAlg`, `jwsSignCompact`) are the ones the tested samples on [Manage keys](/guides/manage-keys/) and [Sign and verify](/guides/sign-and-verify/) use.
+</Aside>
+
+## Android
+
+On Android, the wrapping key is an AES-256-GCM key in the [Android Keystore](https://developer.android.com/privacy-and-security/keystore). Its key material never enters your app's process: the app passes data to a system process that does the encryption, so even a compromised app can use the key but can't extract it ([Extraction prevention](https://developer.android.com/privacy-and-security/keystore#ExtractionPrevention)).
+
+### Create the wrapping key
+
+Generate the key once, with [`KeyGenParameterSpec`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec), and fetch it from the Keystore by its alias after that. The Keystore does cryptographic work slowly enough that it doesn't belong on the main thread.
+
+```kotlin
+import android.os.Build
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.security.keystore.StrongBoxUnavailableException
+import java.security.KeyStore
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+
+private const val ALIAS = "polyjose-jwk-wrapping-key"
+
+/** The wrapping key, created in the Android Keystore on first use. */
+fun wrappingKey(): SecretKey {
+    val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    (keyStore.getKey(ALIAS, null) as SecretKey?)?.let { return it }
+
+    fun generate(strongBox: Boolean): SecretKey {
+        val spec = KeyGenParameterSpec.Builder(
+            ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+        ).run {
+            setKeySize(256)
+            setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setIsStrongBoxBacked(true)
+            build()
+        }
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            .apply { init(spec) }
+            .generateKey()
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        try {
+            return generate(strongBox = true)
+        } catch (e: StrongBoxUnavailableException) {
+            // No StrongBox on this device: fall through to the default (the TEE where there is one).
+        }
+    }
+    return generate(strongBox = false)
+}
+```
+
+[StrongBox](https://developer.android.com/privacy-and-security/keystore#StrongBoxKeyMint) is a separate secure element on some devices running Android 9 or later. If it isn't there, or doesn't support the key, key generation throws `StrongBoxUnavailableException` and you generate the key without it. Android's documentation says StrongBox is slower and that most apps don't need it, so asking for it is a choice, not a requirement.
+
+The spec can also limit when the key works:
+
+- [`setUserAuthenticationRequired(true)`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setUserAuthenticationRequired(boolean)), with [`setUserAuthenticationParameters`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setUserAuthenticationParameters(int,%20int)) on API 30 and later, makes the key usable only after the user authenticates with a biometric or the device credential, for each use or for a number of seconds ([Require user authentication for key use](https://developer.android.com/privacy-and-security/keystore#UserAuthentication)). The key needs a secure lock screen, and it's permanently invalidated if the lock screen is removed, so the stored JWK is then lost and your app must create and register a new key.
+- [`setUnlockedDeviceRequired(true)`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setUnlockedDeviceRequired(boolean)) (API 28) makes the key unusable while the device is locked. Its reference page lists bugs in Android 12 to 14 and suggests using it only on Android 15 and later.
+
+### Encrypt and store the JWK
+
+Encrypt the JWK's JSON with `AES/GCM/NoPadding`. Don't pass an IV: Keystore keys require randomized encryption by default, so the cipher picks a fresh random IV and rejects one you supply ([`setRandomizedEncryptionRequired`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setRandomizedEncryptionRequired(boolean))). Read it back with `cipher.iv` and store it with the ciphertext.
+
+```kotlin
+import java.io.File
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+
+/** Encrypts `jwk` with the wrapping key and writes the IV length, IV and ciphertext to `file`. */
+fun storeJwk(file: File, jwk: String) {
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    cipher.init(Cipher.ENCRYPT_MODE, wrappingKey()) // the Keystore picks the IV
+    val plaintext = jwk.toByteArray()
+    val ciphertext = try {
+        cipher.doFinal(plaintext)
+    } finally {
+        plaintext.fill(0)
+    }
+    val iv = cipher.iv
+    file.writeBytes(byteArrayOf(iv.size.toByte()) + iv + ciphertext)
+}
+
+/** Reads and decrypts the JWK that `storeJwk` wrote. */
+fun loadJwk(file: File): String {
+    val stored = file.readBytes()
+    val ivLength = stored[0].toInt()
+    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+    cipher.init(Cipher.DECRYPT_MODE, wrappingKey(), GCMParameterSpec(128, stored, 1, ivLength))
+    val plaintext = cipher.doFinal(stored, 1 + ivLength, stored.size - 1 - ivLength)
+    try {
+        return plaintext.decodeToString()
+    } finally {
+        plaintext.fill(0)
+    }
+}
+```
+
+GCM authenticates the ciphertext, so a file that was changed, or that was encrypted under another key, fails to decrypt with an exception rather than returning a wrong key.
+
+### Load the key and use it
+
+```kotlin
+import dev.polyjose.*
+
+val file = File(context.noBackupFilesDir, "signing-key.jwk.enc")
+if (!file.exists()) storeJwk(file, jwkGenerateForAlg("ES256"))
+
+val privateKey = loadJwk(file)
+val token = jwsSignCompact(
+    payload = "hello".toByteArray(),
+    key = privateKey,
+    options = JwsSignOptions(protectedHeader = """{"alg":"ES256"}"""),
+)
+```
+
+The file lives in [`noBackupFilesDir`](https://developer.android.com/reference/android/content/Context#getNoBackupFilesDir()), which Auto Backup always excludes. If you keep the ciphertext elsewhere, for example in DataStore or under `filesDir`, exclude it from backups with [`android:dataExtractionRules`](https://developer.android.com/identity/data/autobackup#include-exclude-android-12) on Android 12 and later and [`android:fullBackupContent`](https://developer.android.com/identity/data/autobackup#include-exclude-android-11) before that. Keystore keys can't be extracted from the device, so a ciphertext restored onto another device can't be decrypted there anyway; excluding it keeps a useless file from being restored.
+
+### Check where the key lives
+
+Whether the wrapping key is in secure hardware depends on the device and on what its hardware supports. Ask the Keystore for the key's [`KeyInfo`](https://developer.android.com/reference/android/security/keystore/KeyInfo):
+
+```kotlin
+import android.security.keystore.KeyInfo
+import javax.crypto.SecretKeyFactory
+
+val key = wrappingKey()
+val info = SecretKeyFactory.getInstance(key.algorithm, "AndroidKeyStore")
+    .getKeySpec(key, KeyInfo::class.java) as KeyInfo
+val inSecureHardware = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    info.securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
+        info.securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX
+} else {
+    @Suppress("DEPRECATION")
+    info.isInsideSecureHardware
+}
+```
+
+`getSecurityLevel()` is available from API 31; `isInsideSecureHardware()` is the older call and is deprecated from API 31. When the key is in secure hardware (a TEE or StrongBox), its material is never exposed outside that hardware. Even then, Android's documentation notes that an attacker who compromises the OS can still use the app's Keystore keys on that device, but not extract them.
+
+### Jetpack Security and Tink
+
+Jetpack Security's `EncryptedSharedPreferences`, `EncryptedFile` and `MasterKey` are deprecated: `security-crypto` 1.1.0 deprecated all of its APIs "in favour of existing platform APIs and direct use of Android Keystore" ([release notes](https://developer.android.com/jetpack/androidx/releases/security#security-crypto-1.1.0-alpha07)). Use the Keystore directly, as above.
+
+[Google Tink](https://developers.google.com/tink/setup/java) is an alternative. Its [`AndroidKeystore`](https://github.com/tink-crypto/tink-java/blob/v1.24.0/src/main/java/com/google/crypto/tink/integration/android/AndroidKeystore.java) class (Tink 1.16 and later) creates an AES-256-GCM key in the Keystore and gives you an `Aead` for it, which replaces the cipher code above. Avoid Tink's `AndroidKeysetManager` with a Keystore master key for this: its [documentation](https://github.com/tink-crypto/tink-java/blob/v1.24.0/src/main/java/com/google/crypto/tink/integration/android/AndroidKeysetManager.java) says Tink disables the Keystore on devices where a self-test finds it unreliable and then stores keysets in cleartext, and recommends `AndroidKeystore` instead.
+
+## iOS
+
+On iOS, store the JWK in the [Keychain](https://developer.apple.com/documentation/security/keychain-services). The system encrypts each Keychain item with AES-256-GCM, decrypting an item's secret takes a round trip through the Secure Enclave, and the item's protection class, tied to the device passcode, decides when it can be read ([Apple Platform Security, Keychain data protection](https://support.apple.com/guide/security/keychain-data-protection-secb0694df1a/web)).
+
+### Store, read, update and delete
+
+A JWK is JSON text in Swift, so store it as a generic password, named by a service and an account:
+
+```swift
+import Foundation
+import Polyjose
+import Security
+
+struct KeychainError: Error { let status: OSStatus }
+
+/// The attributes that name the item: one generic password, kept on this device.
+func jwkQuery() -> [String: Any] {
+    [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "com.example.app.polyjose",
+        kSecAttrAccount as String: "signing-key",
+        kSecAttrSynchronizable as String: false,
+        kSecUseDataProtectionKeychain as String: true,
+    ]
+}
+
+func storeJwk(_ jwk: String) throws {
+    var data = Data(jwk.utf8)
+    defer { data.resetBytes(in: 0..<data.count) }
+    var attributes = jwkQuery()
+    attributes[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+    attributes[kSecValueData as String] = data
+    var status = SecItemAdd(attributes as CFDictionary, nil)
+    if status == errSecDuplicateItem {
+        let changes: [String: Any] = [kSecValueData as String: data]
+        status = SecItemUpdate(jwkQuery() as CFDictionary, changes as CFDictionary)
+    }
+    guard status == errSecSuccess else { throw KeychainError(status: status) }
+}
+
+func loadJwk() throws -> String? {
+    var query = jwkQuery()
+    query[kSecReturnData as String] = true
+    query[kSecMatchLimit as String] = kSecMatchLimitOne
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    if status == errSecItemNotFound { return nil }
+    guard status == errSecSuccess, var data = result as? Data else { throw KeychainError(status: status) }
+    defer { data.resetBytes(in: 0..<data.count) }
+    return String(decoding: data, as: UTF8.self)
+}
+
+func deleteJwk() throws {
+    let status = SecItemDelete(jwkQuery() as CFDictionary)
+    guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
+}
+```
+
+Then load the key, or create it on first launch, and sign:
+
+```swift
+let privateKey: String
+if let stored = try loadJwk() {
+    privateKey = stored
+} else {
+    privateKey = try jwkGenerateForAlg(alg: "ES256")
+    try storeJwk(privateKey)
+}
+let token = try jwsSignCompact(
+    payload: Data("hello".utf8),
+    key: privateKey,
+    options: JwsSignOptions(protectedHeader: #"{"alg":"ES256"}"#)
+)
+```
+
+The Keychain calls block the calling thread, so make them off the main thread ([`SecItemCopyMatching`](https://developer.apple.com/documentation/security/secitemcopymatching(_:_:))).
+
+- [`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`](https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly) makes the item readable only while the device is unlocked. Use [`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`](https://developer.apple.com/documentation/security/ksecattraccessibleafterfirstunlockthisdeviceonly) if the app signs in the background; the item is then readable from the first unlock after a restart until the next restart.
+- The `ThisDeviceOnly` classes never sync to iCloud Keychain: a synchronizable item can't use them ([`kSecAttrAccessible`](https://developer.apple.com/documentation/security/ksecattraccessible)). They do appear in a backup, but only that same device can restore them; restoring a backup onto another device leaves them out ([Restricting keychain item accessibility](https://developer.apple.com/documentation/security/restricting-keychain-item-accessibility)).
+- [`kSecAttrSynchronizable`](https://developer.apple.com/documentation/security/ksecattrsynchronizable) is `false`, so the item isn't synchronized through iCloud. It's also the default; the query says it so that nobody adds a synchronizable copy by mistake.
+- [`kSecUseDataProtectionKeychain`](https://developer.apple.com/documentation/security/ksecusedataprotectionkeychain) only matters on macOS, where it makes the item behave like an iOS Keychain item. Apple recommends setting it everywhere.
+
+### Require the user's presence
+
+To make reading the key need Face ID, Touch ID or the passcode, replace `kSecAttrAccessible` with an access control object made by [`SecAccessControlCreateWithFlags`](https://developer.apple.com/documentation/security/secaccesscontrolcreatewithflags(_:_:_:_:)):
+
+```swift
+var error: Unmanaged<CFError>?
+guard let access = SecAccessControlCreateWithFlags(
+    nil, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, .userPresence, &error
+) else { throw error!.takeRetainedValue() as Error }
+attributes[kSecAttrAccessControl as String] = access // instead of kSecAttrAccessible
+```
+
+[`.userPresence`](https://developer.apple.com/documentation/security/secaccesscontrolcreateflags/userpresence) accepts biometry or the passcode. [`.biometryCurrentSet`](https://developer.apple.com/documentation/security/secaccesscontrolcreateflags/biometrycurrentset) accepts only the biometrics enrolled now, and the item becomes unreadable when the user adds or removes a finger or re-enrolls their face, so plan to create a new key then. Reading the item shows the system prompt; pass an `LAContext` with [`kSecUseAuthenticationContext`](https://developer.apple.com/documentation/security/ksecuseauthenticationcontext) to reuse one authentication for several reads.
+
+### Optional: wrap the JWK with a Secure Enclave key
+
+For an extra layer, store the JWK encrypted to a P-256 key that lives in the Secure Enclave ([`SecureEnclave.P256.KeyAgreement.PrivateKey`](https://developer.apple.com/documentation/cryptokit/secureenclave/p256/keyagreement/privatekey)). Then the Keychain item alone is useless: decrypting it needs this device's Secure Enclave, and the enclave key can carry its own access control. Encrypting does an ECDH agreement between a fresh ephemeral key and the enclave key's public key, then derives an AES-GCM key with HKDF:
+
+```swift
+import CryptoKit
+import Foundation
+
+/// Encrypts `jwk` to the enclave key. The result is the ephemeral public key (65 bytes) and the sealed box.
+func seal(_ jwk: String, to enclaveKey: SecureEnclave.P256.KeyAgreement.PrivateKey) throws -> Data {
+    let ephemeral = P256.KeyAgreement.PrivateKey()
+    let ephemeralPublic = ephemeral.publicKey.x963Representation
+    let secret = try ephemeral.sharedSecretFromKeyAgreement(with: enclaveKey.publicKey)
+    let key = secret.hkdfDerivedSymmetricKey(
+        using: SHA256.self, salt: Data(), sharedInfo: ephemeralPublic, outputByteCount: 32)
+    let box = try AES.GCM.seal(Data(jwk.utf8), using: key)
+    return ephemeralPublic + box.combined! // nil only for a nonstandard nonce; the default nonce is 12 bytes
+}
+
+func open(_ sealed: Data, with enclaveKey: SecureEnclave.P256.KeyAgreement.PrivateKey) throws -> String {
+    let ephemeralPublic = sealed.prefix(65)
+    let secret = try enclaveKey.sharedSecretFromKeyAgreement(
+        with: P256.KeyAgreement.PublicKey(x963Representation: ephemeralPublic))
+    let key = secret.hkdfDerivedSymmetricKey(
+        using: SHA256.self, salt: Data(), sharedInfo: ephemeralPublic, outputByteCount: 32)
+    var plaintext = try AES.GCM.open(AES.GCM.SealedBox(combined: sealed.dropFirst(65)), using: key)
+    defer { plaintext.resetBytes(in: 0..<plaintext.count) }
+    return String(decoding: plaintext, as: UTF8.self)
+}
+```
+
+Create the enclave key once, after checking [`SecureEnclave.isAvailable`](https://developer.apple.com/documentation/cryptokit/secureenclave/isavailable). Its `dataRepresentation` isn't the key itself but an encrypted blob that only the same Secure Enclave can turn back into the key, so store that blob in the Keychain too and restore the key with `init(dataRepresentation:)` ([Storing CryptoKit keys in the keychain](https://developer.apple.com/documentation/cryptokit/storing-cryptokit-keys-in-the-keychain)).
+
+### Share with app extensions
+
+A widget or other extension that needs the key must share a keychain access group with the app. Turn on Keychain Sharing for both targets and set [`kSecAttrAccessGroup`](https://developer.apple.com/documentation/security/ksecattraccessgroup) in the query ([Sharing access to keychain items among a collection of apps](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)). Without it, the item is in the app's own group, which no other app or extension can read.
+
+## Web
+
+In a browser, the wrapping key is a **non-extractable** Web Crypto key stored in IndexedDB. Web Crypto works only in a secure context (HTTPS) ([`CryptoKey`](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)).
+
+### Keep a non-extractable key in IndexedDB
+
+[`crypto.subtle.generateKey`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/generateKey) with `extractable` set to `false` makes a key that `exportKey` and `wrapKey` refuse to export. A `CryptoKey` is a serializable object, and IndexedDB stores values with the structured clone algorithm, so you can store the `CryptoKey` object itself; it comes back still non-extractable ([Web Crypto, CryptoKey serialization](https://www.w3.org/TR/WebCryptoAPI/#cryptokey-interface-serializable); [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm)).
+
+```js
+import { jwkGenerateForAlg, jwsSignCompact } from '@polyjose/wasm';
+
+/** Opens the database that holds the wrapping key and the encrypted JWK. */
+function openKeyDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('polyjose-keys', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('keys');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** Runs one request in its own transaction and resolves with its result once the transaction commits. */
+function inStore(db, mode, makeRequest) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('keys', mode);
+    const request = makeRequest(tx.objectStore('keys'));
+    tx.oncomplete = () => resolve(request.result);
+    tx.onerror = tx.onabort = () => reject(tx.error ?? request.error);
+  });
+}
+
+/** The wrapping key, created on first use. Script can use it but can never read its bytes. */
+async function wrappingKey(db) {
+  const existing = await inStore(db, 'readonly', (store) => store.get('wrapping-key'));
+  if (existing) return existing;
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  try {
+    await inStore(db, 'readwrite', (store) => store.add(key, 'wrapping-key'));
+    return key;
+  } catch {
+    // Another tab stored a key first: use that one.
+    return inStore(db, 'readonly', (store) => store.get('wrapping-key'));
+  }
+}
+```
+
+`add` fails if a key is already stored, so two tabs that start at the same time can't replace each other's wrapping key. The `wrapKey` and `unwrapKey` usages apply to Web Crypto `CryptoKey` objects; a polyjose JWK is plain data, so the wrapping key needs `encrypt` and `decrypt`.
+
+### Encrypt and store the JWK
+
+Every encryption needs a fresh IV: never reuse one with the same key ([`AesGcmParams`](https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams)). Take 12 random bytes (the 96 bits that AES-GCM recommends) from `crypto.getRandomValues` and store the IV with the ciphertext; it doesn't need to be secret.
+
+```js
+async function storeJwk(db, jwk) {
+  const key = await wrappingKey(db);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(jwk));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
+  plaintext.fill(0);
+  await inStore(db, 'readwrite', (store) => store.put({ iv, ciphertext }, 'signing-key'));
+}
+
+async function loadJwk(db) {
+  const stored = await inStore(db, 'readonly', (store) => store.get('signing-key'));
+  if (!stored) return undefined;
+  const key = await wrappingKey(db);
+  const plaintext = new Uint8Array(
+    await crypto.subtle.decrypt({ name: 'AES-GCM', iv: stored.iv }, key, stored.ciphertext),
+  );
+  try {
+    return JSON.parse(new TextDecoder().decode(plaintext));
+  } finally {
+    plaintext.fill(0);
+  }
+}
+
+const db = await openKeyDb();
+await navigator.storage.persist(); // ask the browser not to evict this origin's data
+let privateKey = await loadJwk(db);
+if (!privateKey) {
+  privateKey = await jwkGenerateForAlg('ES256');
+  await storeJwk(db, privateKey);
+}
+const token = await jwsSignCompact(new TextEncoder().encode('hello'), privateKey, {
+  protectedHeader: { alg: 'ES256' },
+});
+```
+
+### What a browser key protects
+
+Be clear about the limits:
+
+- **No hardware guarantee.** The Web Crypto specification places no requirements on how browsers store key material. The only rule is that script can't read it except through `exportKey` and `wrapKey`. A browser may write it to disk, possibly unencrypted, where anyone with access to the device's storage may recover it ([Web Crypto, Security considerations for authors](https://www.w3.org/TR/WebCryptoAPI/#security-developers)).
+- **Script on your origin can use the key.** A cross-site scripting (XSS) bug can't copy a non-extractable key's bytes, but it can call `decrypt` while it runs, and so read the JWK. Serve the app over HTTPS only, with a strict Content Security Policy; polyjose's WebAssembly needs `script-src 'wasm-unsafe-eval'` ([Web (WASM) › Serving the module](/start/web/#serving-the-module)).
+- **Storage can disappear.** By default, the browser may evict the origin's data under storage pressure. [`navigator.storage.persist()`](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/persist) asks it not to, and the browser may refuse. Safari, with cross-site tracking prevention on, deletes script-created data for an origin the user hasn't interacted with in seven days of browser use. Clearing site data always deletes it ([Storage quotas and eviction criteria](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria)). Either way the wrapping key is gone, and with it the stored JWK, so the app must be able to create and register a new key.
+
+### Derive the wrapping key from a passkey
+
+To keep the wrapping secret out of the browser's storage altogether, derive the wrapping key from a passkey with the WebAuthn **PRF extension** ([WebAuthn Level 3, §10.1.4](https://www.w3.org/TR/webauthn-3/#prf-extension)). The authenticator, a security key or the platform's passkey provider, computes a 32-byte value from a salt you choose, and releases it only after user verification. Nothing the browser stores can recreate it.
+
+Ask for the extension when you register the passkey (`extensions: { prf: {} }`; the registration result reports `prf.enabled`). Then, each time you need the key:
+
+```js
+// `credentialId` is the passkey's id, and `salt` 32 random bytes stored next to the ciphertext.
+const assertion = await navigator.credentials.get({
+  publicKey: {
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    allowCredentials: [{ type: 'public-key', id: credentialId }],
+    userVerification: 'required',
+    extensions: { prf: { eval: { first: salt } } },
+  },
+});
+const prfOutput = assertion.getClientExtensionResults().prf?.results?.first;
+if (!prfOutput) throw new Error('PRF is not available'); // use the fallback below
+
+const material = await crypto.subtle.importKey('raw', prfOutput, 'HKDF', false, ['deriveKey']);
+const wrappingKey = await crypto.subtle.deriveKey(
+  { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(), info: new TextEncoder().encode('polyjose JWK') },
+  material,
+  { name: 'AES-GCM', length: 256 },
+  false,
+  ['encrypt', 'decrypt'],
+);
+```
+
+Encrypt and decrypt with `wrappingKey` as in `storeJwk` and `loadJwk`, without storing it. The assertion here is used only for its PRF output, so its challenge doesn't need to come from a server. Support for PRF depends on the browser, the operating system and the passkey provider, and isn't universal: some don't support it at all, and fewer return a value at registration ([WebAuthn extensions › prf](https://developer.mozilla.org/en-US/docs/Web/API/Web_Authentication_API/WebAuthn_extensions#prf)). Check for the result, fall back to a non-extractable key or a password when it's missing, and remember that deleting the passkey loses the wrapping key.
+
+### Derive the wrapping key from a password
+
+Without a passkey, derive the wrapping key from a password the user enters, with PBKDF2 in [`crypto.subtle.deriveKey`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey). Use at least 600,000 iterations of HMAC-SHA-256, the figure in OWASP's [Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#pbkdf2), and a random salt stored next to the ciphertext:
+
+```js
+const salt = crypto.getRandomValues(new Uint8Array(16)); // once, when you first store the key
+const material = await crypto.subtle.importKey(
+  'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey'],
+);
+const wrappingKey = await crypto.subtle.deriveKey(
+  { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 600_000 },
+  material,
+  { name: 'AES-GCM', length: 256 },
+  false,
+  ['encrypt', 'decrypt'],
+);
+```
+
+Anyone who copies the ciphertext can guess passwords offline, so this is only as strong as the password.
+
+### Never use localStorage
+
+Don't put a JWK, or anything that can decrypt one, in `localStorage` or `sessionStorage`. Their values are plain strings that any script on the origin can read, so a single XSS bug can take all of them ([OWASP HTML5 Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#local-storage)).

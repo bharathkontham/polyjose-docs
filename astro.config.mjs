@@ -23,6 +23,7 @@ const sidebar = [
       { slug: 'guides/encrypt-and-decrypt' },
       { slug: 'guides/validate-jwt' },
       { slug: 'guides/manage-keys' },
+      { slug: 'guides/secure-key-storage' },
       { slug: 'guides/jwk-sets' },
       {
         label: 'Migrate',
