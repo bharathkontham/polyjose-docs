@@ -414,7 +414,7 @@ test('page: each row shows the crate\'s locked version, and says where the versi
     assert.match(row, new RegExp(`<td class="version[^"]*"[^>]*>\\s*<code[^>]*>${p.version.replace(/\./g, '\\.')}</code>`), `${p.crate}: version cell`);
   }
   assert.match(text, /Cargo\.lock/);
-  assert.match(text, /commit 30a4a72/);
+  assert.match(text, /commit 038779a/);
   assert.doesNotMatch(text, /before 0\.1\.0 is published/);
 });
 
@@ -423,11 +423,11 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   for (const project of ['RustCrypto', 'dalek-cryptography', 'rust-random']) {
     assert.ok(text.includes(project), `page does not name ${project}`);
   }
-  // The page's "as designed" framing sentence names the polyjose release it
-  // describes. Only that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.1.0 as designed.';
+  // The page's framing sentence names the polyjose release it describes. Only
+  // that exact sentence is exempt; any other x.y.z still fails.
+  const framing = 'This page describes polyjose 0.1.1.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.0'), [], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.1'), [], 'outside the table, only the release the page describes');
 });

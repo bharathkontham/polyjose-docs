@@ -5,7 +5,7 @@ description: Generate JSON Web Keys, publish their public halves, import and exp
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.1.0 as designed.
+This page describes polyjose 0.1.1.
 
 polyjose works with keys as JSON Web Keys (JWK, [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517)). In JavaScript a JWK is a plain object or its JSON text, in Kotlin and Swift it is JSON text, and in Rust it is a `jwk::Jwk`. Every key is validated when it is used: a point off its curve, a key of the wrong length or a malformed member fails before any cryptography runs.
 
