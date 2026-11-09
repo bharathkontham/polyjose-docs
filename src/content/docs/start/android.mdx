@@ -51,7 +51,7 @@ Verifying always takes an explicit `allowedAlgs`, with no default, so leaving it
 
 <Sample platform="kotlin" id="start/kotlin-first-verify" />
 
-Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them with `verified.payload.fill(0)` once you are done.
+Printing `verified` shows the payload's length, not its bytes. Reading `verified.payload` still gives you the bytes, so when they are secret, don't log them, and wipe them with `verified.payload.fill(0)` once you are done. [Kotlin library](/reference/android/) lists which copies of secrets stay in memory, and how the desktop JVM loads its native library.
 
 ## Handle an error
 
