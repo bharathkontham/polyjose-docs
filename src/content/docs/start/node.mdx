@@ -20,16 +20,20 @@ The code on this page is run as tests against the polyjose source, so it shows t
 
 ### Prebuilt addons
 
-npm installs the matching prebuilt addon, `@polyjose/node-<platform>`, as an optional dependency at exactly the same version. Nothing is compiled on your machine. There are addons for:
+`@polyjose/node` is one package. From 0.1.2 it contains the prebuilt addons for every supported platform, so npm downloads a single tarball and fetches nothing else, and nothing is compiled on your machine. At run time the package loads the addon that matches your platform. There are addons for:
 
 - macOS: x64 and arm64
 - Linux with glibc: x64 and arm64
 - Linux with musl (Alpine): x64 and arm64
 - Windows: x64 and arm64
 
+Because it carries all eight addons, the installed package is larger than one addon alone. The same `node_modules` works on every one of these platforms, for example when you build a Docker image or a Lambda bundle on a Mac and run it on Linux.
+
 The glibc addons need **glibc 2.28 or later**, the same floor as the official Node.js 22 builds for Linux. So RHEL 8 and its rebuilds, Debian 11, Ubuntu 20.04 and anything newer work. Amazon Linux 2 (glibc 2.26) doesn't.
 
-If you install with `--omit=optional`, no addon is installed and the import throws. The package also refuses to load any addon file other than the one it was built with, and throws an error with the code `ERR_POLYJOSE_ADDON_REFUSED`.
+On any other platform (FreeBSD, 32-bit, RISC-V and so on) the import throws an error with the code `ERR_POLYJOSE_ADDON_REFUSED` that names your platform. Use [`@polyjose/wasm`](/start/web/) there: it has the same API and runs wherever Node.js does. The package also refuses to load an addon file that isn't byte-for-byte the one it was released with, with the same error code.
+
+Up to 0.1.1, each addon was a separate package, `@polyjose/node-<platform>`, installed as an optional dependency. Those packages are deprecated, and you don't need to install or remove them yourself: upgrading `@polyjose/node` is enough.
 
 ## Sign your first token
 
