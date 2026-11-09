@@ -1,0 +1,103 @@
+---
+// The home page's "Pick your platform" block: one synced tab per platform,
+// each with what the package is, how to install it and how to import it, and
+// a link to that platform's get-started page.
+//
+// Nothing here is hand-typed twice:
+// - the install step is <Install>, so package names and the version come from
+//   src/lib/samples/install.mjs and the pins in samples/pins/;
+// - the import lines are the tested `start/<platform>-imports` regions that
+//   the get-started pages show, so they match the shipped API;
+// - the CommonJS line is derived from the Node.js import region.
+// Tab labels match <Samples>, so picking a tab here picks it site-wide.
+import { Tabs, TabItem, Code } from '@astrojs/starlight/components';
+import Install from './samples/Install.astro';
+import { regions } from './samples/sources';
+import { resolveSample } from '../lib/samples/resolve.mjs';
+import { COORDINATES } from '../lib/samples/install.mjs';
+
+const imports = (platform: 'rust' | 'node' | 'web' | 'kotlin' | 'swift', id: string) =>
+	resolveSample({ platform, id, regions });
+
+const rust = imports('rust', 'start/rust-imports');
+const node = imports('node', 'start/js-imports');
+const web = imports('web', 'start/js-imports');
+const kotlin = imports('kotlin', 'start/kotlin-imports');
+const swift = imports('swift', 'start/swift-imports');
+
+// `import { a, b } from '<pkg>';` becomes `const { a, b } = require('<pkg>');`.
+// CommonJS loads the ESM package through Node's require(esm), from 22.12 on.
+const esm = /^import \{ ([^}]+) \} from '([^']+)';$/.exec(node.code.trim());
+if (!esm || esm[2] !== COORDINATES.npmNode) {
+	throw new Error(`start/js-imports is no longer one named import from '${COORDINATES.npmNode}'; update PlatformSetup.astro`);
+}
+const cjs = `const { ${esm[1]} } = require('${esm[2]}');`;
+---
+
+<Tabs syncKey="platform">
+	<TabItem label="Rust">
+		<p>
+			The <code>{COORDINATES.crate}</code> crate, for servers, command-line tools and any other Rust code. It is pure
+			Rust and needs Rust 1.89 or later.
+		</p>
+		<p>Add it to your project:</p>
+		<Install platform="rust" />
+		<p>Then import what you use:</p>
+		<Code code={rust.code} lang={rust.lang} />
+		<p><a href="/start/rust/">Full guide for Rust →</a></p>
+	</TabItem>
+	<TabItem label="Node.js">
+		<p>
+			<code>{COORDINATES.npmNode}</code> runs polyjose in Node.js 22.12 or later as a native addon. One package,
+			prebuilt for macOS, Linux (glibc and musl) and Windows, so nothing is compiled when you install it.
+		</p>
+		<p>Add it to your project:</p>
+		<Install platform="node" />
+		<p>Then import it. The package is ESM:</p>
+		<Code code={node.code} lang={node.lang} />
+		<p>CommonJS code can <code>require</code> it, with no flag:</p>
+		<Code code={cjs} lang={node.lang} />
+		<p><a href="/start/node/">Full guide for Node.js →</a></p>
+	</TabItem>
+	<TabItem label="Web">
+		<p>
+			<code>{COORDINATES.npmWasm}</code> is polyjose compiled to WebAssembly, for browsers, Web Workers and
+			bundlers. It also runs in Cloudflare Workers, and has the same API as <code>{COORDINATES.npmNode}</code>.
+		</p>
+		<p>Add it to your project:</p>
+		<Install platform="web" />
+		<p>Then import it, in your bundler or a module script:</p>
+		<Code code={web.code} lang={web.lang} />
+		<p>
+			There is no init call to make. Importing the package does nothing, and the WebAssembly module loads on the
+			first call.
+		</p>
+		<p><a href="/start/web/">Full guide for the web →</a></p>
+	</TabItem>
+	<TabItem label="Kotlin">
+		<p>
+			An Android library (minSdk 23) and a desktop and server JVM jar (Java 17 or later), with one Kotlin API in
+			the package <code>dev.polyjose</code>. Use the first for Android and the second for the JVM.
+		</p>
+		<p>Add it to your module's Gradle file:</p>
+		<Install platform="kotlin" />
+		<p>Then import what you use:</p>
+		<Code code={kotlin.code} lang={kotlin.lang} />
+		<p><a href="/start/android/">Full guide for Android and the JVM →</a></p>
+	</TabItem>
+	<TabItem label="Swift">
+		<p>
+			A Swift package for iOS 16 and later, which also builds for macOS 13 and later. It links the polyjose core
+			as a static library, so there is nothing else to install.
+		</p>
+		<p>
+			In Xcode, choose <strong>File › Add Package Dependencies</strong>, enter <code>{COORDINATES.spmUrl}</code>
+			and add the product <code>{COORDINATES.spmProduct}</code> to your app
+			target. Or add it to <code>Package.swift</code>:
+		</p>
+		<Install platform="swift" />
+		<p>Then import it:</p>
+		<Code code={swift.code} lang={swift.lang} />
+		<p><a href="/start/swift/">Full guide for Swift →</a></p>
+	</TabItem>
+</Tabs>

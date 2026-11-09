@@ -107,9 +107,9 @@ Samples that generate keys check the shape of the result (`kty`, `crv`), not its
 
 | Mode | Example | Meaning |
 |---|---|---|
-| `none` | `{ "source": "none", "upcoming": "0.1.1" }` | There is no build to test yet. The platform's samples are reported as SKIPPED. |
-| `git` | `{ "source": "git", "rev": "<40-character commit>", "upcoming": "0.1.1" }` | Before a release: polyjose is built from that commit with its own packaging scripts, which never publish anything. |
-| `registry` | `{ "source": "registry", "version": "0.1.1" }` | After a release: the exact published version is installed. |
+| `none` | `{ "source": "none", "upcoming": "0.1.2" }` | There is no build to test yet. The platform's samples are reported as SKIPPED. |
+| `git` | `{ "source": "git", "rev": "<40-character commit>", "upcoming": "0.1.2" }` | Before a release: polyjose is built from that commit with its own packaging scripts, which never publish anything. |
+| `registry` | `{ "source": "registry", "version": "0.1.2" }` | After a release: the exact published version is installed. |
 
 `upcoming` is the version the install lines show before it is published. Unknown fields are rejected, so a misspelt key fails rather than being ignored. Changing a pin is a reviewed change that runs that platform's samples again.
 
