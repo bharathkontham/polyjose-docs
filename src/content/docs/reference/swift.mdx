@@ -1,0 +1,22 @@
+---
+title: Swift package
+description: What the polyjose Swift package shows when a record is printed, how to wipe secret results, and which copies of secrets it can't wipe.
+---
+
+This page has the details of the polyjose Swift package that you don't need to get started: what printing a record shows, how to wipe secret results, and which copies of secrets stay in memory. To install it and sign your first token, see [Get started in Swift](/start/swift/).
+
+## Secrets in records
+
+- **Printing redacts secret fields.** `String(describing:)`, `String(reflecting:)`, string interpolation, `print`, `debugPrint` and `dump` show a secret field's length only: `<redacted, N chars>` for a `String`, `<redacted, N bytes>` for a `Data`, and `nil` when it is absent. The other fields print as usual. The redacted fields are:
+  - `JwsSigner.key` and `JweRecipient.key`
+  - `JwsVerified.payload` and `JwsVerifyOptions.detachedPayload`
+  - `JweDecrypted.plaintext` and `aad`
+  - `JweEncryptOptions.aad`; its `recipients` print redacted too.
+
+  The package's own `Redaction.swift` does this; the generated `Polyjose.swift` is unchanged.
+- **Reading a field still gives the secret.** Only the printed form changes, so don't log a field itself.
+- **JWT claims are not redacted** (`JwtVerified.claims`, also inside `JwtNestedVerified`). Put secrets in a JWE payload, not in claims.
+- **Wipe returned `Data` when you are done with it.** For example, `result.payload.resetBytes(in: result.payload.indices)` on a `var`. `Data` is copy-on-write, so this wipes the bytes only if no other copy shares them; wiping a copy leaves the original. Swift `String`s, such as keys and JWKs, can't be wiped.
+- **Wiping returned `Data` doesn't remove every copy.** The generated `Polyjose.swift` copies secret inputs (keys, payloads, plaintexts, `aad`, `detachedPayload`) and secret outputs (`payload`, `plaintext`, `aad`) through temporary Swift arrays, and frees them without wiping them. The Rust side of the call leaves unwiped copies on its own heap too, as the [Kotlin library](/reference/android/#copies-left-on-the-rust-heap) does, through the same generated interface layer. Your wipe reaches only the `Data` you hold. Reading the freed memory needs access to your app's process (a debugger, a core dump or a jailbroken device).
+
+[Secrets in memory](/security/model/#secrets-in-memory) covers what every platform does with secrets.
