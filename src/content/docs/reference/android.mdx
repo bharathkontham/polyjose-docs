@@ -1,0 +1,66 @@
+---
+title: Kotlin library
+description: What the Kotlin library for Android and the JVM does with secrets, which copies it can't wipe, and how the desktop JVM loads its native library.
+---
+
+This page has the details of the Kotlin library (`dev.polyjose:polyjose` for Android, `dev.polyjose:polyjose-jvm` for the desktop and server JVM) that you don't need to get started: what you should do with secrets, which copies of them stay in memory, and which native library the desktop JVM loads. To install it and sign your first token, see [Get started on Android and the JVM](/start/android/).
+
+## Secrets
+
+polyjose wipes the secrets it owns in Rust. Some copies are outside its reach: those the generated interface layer (UniFFI 0.32.2) leaves on the Rust heap, and those on the JVM heap. This section says which ones remain and what you should do. The generated KDoc gives the same counts per function.
+
+### What you should do
+
+- **Wipe the `ByteArray`s you receive** once you are done with them. The secret byte outputs are `JwsVerified.payload`, `JweDecrypted.plaintext`, `JweDecrypted.aad` and the result of `jwkToDer`. The same applies to `base64urlDecode` when the decoded bytes are secret. Wipe the array in place:
+
+  ```kotlin
+  val verified = jwsVerifyCompact(token, publicJwk, JwsVerifyOptions(allowedAlgs = listOf("ES256")))
+  try {
+      process(verified.payload)
+  } finally {
+      verified.payload.fill(0)
+  }
+  ```
+
+  Do the same for the secret `ByteArray`s you pass in (the payload to sign, the plaintext to encrypt, the DER to import) after the call returns.
+- **Printed records redact their secrets.** The library's generated `toString()` is patched at build time, so these fields print as `<redacted, N bytes>` (N is the byte length, UTF-8 for a JWK string) on the JVM and on Android: `JwsSigner.key`, `JweRecipient.key`, `JwsVerified.payload`, `JweDecrypted.plaintext`, `JweDecrypted.aad`, `JweEncryptOptions.aad` and `JwsVerifyOptions.detachedPayload`. Every other field prints as before. This covers `toString`, string templates, `println` and messages built from the records. It does not cover reading a field yourself: never log `signer.key`, `verified.payload` and the like, or the JWK strings and `ByteArray`s you pass in.
+- **Don't put secrets in JWT claims.** `JwtVerified.claims` and the inner claims of `JwtNestedVerified` are plain `String` results, outside the library's secret handling, even when they were decrypted from a nested JWT, and they print in full. Claims are usually not secret. Carry secrets in a JWE payload instead.
+
+### Copies on the JVM heap
+
+JVM `String`s are immutable and garbage-collected, so neither polyjose nor you can wipe them. The generated code also makes copies of its own that it does not wipe:
+
+- every `String` argument, and every `String` field of a record argument such as `JwsSigner.key`, is encoded into a JVM-heap `ByteBuffer` (`FfiConverterString.toUtf8`) before it is copied into Rust memory;
+- every `String` result, and every `String` field of a record result, is read into a temporary `ByteArray` (`FfiConverterString.lift`/`read`) and then decoded into the `String`.
+
+`ByteArray` arguments are written straight into the Rust-allocated buffer, and `ByteArray` results are the arrays you receive, which you can wipe. These host-side copies come on top of the Rust-heap counts below.
+
+### Copies left on the Rust heap
+
+UniFFI 0.32.2 copies values in and out of a `RustBuffer` and frees it without wiping. polyjose's adapter can't reach those copies without `unsafe` code, which polyjose doesn't use. Measured:
+
+| Value | Unwiped Rust-heap copies |
+|---|---|
+| A `String` result (generated, imported, parsed and exported keys, PEM) | exactly 1: the buffer the host frees |
+| A `ByteArray` result or secret `ByteArray` record field (`jwkToDer`, `payload`, `plaintext`, `aad`) | at least 2 full copies (the adapter's vector and the buffer the host frees), plus growth copies (below) |
+| A secret `ByteArray` argument, or a secret field of a record argument (`JwsSigner.key`, `JweRecipient.key`, `detachedPayload`, `aad`) | 1 each |
+| A bare `String` argument (for example a key or a JWK Set) | none |
+
+For byte outputs UniFFI writes into a buffer that grows by doubling. Each move of that buffer after the secret is fully written adds a full copy, and each move while it is being written adds a partial copy that holds a prefix of the secret. There are at most log2(C/8) growth steps, where C is the next power of two at or above the lowered length. Whether a step moves the buffer depends on the allocator. On macOS arm64 the measurement found 2 to 5 full copies, depending on the output and its size. Android's scudo allocator and glibc were not measured, so their counts may differ within that rule. polyjose does not rely on the allocator scrubbing freed memory.
+
+These copies are freed memory that the process reuses. Reading them takes a memory disclosure in the host process, such as a core dump, a heap read or swap. The planned fix is opaque key handles and caller-provided output buffers in 0.2.0. A zeroizing global allocator is under consideration, not planned.
+
+## Which native library the desktop JVM loads
+
+The library's build patches the generated Kotlin so that UniFFI's library lookup calls polyjose's own native loader. The patch fails the build when UniFFI's generated text is not exactly what it was written against, so a UniFFI upgrade can't silently drop it.
+
+On the desktop JVM the loader:
+
+1. reads the resource `/<JNA prefix>/<mapped name>` (for example `darwin-aarch64/libpolyjose_ffi.dylib`) through its own class's class loader;
+2. compares its SHA-256 with the hash compiled into the jar's classes at build time, generated from the exact files the jar packs. When a jar earlier on the class path carries the same resource, only a copy with the expected hash is used;
+3. copies it to a fresh private directory (`rwx------` on POSIX file systems, under `java.io.tmpdir`) with a random file name, checks the hash again on disk, and passes JNA the copy's **absolute path**. The copy is deleted when the JVM exits (on Windows a loaded DLL stays behind, as with JNA's own extraction);
+4. throws `UnsatisfiedLinkError`, naming the resource and both hashes, when no copy matches. It never falls back to the bare name.
+
+These are **ignored**: `jna.library.path`, `uniffi.component.polyjose_ffi.libraryOverride`, the working directory, `LD_LIBRARY_PATH`, the `DYLD_*` variables (the random file name defeats dyld's leaf-name lookup), `PATH` and the system library directories. A library planted in any of them is not loaded; polyjose's tests plant one in each, in a separate JVM per case. If `java.io.tmpdir` is mounted `noexec`, point `-Djava.io.tmpdir` at an executable private directory.
+
+On Android nothing changes: the loader returns the bare name `polyjose_ffi`, and the app loads `libpolyjose_ffi.so` from its own read-only native library directory.
