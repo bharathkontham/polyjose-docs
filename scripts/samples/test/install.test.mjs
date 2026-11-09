@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { installSnippets, COORDINATES } from '../../../src/lib/samples/install.mjs';
+import { installSnippets, registryLinks, COORDINATES } from '../../../src/lib/samples/install.mjs';
 
 const REV = '0123456789abcdef0123456789abcdef01234567';
 const registry = { source: 'registry', version: '0.1.0' };
@@ -45,6 +45,23 @@ test('Swift: Swift Package Manager dependency and product', () => {
   const code = codeOf('swift');
   assert.ok(code.includes('.package(url: "https://github.com/bharathkontham/polyjose", from: "0.1.0")'), code);
   assert.ok(code.includes('.product(name: "Polyjose", package: "polyjose")'), code);
+});
+
+test('registry links point at each platform’s published package pages', () => {
+  assert.deepEqual(registryLinks('rust').map((l) => l.href), [
+    'https://crates.io/crates/polyjose',
+    'https://docs.rs/polyjose',
+  ]);
+  assert.deepEqual(registryLinks('node').map((l) => l.href), ['https://www.npmjs.com/package/@polyjose/node']);
+  assert.deepEqual(registryLinks('web').map((l) => l.href), ['https://www.npmjs.com/package/@polyjose/wasm']);
+  assert.deepEqual(registryLinks('kotlin').map((l) => l.href), [
+    'https://central.sonatype.com/artifact/dev.polyjose/polyjose',
+    'https://central.sonatype.com/artifact/dev.polyjose/polyjose-jvm',
+  ]);
+  assert.deepEqual(registryLinks('swift').map((l) => l.href), [
+    'https://github.com/bharathkontham/polyjose/releases',
+  ]);
+  assert.throws(() => registryLinks('android'), /"android"/);
 });
 
 test('languages and titles', () => {

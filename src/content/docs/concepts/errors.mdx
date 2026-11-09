@@ -5,7 +5,7 @@ description: The stable error codes polyjose reports, how each platform exposes 
 
 import ErrorCodes from '../../../components/ErrorCodes.astro';
 
-This page describes polyjose 0.1.0 as designed.
+This page describes polyjose 0.1.1.
 
 Every polyjose failure carries exactly one error code from a fixed set. The codes are the same strings on every platform, because every package reports the code the Rust core produced and adds no codes of its own to its operations. `errorCodes()` returns the full list in JavaScript, Kotlin and Swift, and `Error::CODES` holds it in Rust.
 

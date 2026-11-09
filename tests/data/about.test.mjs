@@ -10,15 +10,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parsePin } from '../../src/lib/samples/pins.mjs';
 
 const dist = fileURLToPath(new URL('../../dist/', import.meta.url));
-
-/** The parsed pin in samples/pins/<platform>.json. */
-function pinOf(platform) {
-	const file = fileURLToPath(new URL(`../../samples/pins/${platform}.json`, import.meta.url));
-	return parsePin(JSON.parse(readFileSync(file, 'utf8')), platform);
-}
 
 function load(route) {
 	const file = `${dist}${route}index.html`;
@@ -106,28 +99,17 @@ export function presentTenseMachineryClaims(text) {
 	return sentencesOf(text).filter((s) => topic.test(s) && !planned.test(s));
 }
 
-/** Present-tense phrasings that have been used for things not built yet. */
-const notYetTrue = [
-	/\btests interoperability against\b/i,
-	/\bconformance test vectors run on every platform\b/i,
-	/\bconformance tests run on each\b/i,
-	/\bA CI check stops\b/i,
-	/\bEvery algorithm ships with\b/i,
-	/\bnative addon with prebuilt binaries\b/i,
+/** Future-tense or design wording that must not return now 0.1.1 is published. */
+const futureWording = [
+	/\bas designed\b/i,
+	/\bis being built\b/i,
+	/\bwill ship\b/i,
+	/\bbefore 0\.1\.0 is released\b/i,
+	/\bplanned for after the 0\.1\.0 release\b/i,
 ];
 
-/**
- * JWS, JWE and JWT are not built yet, so capabilities are written as the 0.1.0
- * design. These are the present-tense phrasings that said otherwise.
- */
-const capabilityStatedAsBuilt = [
-	/\bpolyjose is a pure-Rust implementation of\b/i,
-	/\bpolyjose implements\b/i,
-	/\bMisuse-resistant defaults, following RFC 8725\b/i,
-];
-
-/** The sentence that frames the About page's list as the 0.1.0 design. */
-const framingSentence = /This list describes polyjose 0\.1\.0 as designed\./;
+/** The sentence that frames the About page's list as the 0.1.1 release. */
+const framingSentence = /This list describes polyjose 0\.1\.1\./;
 
 const pages = {
 	landing: '',
@@ -135,28 +117,30 @@ const pages = {
 	reference: 'reference/api/',
 };
 
-describe('the capability phrasing checks themselves', () => {
-	test('match the present-tense phrasings', () => {
+describe('the future-wording checks themselves', () => {
+	test('match the pre-release phrasings', () => {
 		for (const old of [
-			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
-			'RFC coverage. polyjose implements: RFC 7515 (JWS)',
-			'Misuse-resistant defaults, following RFC 8725:',
+			'This list describes polyjose 0.1.0 as designed.',
+			'polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT.',
+			'a native addon that will ship with prebuilt binaries.',
+			'Each binding passes the conformance tests before 0.1.0 is released.',
 		]) {
-			assert.ok(capabilityStatedAsBuilt.some((re) => re.test(old)), old);
+			assert.ok(futureWording.some((re) => re.test(old)), old);
 		}
 	});
-	test('accept the 0.1.0 design phrasings', () => {
+	test('accept the released phrasings', () => {
 		for (const now of [
-			'polyjose is being built as a pure-Rust implementation of JWS, JWE, JWK and JWT.',
-			'RFC coverage. polyjose 0.1.0 is designed to implement: RFC 7515 (JWS)',
-			'Misuse-resistant defaults. The API is designed around RFC 8725:',
+			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
+			'RFC coverage. polyjose 0.1.1 implements: RFC 7515 (JWS)',
+			'The @polyjose/node package, a native addon that ships with prebuilt binaries.',
+			'Every binding passes the same conformance tests.',
 		]) {
-			assert.ok(!capabilityStatedAsBuilt.some((re) => re.test(now)), now);
+			assert.ok(!futureWording.some((re) => re.test(now)), now);
 		}
 	});
 	test('the framing sentence pattern matches only the full sentence', () => {
-		assert.match('This list describes polyjose 0.1.0 as designed.', framingSentence);
-		assert.doesNotMatch('This list describes polyjose 0.1.0.', framingSentence);
+		assert.match('This list describes polyjose 0.1.1.', framingSentence);
+		assert.doesNotMatch('This list describes polyjose 0.1.1', framingSentence);
 	});
 });
 
@@ -220,12 +204,8 @@ for (const [name, route] of Object.entries(pages)) {
 		test('makes no unmeasured number claims', () => {
 			assert.deepEqual(unmeasuredNumberClaims(text), []);
 		});
-		test('describes unbuilt tests and checks as planned, not running', () => {
-			assert.deepEqual(presentTenseMachineryClaims(text), []);
-			for (const re of notYetTrue) assert.doesNotMatch(text, re);
-		});
-		test('describes capabilities as the 0.1.0 design, not as built', () => {
-			for (const re of capabilityStatedAsBuilt) assert.doesNotMatch(text, re);
+		test('writes released capabilities and checks in the present tense', () => {
+			for (const re of futureWording) assert.doesNotMatch(text, re);
 		});
 		test('never describes polyjose as audited', () => {
 			assert.doesNotMatch(
@@ -239,7 +219,6 @@ for (const [name, route] of Object.entries(pages)) {
 describe('landing page', () => {
 	const html = load(pages.landing);
 	const body = bodyOf(html);
-	const text = textOf(body);
 
 	test('uses the splash template with the tagline', () => {
 		assert.match(html, /<html[^>]*\bdata-has-hero\b/);
@@ -293,7 +272,7 @@ describe('About › Why polyjose', () => {
 		assert.match(text, /One JOSE implementation, every platform\./);
 	});
 
-	test('frames the "what makes polyjose different" list as the 0.1.0 design', () => {
+	test('frames the "what makes polyjose different" list as the 0.1.1 release', () => {
 		assert.match(text, framingSentence);
 		const framing = text.search(framingSentence);
 		const heading = text.search(/What makes polyjose different/);
@@ -366,37 +345,26 @@ describe('Reference › API reference', () => {
 	const text = textOf(body);
 	const links = linksOf(body);
 
-	// A registry page for a name that isn't published yet could be taken by
-	// someone else, so each one is a link only once the platform's pin is
-	// `registry`. Until then the page shows the URL as text.
-	for (const { platform, host, url } of [
-		{ platform: 'rust', host: 'docs.rs', url: 'https://docs.rs/polyjose' },
-		{ platform: 'kotlin', host: 'javadoc.io', url: 'https://javadoc.io/doc/dev.polyjose/polyjose-jvm' },
-		{
-			platform: 'swift',
-			host: 'swiftpackageindex.com',
-			url: 'https://swiftpackageindex.com/bharathkontham/polyjose/documentation/polyjose',
-		},
-	]) {
-		const pin = pinOf(platform);
-		if (pin.source === 'registry') {
-			test(`links ${url}, because the ${platform} pin is registry`, () => {
-				assert.ok(links.some((l) => l.href === url), `no link to ${url}`);
-			});
-		} else {
-			test(`shows ${url} as text with no link to ${host}, because the ${platform} pin is ${pin.source}`, () => {
-				const shown = new RegExp(`(?<![\\w/.-])${url.replace(/[.?/]/g, '\\$&')}(?![\\w/.-])`);
-				assert.match(text, shown, `${url} is not in the page text`);
-				assert.deepEqual(hrefsToHost(html, host), [], `the page links ${host} before ${platform} is published`);
-			});
-		}
-	}
+	// The Rust and Kotlin references are published, so they are links. The
+	// Swift package has no hosted reference yet, so its URL stays text.
+	test('links the Rust and Kotlin references now they are published', () => {
+		assert.ok(links.some((l) => l.href === 'https://docs.rs/polyjose'), 'no link to docs.rs');
+		assert.ok(
+			links.some((l) => l.href === 'https://javadoc.io/doc/dev.polyjose/polyjose-jvm'),
+			'no link to javadoc.io',
+		);
+	});
+
+	test('explains that the Swift package has no hosted reference yet', () => {
+		assert.match(text, /doesn.t opt in yet/);
+		assert.deepEqual(hrefsToHost(html, 'swiftpackageindex.com'), []);
+	});
 
 	test('links the generated JavaScript reference for both packages, and the build produced it', () => {
 		assert.match(text, /\/api\/js\//);
 		assert.match(text, /@polyjose\/node/);
 		assert.match(text, /@polyjose\/wasm/);
-		assert.match(text, /commit 30a4a72/, 'says which source the reference was generated from');
+		assert.match(text, /0\.1\.1 release \(commit 038779a\)/, 'says which source the reference was generated from');
 		const js = links.filter((l) => l.href.startsWith('/api/js'));
 		assert.deepEqual(js.map((l) => l.href), ['/api/js/index.html'], 'one link, to the generated index page');
 		assert.ok(existsSync(`${dist}api/js/index.html`), 'npm run build generates dist/api/js/index.html');

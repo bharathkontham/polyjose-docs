@@ -42,7 +42,7 @@ reference/    api
 about/        why-polyjose
 ```
 
-A page that isn't written yet says what it will cover and that it arrives with the 0.1.0 release. It shows no code and no install commands until they work.
+A page that isn't written yet says what it will cover and that it is planned. It shows no code and no install commands until they work.
 
 ## Code samples
 
