@@ -5,12 +5,12 @@
  * One file per platform, `samples/pins/<rust|js|kotlin|swift>.json`, in one
  * of three modes:
  *
- * - `{ "source": "none", "upcoming": "0.1.1" }`: no build to test yet. The
+ * - `{ "source": "none", "upcoming": "0.1.2" }`: no build to test yet. The
  *   platform's samples are reported as SKIPPED, never as passing.
- * - `{ "source": "git", "rev": "<40-hex commit>", "upcoming": "0.1.1" }`:
+ * - `{ "source": "git", "rev": "<40-hex commit>", "upcoming": "0.1.2" }`:
  *   before a release, the samples run against polyjose built from that
  *   commit with its own packaging scripts (which never publish).
- * - `{ "source": "registry", "version": "0.1.1" }`: after a release, the
+ * - `{ "source": "registry", "version": "0.1.2" }`: after a release, the
  *   samples run against that exact published version.
  *
  * Install snippets show `upcoming` in the first two modes, and `version` in
@@ -77,7 +77,7 @@ export function parsePin(value, platform) {
   }
   const semver = (/** @type {string} */ field) => {
     const v = pin[field];
-    if (typeof v !== 'string' || !SEMVER.test(v)) fail(`${field} must be a SemVer version such as "0.1.1" (got ${JSON.stringify(v)})`);
+    if (typeof v !== 'string' || !SEMVER.test(v)) fail(`${field} must be a SemVer version such as "0.1.2" (got ${JSON.stringify(v)})`);
     return /** @type {string} */ (v);
   };
 

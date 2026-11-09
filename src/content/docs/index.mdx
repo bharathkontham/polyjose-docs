@@ -14,38 +14,15 @@ hero:
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import PlatformSetup from '../../components/PlatformSetup.astro';
 
 polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT. One core, with bindings for Node.js, WebAssembly, Kotlin and Swift, gives the same results, the same defaults and the same errors on every platform. Every binding passes the same conformance tests.
 
 ## Pick your platform
 
-<CardGrid>
-	<LinkCard
-		title="Rust"
-		href="/start/rust/"
-		description="The polyjose crate, for servers, command-line tools and any other Rust code."
-	/>
-	<LinkCard
-		title="Node.js"
-		href="/start/node/"
-		description="The @polyjose/node package, a native addon that ships with prebuilt binaries."
-	/>
-	<LinkCard
-		title="Web (WASM)"
-		href="/start/web/"
-		description="The @polyjose/wasm package, for browsers and bundlers. It also runs in serverless and edge runtimes."
-	/>
-	<LinkCard
-		title="Android and JVM (Kotlin)"
-		href="/start/android/"
-		description="An Android library and a desktop JVM jar that share one Kotlin API."
-	/>
-	<LinkCard
-		title="Swift (iOS)"
-		href="/start/swift/"
-		description="A Swift package for iOS apps, which also builds for macOS."
-	/>
-</CardGrid>
+Install the package for your platform and import it into your project. Each guide then signs and verifies a first token.
+
+<PlatformSetup />
 
 ## Security first
 

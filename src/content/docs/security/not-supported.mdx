@@ -3,7 +3,7 @@ title: What polyjose does not support
 description: Algorithms and features polyjose leaves out on purpose, why each one is excluded, and what to use instead.
 ---
 
-This page describes polyjose 0.1.1.
+This page describes polyjose 0.1.2.
 
 polyjose leaves some algorithms and features out on purpose. Each section below says what is excluded, why, and what to use instead.
 
@@ -11,7 +11,7 @@ Where you can still ask for an excluded algorithm, for example by passing a toke
 
 ## RSA private keys
 
-**Not supported in 0.1.1:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
+**Not supported in 0.1.2:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
 
 **Why:** the pure-Rust `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), the Marvin attack: a timing side channel that could allow recovery of the private key. It affects operations that use the private key, which are signing and decryption. No fixed release of `rsa` exists yet.
 
@@ -67,7 +67,7 @@ It conforms as follows:
 
 ## Out of scope
 
-**Not in 0.1.1:**
+**Not in 0.1.2:**
 
 - **Ed448 and X448.** The pure-Rust implementations are not yet stable releases. Use `Ed25519` and `X25519`.
 - **X.509 certificate chain validation.** The `x5c` and `x5u` members are carried as data. polyjose never validates a certificate chain, and never uses one to pick a key. Validate certificates with your platform's X.509 tools, then pass polyjose the public key you trust.
@@ -76,8 +76,8 @@ It conforms as follows:
 
 ## Java
 
-**Not supported in 0.1.1:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
+**Not supported in 0.1.2:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
 
-**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.1.
+**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.2.
 
 **Instead:** call polyjose from Kotlin. See [Android and JVM (Kotlin)](/start/android/).
