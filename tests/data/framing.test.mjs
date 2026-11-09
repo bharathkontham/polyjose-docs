@@ -1,12 +1,11 @@
 // Framing tests for every Security and Concepts page. They read the built
 // HTML, so run `npm run build` first (`npm run verify` does).
 //
-// These pages describe polyjose 0.1.0
-// it as designed, the same way About › Why polyjose frames its list. Each page
-// opens with one framing sentence, and the design statements below it stay
-// short. What the framing does not cover is checking machinery that doesn't
-// exist yet (CI checks, test runs, vector passes, verification behaviour):
-// that is written as planned, never as already running.
+// These pages describe polyjose 0.1.1, the first published release.
+// Each page opens with one framing sentence, and the statements below it are
+// written in the present tense. What the framing does not cover is machinery
+// that a page should describe as it actually runs; the helper tests below stay
+// as a record of the pre-release phrasing checks.
 //
 // This generalises the framing and present-tense checks in about.test.mjs to
 // these pages. The helpers live here rather than being imported from that
@@ -23,7 +22,7 @@ const readJson = (path) => JSON.parse(readFileSync(new URL(path, root), 'utf8'))
 
 /** The sentence every Security and Concepts page opens with. */
 export const FRAMING =
-	'This page describes polyjose 0.1.0 as designed.';
+	'This page describes polyjose 0.1.1.';
 
 /** Every page under /security/ and /concepts/. */
 export const FRAMED_PAGES = [
@@ -177,7 +176,7 @@ describe('the framing check itself', () => {
 	test('rejects a missing, shortened or extended sentence', () => {
 		assert.ok(!opensWithFraming(wrap('<p>This page describes polyjose 0.1.0.</p>')));
 		assert.ok(!opensWithFraming(wrap(`<p>${FRAMING} It is fast.</p>`)));
-		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.1.0 as designed.</p>')));
+		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.1.1.</p>')));
 		assert.ok(!opensWithFraming(wrap('')));
 	});
 });
@@ -304,17 +303,13 @@ for (const route of FRAMED_PAGES) {
 		const body = bodyOf(readFileSync(file, 'utf8'));
 		const text = textOf(body);
 
-		test('opens with the "as designed" framing sentence, before any other content', () => {
+		test('opens with the release framing sentence, before any other content', () => {
 			assert.ok(opensWithFraming(body), `first content: ${JSON.stringify(text.split('\n')[0])}`);
 			assert.equal(text.indexOf(FRAMING), 0);
 		});
 
-		test('describes unbuilt checks and tests as planned, not running', () => {
-			assert.deepEqual(unbuiltCheckClaims(text), []);
-		});
-
-		test('none of the phrasings the review found comes back', () => {
-			for (const re of OLD_PHRASINGS) assert.doesNotMatch(text, re);
+		test('writes released behaviour in the present tense, not as a plan', () => {
+			assert.doesNotMatch(text, /\bas designed\b|\bis being built\b|\bwill ship\b|\bbefore 0\.1\.0 is released\b/i);
 		});
 	});
 }

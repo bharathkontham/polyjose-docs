@@ -221,7 +221,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
 
   await t.test('decode without verify, out of scope, Java', () => {
     assertPhrases(text, 'decode', [/decode/i, 'JWS', 'JWE']);
-    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.0']);
+    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.1']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
@@ -243,7 +243,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
 // holds the same string. Change it only together with the accepted decision.
 const CONFORMANCE =
   'Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits RSA-OAEP (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see the security page) and RSA1_5.';
-const CONFORMANCE_FRAMING = 'When 0.1.0 is released, it will conform as follows:';
+const CONFORMANCE_FRAMING = 'It conforms as follows:';
 
 test('Not supported: the SHA-1 section quotes the conformance statement verbatim', async (t) => {
   const section = sectionHtml(page('security/not-supported').html, 'sha-1');

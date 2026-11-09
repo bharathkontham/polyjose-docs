@@ -3,7 +3,7 @@ title: Security model
 description: How polyjose builds on its cryptography, the safe defaults it applies to every token, and what remains your responsibility.
 ---
 
-This page describes polyjose 0.1.0 as designed.
+This page describes polyjose 0.1.1.
 
 It covers how polyjose builds on its cryptography and the safe defaults it applies, with the RFC sections behind each rule. The same rules hold on every platform: Rust, Node.js, Web, Android and the JVM, and Swift (iOS).
 
@@ -19,7 +19,7 @@ Pure Rust gives memory safety, not freedom from side channels. How well each pri
 
 The core crate depends only on cryptographic primitive crates and two small support crates. One of the primitive crates is `getrandom`, the operating-system randomness primitive. The two support crates are `subtle` and `zeroize`, which are part of the primitives' own security model. Everything else it needs is written in polyjose: base64url, JSON, the DER and PEM subsets for key import and export, and the error types.
 
-polyjose's test suite is designed to fail when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
+polyjose's test suite fails when the core's dependency tree contains any crate that isn't on an allowlist, so that a new dependency can't arrive unnoticed. The platform frameworks the bindings need (napi-rs, wasm-bindgen and UniFFI) live in separate binding crates, outside the core.
 
 ## Algorithm verification
 

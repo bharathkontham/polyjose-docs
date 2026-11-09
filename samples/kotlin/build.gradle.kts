@@ -16,7 +16,7 @@ val polyjoseJar = providers.gradleProperty("polyjose.jvmJar")
     .orElse(provider { throw GradleException("pass -Ppolyjose.jvmJar=<jar>; scripts/samples/run.sh kotlin does") })
 
 dependencies {
-    // dev.polyjose:polyjose-jvm, as a file until it is published. JNA is what its POM will declare.
+    // dev.polyjose:polyjose-jvm, as a file so the samples run against the pinned commit. JNA is what its POM declares.
     testImplementation(files(polyjoseJar))
     testImplementation(libs.jna)
 

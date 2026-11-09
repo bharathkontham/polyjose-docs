@@ -93,7 +93,7 @@ import Install from '../../../components/samples/Install.astro';
 <Install platform="kotlin" />
 ```
 
-This prints the install line for `rust` (`cargo add`), `node` or `web` (`npm install`), `kotlin` (Gradle, for Android and for the JVM) or `swift` (Swift Package Manager), with the version from the platform's pin. Nobody types a version by hand. Until that version is published, it carries a "Not yet published" badge.
+This prints the install line for `rust` (`cargo add`), `node` or `web` (`npm install`), `kotlin` (Gradle, for Android and for the JVM) or `swift` (Swift Package Manager), with the version from the platform's pin. Nobody types a version by hand. In `none` and `git` mode it is marked as unpublished; in `registry` mode it is the published version. Each snippet names the package's public page on its registry.
 
 ## Fixtures
 
@@ -107,9 +107,9 @@ Samples that generate keys check the shape of the result (`kty`, `crv`), not its
 
 | Mode | Example | Meaning |
 |---|---|---|
-| `none` | `{ "source": "none", "upcoming": "0.1.0" }` | There is no build to test yet. The platform's samples are reported as SKIPPED. |
-| `git` | `{ "source": "git", "rev": "<40-character commit>", "upcoming": "0.1.0" }` | Before a release: polyjose is built from that commit with its own packaging scripts, which never publish anything. |
-| `registry` | `{ "source": "registry", "version": "0.1.0" }` | After a release: the exact published version is installed. |
+| `none` | `{ "source": "none", "upcoming": "0.1.1" }` | There is no build to test yet. The platform's samples are reported as SKIPPED. |
+| `git` | `{ "source": "git", "rev": "<40-character commit>", "upcoming": "0.1.1" }` | Before a release: polyjose is built from that commit with its own packaging scripts, which never publish anything. |
+| `registry` | `{ "source": "registry", "version": "0.1.1" }` | After a release: the exact published version is installed. |
 
 `upcoming` is the version the install lines show before it is published. Unknown fields are rejected, so a misspelt key fails rather than being ignored. Changing a pin is a reviewed change that runs that platform's samples again.
 

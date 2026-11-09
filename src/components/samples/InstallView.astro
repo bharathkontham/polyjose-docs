@@ -2,7 +2,7 @@
 // Renders the install snippet for one platform from a pin. Pages use
 // <Install>, which reads the pin from samples/pins/.
 import { Code } from '@astrojs/starlight/components';
-import { installSnippets } from '../../lib/samples/install.mjs';
+import { installSnippets, registryLinks } from '../../lib/samples/install.mjs';
 
 interface Props {
 	platform: string;
@@ -11,8 +11,14 @@ interface Props {
 
 const { platform, pin } = Astro.props;
 const { published, snippets } = installSnippets(platform, pin);
+const links = registryLinks(platform);
 ---
 
 <div class="install" data-install-status={published ? 'published' : 'unpublished'}>
 	{snippets.map((s) => <Code code={s.code} lang={s.lang} title={s.title} />)}
+	<p class="registry-links">
+		Registry: {links.map((link, i) => (
+			<Fragment>{i > 0 && ' · '}<a href={link.href}>{link.label}</a></Fragment>
+		))}
+	</p>
 </div>
