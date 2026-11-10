@@ -1,0 +1,94 @@
+---
+// Starlight's header, plus a phone menu on pages without a sidebar.
+//
+// Pages with a sidebar get Starlight's own phone menu, whose foot holds the
+// site menu (SiteMenu.astro). Pages without one, such as the landing page,
+// have no phone menu in Starlight (0.42.9 PageFrame.astro renders its menu
+// button with the sidebar only), and below 50rem Starlight hides the header's
+// right group, so the site menu would be missing there. This adds a menu
+// button in the same place and style as Starlight's, which opens a popover
+// with the same foot: the site menu and the theme select. The popover API
+// gives it its open state, Escape and light dismiss without a script, as
+// Starlight's menu does.
+import Default from '@astrojs/starlight/components/Header.astro';
+import MobileMenuFooter from '@astrojs/starlight/components/MobileMenuFooter.astro';
+import { Icon } from '@astrojs/starlight/components';
+
+const { hasSidebar } = Astro.locals.starlightRoute;
+---
+
+<Default />
+{
+	!hasSidebar && (
+		<>
+			<button popovertarget="site-menu" class="menu-button sl-flex md:sl-hidden print:hidden">
+				<Icon name="bars" class="open-menu" />
+				<Icon name="close" class="close-menu" />
+				<span class="sr-only">{Astro.locals.t('menuButton.accessibleLabel')}</span>
+			</button>
+			<div id="site-menu" popover class="menu md:sl-hidden print:hidden">
+				<MobileMenuFooter />
+			</div>
+		</>
+	)
+}
+
+<style>
+	/* The look of Starlight's menu button (0.42.9 MobileMenuToggle.astro). */
+	.menu-button {
+		position: fixed;
+		top: calc((var(--sl-nav-height) - var(--sl-menu-button-size)) / 2);
+		inset-inline-end: var(--sl-nav-pad-x);
+		z-index: var(--sl-z-index-navbar);
+		border: 0;
+		border-radius: 50%;
+		width: var(--sl-menu-button-size);
+		height: var(--sl-menu-button-size);
+		padding: 0.5rem;
+		background-color: var(--sl-color-white);
+		color: var(--sl-color-black);
+		box-shadow: var(--sl-shadow-md);
+		cursor: pointer;
+	}
+	.menu-button:has(~ :popover-open) {
+		background-color: var(--sl-color-gray-2);
+		box-shadow: none;
+	}
+	.menu-button:has(~ :popover-open) .open-menu,
+	.menu-button:not(:has(~ :popover-open)) .close-menu {
+		display: none;
+	}
+	:global([data-theme='light']) .menu-button {
+		background-color: var(--sl-color-black);
+		color: var(--sl-color-white);
+	}
+	:global([data-theme='light']) .menu-button:has(~ :popover-open) {
+		background-color: var(--sl-color-gray-5);
+	}
+
+	/* A panel under the header, the full width of the screen. */
+	.menu {
+		position: fixed;
+		inset-block: var(--sl-nav-height) auto;
+		inset-inline: 0;
+		z-index: var(--sl-z-index-menu);
+		width: auto;
+		margin: 0;
+		border: 0;
+		border-bottom: 1px solid var(--sl-color-hairline-shade);
+		padding: 0 var(--sl-nav-pad-x);
+		background-color: var(--sl-color-bg-nav);
+		color: inherit;
+		box-shadow: var(--sl-shadow-md);
+	}
+
+	/*
+	 * Keep the header's content clear of the menu button, as Starlight does on
+	 * pages with a sidebar (PageFrame.astro).
+	 */
+	@media (width < 50rem) {
+		:global(:root:not([data-has-sidebar]) header.header) {
+			padding-inline-end: calc(var(--sl-nav-gap) + var(--sl-nav-pad-x) + var(--sl-menu-button-size));
+		}
+	}
+</style>

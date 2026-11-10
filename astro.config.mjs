@@ -124,7 +124,14 @@ export default defineConfig({
       // <link rel="shortcut icon" type="image/svg+xml">, after the ICO.
       favicon: '/favicon.svg',
       head,
-      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/bharathkontham/polyjose' }],
+      // The site menu (Get started, Docs, GitHub) and the footer links. Their
+      // links are in src/components/site-nav/links.ts; the GitHub link that the
+      // `social` option would add is part of the menu, so `social` is not set.
+      components: {
+        Header: './src/components/site-nav/Header.astro',
+        SocialIcons: './src/components/site-nav/SiteMenu.astro',
+        Footer: './src/components/site-nav/Footer.astro',
+      },
       sidebar,
       plugins: [
         // Fails `astro build` on a broken internal link or #hash. Links to this
