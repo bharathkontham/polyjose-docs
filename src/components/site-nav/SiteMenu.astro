@@ -1,0 +1,66 @@
+---
+// The header menu: Get started, Docs and GitHub.
+//
+// It overrides Starlight's SocialIcons component, which Starlight renders in
+// two places (Starlight 0.42.9 Header.astro and MobileMenuFooter.astro): in
+// the header's right group, shown from 50rem up, and at the foot of the phone
+// menu on pages with a sidebar. Header.astro in this folder adds a phone menu
+// with it on pages without a sidebar. So the menu is on screen at every width.
+//
+// The link to the page itself, or to the section the page is in, carries
+// aria-current (links.ts) and is underlined, so it does not rely on colour.
+import { Icon } from '@astrojs/starlight/components';
+import { MENU, currentOf } from './links';
+
+const { pathname } = Astro.url;
+---
+
+<nav class="site-menu" aria-label="Site">
+	<ul>
+		{
+			MENU.map((link) => (
+				<li>
+					<a href={link.href} aria-current={currentOf(link, pathname)}>
+						{link.icon && <Icon name={link.icon} size="1.25em" />}
+						{link.label}
+					</a>
+				</li>
+			))
+		}
+	</ul>
+</nav>
+
+<style>
+	/* One line: three short links fit next to the search box from 50rem up, and in the phone menu. */
+	ul {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		/* At least 24 px tall (WCAG 2.2, 2.5.8 Target Size (Minimum)). */
+		padding-block: 0.25rem;
+		font-size: var(--sl-text-sm);
+		font-weight: 500;
+		line-height: 1.5;
+		white-space: nowrap;
+		text-decoration: none;
+		color: var(--sl-color-gray-2);
+	}
+	a:hover,
+	a[aria-current] {
+		color: var(--sl-color-white);
+	}
+	a[aria-current] {
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 0.35em;
+		text-decoration-color: var(--sl-color-text-accent);
+	}
+</style>
