@@ -2,7 +2,7 @@
 // The Web run executes this same file with `@polyjose/node` replaced by `@polyjose/wasm`.
 //
 // JWK generation (RFC 7518 §6, RFC 8037 §2, RFC 8812 §3.1), public halves (RFC 7517 §4), PEM and
-// DER (RFC 7468, RFC 5958, RFC 5280 §4.1.2.7, RFC 5915, RFC 8017 Appendix A.1.1), thumbprints
+// DER (RFC 7468, RFC 5958, RFC 5280 §4.1.2.7, RFC 5915, RFC 8017 Appendix A.1), thumbprints
 // (RFC 7638, RFC 9278) and wiping returned secret bytes. Generated keys are random, so their tests
 // check the shape, not the value.
 
@@ -142,22 +142,29 @@ test('RSA public keys in SPKI and PKCS #1', async () => {
   assert.equal(fromSpki.e, 'AQAB');
 });
 
-test('an RSA private key is refused with UnsupportedAlgorithm', async () => {
-  const rsaPrivateKey = { ...fixtureJwk('rsa-public'), d: RFC7515_A2_D };
+test('RSA private keys in PKCS #8, and their public half', async () => {
+  const rsaPrivateKey = fixtureJwk('rsa-private');
   // docs:start manage-keys/rsa-private
-  // `rsaPrivateKey` is an RSA JWK with its private exponent "d".
-  let code;
-  try {
-    await jwkParse(rsaPrivateKey);
-  } catch (err) {
-    if (!(err instanceof PolyjoseError)) throw err;
-    code = err.code; // "UnsupportedAlgorithm"
-  }
+  // `rsaPrivateKey` is an RSA private JWK with n, e, d, p, q, dp, dq and qi.
+  const pem = await jwkToPem(rsaPrivateKey, 'pkcs8'); // -----BEGIN PRIVATE KEY-----
+  const imported = await jwkFromPem(pem); // also reads -----BEGIN RSA PRIVATE KEY-----
+
+  // Publish only the public half: n and e.
+  const publicKey = await jwkToPublic(imported);
   // docs:end manage-keys/rsa-private
-  assert.equal(code, 'UnsupportedAlgorithm');
-  // Its public half is accepted.
-  const parsed = await jwkParse(fixtureJwk('rsa-public'));
-  assert.equal(parsed.kty, 'RSA');
+  assert.ok(pem.startsWith('-----BEGIN PRIVATE KEY-----\n'));
+  assert.deepEqual(imported, rsaPrivateKey, 'every member survives PKCS #8 (RFC 8017 Appendix A.1.2)');
+  assert.deepEqual(publicKey, fixtureJwk('rsa-public'));
+  const der = await jwkToDer(rsaPrivateKey, 'pkcs8');
+  assert.deepEqual(await jwkFromDer(der, 'pkcs8'), rsaPrivateKey);
+  // PKCS #1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
+  const pkcs1 = await jwkToPem(rsaPrivateKey, 'pkcs1');
+  assert.ok(pkcs1.startsWith('-----BEGIN RSA PUBLIC KEY-----\n'));
+  // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
+  const exponentOnly = { ...fixtureJwk('rsa-public'), d: RFC7515_A2_D };
+  await assert.rejects(jwkParse(exponentOnly), (err) => err instanceof PolyjoseError && err.code === 'InvalidKey');
+  // RSA keys can't be generated.
+  await assert.rejects(jwkGenerateForAlg('RS256'), (err) => err instanceof PolyjoseError && err.code === 'UnsupportedAlgorithm');
 });
 
 test('JWK thumbprints and thumbprint URIs', async () => {

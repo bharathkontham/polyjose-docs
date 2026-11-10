@@ -4,8 +4,9 @@
 //! (Appendix F), the unencoded payload option (RFC 7797), EdDSA and Ed25519 (RFC 8037, RFC 9864),
 //! and the allow-list every verify takes (RFC 8725 §3.1).
 //!
-//! The keys are the RFC example keys of `samples/fixtures/keys.json`. ECDSA and EdDSA signatures
-//! of fresh tokens are checked by verifying them; the RFC tokens are verified as published.
+//! The keys are the RFC example keys of `samples/fixtures/keys.json`. ECDSA, EdDSA and RSASSA-PSS
+//! signatures of fresh tokens are checked by verifying them; the RFC tokens are verified as
+//! published, and RS256 signing reproduces RFC 7515 Appendix A.2 exactly.
 
 use polyjose::Error;
 use polyjose::header::Header;
@@ -190,6 +191,45 @@ fn rs256() -> Result<(), Error> {
     assert_eq!(verified.alg, SigningAlg::RS256);
     // docs:end sign-and-verify/rs256
     assert_eq!(&verified.payload[..], RFC7515_A2_PAYLOAD.as_bytes());
+    Ok(())
+}
+
+#[test]
+fn rsa_sign() -> Result<(), Error> {
+    let private_key = fixture_jwk("rsa-private");
+    let public_key = fixture_jwk("rsa-public");
+    let payload = RFC7515_A2_PAYLOAD.as_bytes();
+    // docs:start sign-and-verify/rsa-sign
+    // RS256 with an RSA private key: n, e, d, p, q, dp, dq and qi (RFC 7518 §3.3, §6.3.2).
+    let mut header = Header::new();
+    header.alg = Some("RS256".into());
+    let protected = ProtectedHeader::new(header)?;
+    let token = jws::sign_compact(&protected, payload, &private_key, &SignOptions::new())?;
+
+    // Verifiers need only the public half.
+    let allowed = [SigningAlg::RS256];
+    let verified = jws::verify_compact(&token, &public_key, &VerifyOptions::new(&allowed)?)?;
+    // docs:end sign-and-verify/rsa-sign
+    assert_eq!(
+        token, RFC7515_A2_JWS,
+        "RSASSA-PKCS1-v1_5 is deterministic (RFC 8017 §8.2.1)"
+    );
+    assert_eq!(&verified.payload[..], payload);
+    // PS256 (RFC 7518 §3.5) is randomized, so it is checked by verifying it.
+    let ps256 = jws::sign_compact(
+        &alg_header("PS256")?,
+        payload,
+        &private_key,
+        &SignOptions::new(),
+    )?;
+    let allowed = [SigningAlg::PS256];
+    let verified = jws::verify_compact(&ps256, &public_key, &VerifyOptions::new(&allowed)?)?;
+    assert_eq!(verified.alg, SigningAlg::PS256);
+    // A public key can't sign.
+    assert_eq!(
+        jws::sign_compact(&protected, payload, &public_key, &SignOptions::new()).err(),
+        Some(Error::KeyAlgorithmMismatch)
+    );
     Ok(())
 }
 

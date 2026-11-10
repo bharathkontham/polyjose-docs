@@ -185,17 +185,17 @@
   },
   {
     "crate": "rsa",
-    "version": "0.10.0-rc.21",
+    "version": "0.10.0",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/RSA",
     "license": "MIT OR Apache-2.0",
-    "purpose": "RSA public-key operations only: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures and encrypting to RSA-OAEP-256 recipients.",
+    "purpose": "RSA signing and verification (RS256, RS384, RS512, PS256, PS384 and PS512) and RSA-OAEP-256 encryption and decryption, with blinded private-key operations.",
     "audit": {
       "status": "partial",
       "by": "Include Security",
       "year": 2019,
       "report": "https://public.opentech.fund/documents/1907_OTF_DeltaChat_RPGP_RustRSA_GB_Report_v1.pdf",
-      "note": "Reviewed by Include Security in 2019, with one minor finding. That review predates RUSTSEC-2023-0071 (the Marvin timing attack), and the crate's current rewrite has no published audit. polyjose uses it for public-key operations only."
+      "note": "Reviewed by Include Security in 2019, with one minor finding. That review predates RUSTSEC-2023-0071 (the Marvin timing attack), and the crate's current rewrite has no published audit. The release polyjose pins is the first that the advisory lists as patched."
     },
     "sources": [
       "https://crates.io/crates/rsa",
@@ -206,7 +206,7 @@
   },
   {
     "crate": "crypto-bigint",
-    "version": "0.7.10",
+    "version": "0.7.11",
     "upstream": "RustCrypto",
     "repo": "https://github.com/RustCrypto/crypto-bigint",
     "license": "MIT OR Apache-2.0",

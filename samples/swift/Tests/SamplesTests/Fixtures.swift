@@ -35,7 +35,7 @@ enum Fixtures {
         String(decoding: try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]), as: UTF8.self)
     }
 
-    /// The fixture JWK named `name` as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`.
+    /// The fixture JWK named `name` as JSON text: `hmac`, `rsa-public`, `rsa-private`, `p256` or `ed25519`.
     static func jwk(_ name: String) throws -> String {
         try text(jwkObject(name))
     }

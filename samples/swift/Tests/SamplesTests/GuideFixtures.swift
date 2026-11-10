@@ -7,7 +7,7 @@
 import Foundation
 import Polyjose
 
-/// RFC 7515 Appendix A.2: an RS256 JWS, signed with the `rsa-public` fixture's private key.
+/// RFC 7515 Appendix A.2: an RS256 JWS, signed with the `rsa-private` fixture.
 let rfc7515A2Jws =
     "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.cC4hiUPoj9Eetdgtv3hF80EGrhuB__dzERat0XF9g2VtQgr9PJbu3XOiZj5RZmh7AAuHIm4Bh-0Qc_lF5YKt_O8W2Fp5jujGbds9uJdbF9CUAr7t1dnZcAcQjbKBYNX4BAynRFdiuB--f_nZLgrnbyTyWzO75vRK5h6xBArLIARNPvkSjtQBMHlb1L07Qe7K0GarZRmB_eSN9383LcOLn6_dO--xi12jzDwusC-eOkHWEsqtFZESc6BfI7noOPqvhJ1phCnvWh6IeYI2w9QOYEUipUTI8np6LbgGY9Fs98rqVt5AXLIhWkWywlVmtVrBp0igcN_IoypGlUPQGe77Rw"
 
@@ -73,6 +73,16 @@ func protectedHeader(of token: String) throws -> [String: Any] {
     return try jsonObject(String(decoding: try base64urlDecode(text: first), as: UTF8.self))
 }
 
+/// The `PolyjoseError` code that `call` throws, or nil when it returns. Any other error is thrown on.
+func errorCode(_ call: () throws -> Void) throws -> String? {
+    do {
+        try call()
+        return nil
+    } catch let error as PolyjoseError {
+        return error.code()
+    }
+}
+
 /// `jwk` with its `kid` (RFC 7517 §4.5) set to `kid`.
 func withKid(_ jwk: String, kid: String) throws -> String {
     var object = try jsonObject(jwk)
@@ -80,14 +90,20 @@ func withKid(_ jwk: String, kid: String) throws -> String {
     return try jsonText(object)
 }
 
-/// The `rsa-public` fixture with the RFC 7515 Appendix A.2.1 private exponent added.
+/// The RFC 7515 Appendix A.2.1 RSA private key, with every member (RFC 7518 §6.3.2).
 func rsaPrivateJwk() throws -> String {
+    try fixtureJwk("rsa-private")
+}
+
+/// The `rsa-public` fixture with only the private exponent `d` added: no CRT members, which
+/// RFC 7518 §6.3.2 says producers SHOULD include, so polyjose refuses it.
+func rsaExponentOnlyJwk() throws -> String {
     var object = try jsonObject(try fixtureJwk("rsa-public"))
     object["d"] = rfc7515A2D
     return try jsonText(object)
 }
 
-/// The fixture JWK named `name` as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`.
+/// The fixture JWK named `name` as JSON text: `hmac`, `rsa-public`, `rsa-private`, `p256` or `ed25519`.
 func fixtureJwk(_ name: String) throws -> String {
     try Fixtures.jwk(name)
 }

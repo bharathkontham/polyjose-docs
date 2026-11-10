@@ -18,11 +18,11 @@ This isn't a criticism of the existing libraries. panva/jose, Nimbus JOSE + JWT 
 
 ## What makes polyjose different
 
-This list describes polyjose 0.1.2.
+This list describes polyjose 0.2.0.
 
-1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), the web (WebAssembly, which also runs in edge runtimes), Android and the JVM (Kotlin), and Swift (iOS first; the same package also builds for macOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.1.2. polyjose is built so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
+1. **One core for five platforms.** A single Rust core has bindings for Node.js (a native addon), the web (WebAssembly, which also runs in edge runtimes), Android and the JVM (Kotlin), and Swift (iOS first; the same package also builds for macOS). On the JVM, Kotlin is the supported language: Java works, but is awkward to use in 0.2.0. polyjose is built so that every platform runs the same conformance test vectors, making identical behaviour something the tests check rather than something you have to hope for. [One API on every platform](/concepts/one-api/) shows how the names line up.
 2. **Pure-Rust cryptography.** There is no OpenSSL, ring or aws-lc-rs. The primitives come from the RustCrypto and dalek projects, so polyjose builds with `cargo` alone and no C toolchain enters its supply chain.
-3. **RFC coverage.** polyjose 0.1.2 implements:
+3. **RFC coverage.** polyjose 0.2.0 implements:
    - RFC 7515 (JWS), RFC 7516 (JWE), RFC 7517 (JWK), RFC 7518 (JWA) and RFC 7519 (JWT), with the examples of RFC 7520 (the JOSE Cookbook)
    - RFC 7638 and RFC 9278 (JWK thumbprints and thumbprint URIs)
    - RFC 7797 (unencoded payload)

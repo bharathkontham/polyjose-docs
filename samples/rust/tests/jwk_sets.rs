@@ -6,22 +6,22 @@
 //!
 //! The set is `samples/fixtures/jwks.json`: the public halves of the RFC 7515 A.3.1 P-256 key and
 //! the RFC 8037 A.1 Ed25519 key, each with a `kid`, `alg` and `use`. The tokens are signed with
-//! the private halves from `keys.json`, given the same `kid`.
+//! the private halves from `keys.json`, given the same `kid`. The last sample keeps a set of one's
+//! own keys with an RSA private member, for RSA-OAEP-256 decryption, and publishes its public
+//! halves.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use polyjose::Error;
 use polyjose::json::{Object, Value};
-use polyjose::jwa::SigningAlg;
+use polyjose::jwa::{ContentEncAlg, KeyMgmtAlg, SigningAlg};
+use polyjose::jwe::{self, DecryptPolicy, Encryptor, Recipient};
 use polyjose::jwk::{EcCurve, Jwk, JwkSelector, JwkSet, KeyAlg, KeyMaterial, KeyUse};
 use polyjose::jwt::{self, Audience, Claims, IssueOptions, Keys, NumericDate, Policy, SystemClock};
 use polyjose_samples::fixture_jwk;
 
 /// The JWK Set an issuer publishes at its `jwks_uri` (RFC 7517 §5).
 const JWKS_JSON: &str = include_str!("../../fixtures/jwks.json");
-
-/// RFC 7515 Appendix A.2.1: the private exponent `d` of the fixture RSA key.
-const RFC7515_A2_D: &str = "Eq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyWPEAeP88vLNO97IjlA7_GQ5sLKMgvfTeXZx9SE-7YwVol2NXOoAJe46sui395IW_GO-pWJ1O0BkTGoVEn2bKVRUCgu-GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzjkn439X0M_V51gfpRLI9JYanrC4D4qAdGcopV_0ZHHzQlBjudU2QvXt4ehNYTCBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLhBOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ";
 
 /// The issuer and audience of every token here (RFC 7519 §4.1.1, §4.1.3).
 const ISSUER: &str = "https://issuer.example";
@@ -159,19 +159,60 @@ fn select_ambiguous() -> Result<(), Error> {
 
 #[test]
 fn rsa_private() -> Result<(), Error> {
-    let mut rsa_private = fixture_jwk("rsa-public").to_object();
-    rsa_private.insert("d", RFC7515_A2_D);
+    let member = |name: &str, kid: &str, alg: &str, key_use: &str| {
+        let mut key = fixture_jwk(name).to_object();
+        key.insert("kid", kid);
+        key.insert("alg", alg);
+        key.insert("use", key_use);
+        Value::from(key)
+    };
     let mut document = Object::new();
-    document.insert("keys", vec![Value::from(rsa_private)]);
-    let leaked_jwks = document.to_json();
+    document.insert(
+        "keys",
+        vec![
+            member("p256", "p256-2026", "ES256", "sig"),
+            member("rsa-private", "enc-2026", "RSA-OAEP-256", "enc"),
+        ],
+    );
+    let private_jwks = document.to_json();
+    // A sender encrypts to the published RSA key.
+    let token = Encryptor::new(ContentEncAlg::A256GCM)
+        .recipient(Recipient::new(
+            KeyMgmtAlg::RsaOaep256,
+            &fixture_jwk("rsa-public"),
+        ))
+        .encrypt_compact(b"top secret")?;
     // docs:start jwk-sets/rsa-private
-    // A set holding an RSA private key (RFC 7518 §6.3.2) is refused as a whole, so a leaked
-    // key is never used quietly.
-    let result = JwkSet::from_json(leaked_jwks.as_bytes());
+    // Your own set, private members included (RFC 7518 §6.3.2): never publish it as it is.
+    let jwks = JwkSet::from_json(private_jwks.as_bytes())?;
+    let selector = JwkSelector::new()
+        .kid("enc-2026")
+        .alg(KeyAlg::KeyMgmt(KeyMgmtAlg::RsaOaep256))?;
+    let (_, key) = jwks.select(&selector)?;
+    let policy = DecryptPolicy::new(&[KeyMgmtAlg::RsaOaep256], &[ContentEncAlg::A256GCM])?;
+    let decrypted = jwe::decrypt_compact(&token, key, &policy)?;
 
-    let err = result.expect_err("RSA private keys are refused");
-    assert_eq!(err.code(), "UnsupportedAlgorithm");
+    // Publish the public halves only (RFC 7517 §4).
+    let public_keys: Vec<Value> = jwks
+        .keys()
+        .iter()
+        .filter_map(Jwk::to_public)
+        .map(|public_key| Value::from(public_key.to_object()))
+        .collect();
+    let mut published = Object::new();
+    published.insert("keys", public_keys);
     // docs:end jwk-sets/rsa-private
-    assert_eq!(err, Error::UnsupportedAlgorithm);
+    assert_eq!(decrypted.plaintext(), b"top secret");
+    let KeyMaterial::Rsa(rsa) = key.material() else {
+        panic!("the enc-2026 member is an RSA key");
+    };
+    assert!(
+        rsa.is_private(),
+        "the RSA private member is kept as imported"
+    );
+    let published = JwkSet::from_json(published.to_json().as_bytes())?;
+    assert_eq!(published.len(), 2);
+    assert!(published.keys().iter().all(Jwk::is_public));
+    assert_eq!(published.keys()[1].kid(), Some("enc-2026"));
     Ok(())
 }

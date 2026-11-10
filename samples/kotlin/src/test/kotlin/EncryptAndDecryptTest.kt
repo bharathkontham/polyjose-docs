@@ -98,8 +98,9 @@ class EncryptAndDecryptTest {
     @Test
     fun rsaOaep256() {
         val rsaPublicKey = fixtureJwk("rsa-public")
+        val rsaPrivateKey = rsaPrivateJwk()
         // docs:start encrypt-and-decrypt/rsa-oaep-256
-        // Encrypt to an RSA public key; only its holder can decrypt (RFC 7518 §4.3).
+        // The sender encrypts to the recipient's RSA public key (RFC 7518 §4.3).
         val token = jweEncryptCompact(
             plaintext,
             JweEncryptOptions(
@@ -107,7 +108,19 @@ class EncryptAndDecryptTest {
                 recipients = listOf(JweRecipient(alg = "RSA-OAEP-256", key = rsaPublicKey)),
             ),
         )
+        // The recipient decrypts with its RSA private JWK.
+        val options = JweDecryptOptions(allowedAlgs = listOf("RSA-OAEP-256"), allowedEnc = listOf("A256GCM"))
+        val decrypted = jweDecryptCompact(token, rsaPrivateKey, options)
         // docs:end encrypt-and-decrypt/rsa-oaep-256
+        assertEquals("hello", decrypted.plaintext.decodeToString())
+        // A changed Encrypted Key fails like every other decryption failure (RFC 7516 §11.5).
+        val tamperedParts = token.split('.').toMutableList()
+        val encryptedKey = base64urlDecode(tamperedParts[1])
+        encryptedKey[10] = (encryptedKey[10].toInt() xor 1).toByte()
+        tamperedParts[1] = base64urlEncode(encryptedKey)
+        assertEquals("DecryptionFailed", errorCodeOf { jweDecryptCompact(tamperedParts.joinToString("."), rsaPrivateKey, options) })
+        // The public key can't decrypt.
+        assertEquals("KeyAlgorithmMismatch", errorCodeOf { jweDecryptCompact(token, rsaPublicKey, options) })
         val parts = token.split('.')
         assertEquals(5, parts.size)
         val header = protectedHeaderOf(token)

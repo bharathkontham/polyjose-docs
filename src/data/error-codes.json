@@ -48,7 +48,7 @@
       "meaning": "The algorithm, key type, curve, format or option is not implemented.",
       "causes": [
         "An `alg` or `enc` value polyjose does not know",
-        "RSA signing, or parsing an RSA private key",
+        "Generating an RSA key, or an RSA private key with more than two primes (`oth`)",
         "`RSA-OAEP` (SHA-1) or `RSA1_5`",
         "A `SHA-1` thumbprint",
         "`zip` outside the Rust crate's `deflate` feature",
@@ -71,6 +71,7 @@
       "causes": [
         "An HMAC key shorter than the hash output",
         "An RSA modulus outside 2048 to 8192 bits",
+        "An RSA private JWK with `d` but not `p`, `q`, `dp`, `dq` and `qi`, or whose private members don't belong to its `n` and `e`",
         "An EC private key whose length is not the curve's field size",
         "An Ed25519 public key of small order",
         "A requested `oct` key length outside 16 to 512 bytes"
@@ -83,7 +84,7 @@
         "A key of the wrong family or curve, for example an `oct` key for `RS256`",
         "A JWK whose `alg` differs from the header's (`EdDSA` and `Ed25519` are different)",
         "A JWK whose `use` is not `sig`, or whose `key_ops` lacks the operation",
-        "A public key passed to a sign call"
+        "A public key passed to a sign or decrypt call, for example an RSA public key for `RS256` signing or `RSA-OAEP-256` decryption"
       ]
     },
     {

@@ -135,11 +135,11 @@ test('<Samples> reads the real samples tree: an undefined id fails, naming every
 });
 
 test('<Samples> with every platform unavailable renders five asides', async () => {
-  const unavailable = Object.fromEntries(PLATFORMS.map((p) => [p.key, 'rsa-private']));
+  const unavailable = Object.fromEntries(PLATFORMS.map((p) => [p.key, 'sha1']));
   const html = await astro.render(SAMPLES, { id: 'harness-test/never-defined', unavailable });
   assert.deepEqual(tabLabels(html), ['Rust', 'Node.js', 'Web', 'Kotlin', 'Swift']);
   assert.equal(html.match(/starlight-aside--note/g)?.length, 5);
-  assert.match(text(html), /RUSTSEC-2023-0071/);
+  assert.match(text(html), /x5t#S256/);
 });
 
 test('<Sample> renders one platform without tabs', async () => {

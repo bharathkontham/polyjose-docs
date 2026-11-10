@@ -5,7 +5,7 @@ description: Encrypt with ECDH-ES, AES Key Wrap, dir, RSA-OAEP-256 and PBES2, de
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 JSON Web Encryption (JWE, [RFC 7516](https://www.rfc-editor.org/rfc/rfc7516)) encrypts a payload so that only its recipients can read it, and authenticates it so that any change is detected. Two algorithms describe a JWE: `alg`, how the content encryption key reaches the recipient ([RFC 7518 §4](https://www.rfc-editor.org/rfc/rfc7518#section-4)), and `enc`, how the content is encrypted with it ([RFC 7518 §5](https://www.rfc-editor.org/rfc/rfc7518#section-5)). The samples use A256GCM, AES-256 in Galois/Counter Mode ([§5.3](https://www.rfc-editor.org/rfc/rfc7518#section-5.3)).
 
@@ -33,13 +33,13 @@ A256KW ([RFC 7518 §4.4](https://www.rfc-editor.org/rfc/rfc7518#section-4.4)) in
 
 <Samples id="encrypt-and-decrypt/a256kw" />
 
-## Encrypt to an RSA public key
+## Encrypt to an RSA key
 
-RSA-OAEP-256 ([RFC 7518 §4.3](https://www.rfc-editor.org/rfc/rfc7518#section-4.3)) encrypts to a recipient's RSA public key:
+RSA-OAEP-256 ([RFC 7518 §4.3](https://www.rfc-editor.org/rfc/rfc7518#section-4.3)) encrypts the content encryption key to a recipient's RSA public key, and the recipient decrypts it with the RSA private key. A 2048-bit key gives a 256-byte encrypted key part.
 
 <Samples id="encrypt-and-decrypt/rsa-oaep-256" />
 
-polyjose can't decrypt these tokens on any platform, because decrypting needs the RSA private key, and RSA private-key operations aren't available: see [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys). Encrypt with RSA-OAEP-256 only to a recipient that decrypts with other software. For recipients that use polyjose, publish an EC or X25519 key and use ECDH-ES. `RSA-OAEP`, which uses SHA-1, and `RSA1_5` aren't offered at all.
+A wrong or changed encrypted key isn't reported as such. polyjose continues with a random content encryption key, so the token fails at its authentication tag with `DecryptionFailed`, the same code and path as any other bad token ([RFC 7516 §11.5](https://www.rfc-editor.org/rfc/rfc7516#section-11.5)). `RSA-OAEP`, which uses SHA-1, and `RSA1_5` aren't offered at all: use RSA-OAEP-256, or ECDH-ES for new recipients.
 
 ## Encrypt with a password
 

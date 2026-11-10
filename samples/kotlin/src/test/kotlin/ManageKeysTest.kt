@@ -112,15 +112,28 @@ class ManageKeysTest {
     fun rsaPrivate() {
         val rsaPrivateKey = rsaPrivateJwk()
         // docs:start manage-keys/rsa-private
-        // rsaPrivateKey holds an RSA private exponent "d" (RFC 7518 §6.3.2).
-        val code = try {
-            jwkParse(rsaPrivateKey)
-            null
-        } catch (e: PolyjoseException) {
-            e.code() // "UnsupportedAlgorithm": RSA private keys are refused
-        }
+        // rsaPrivateKey is an RSA private JWK with n, e, d, p, q, dp, dq and qi (RFC 7518 §6.3.2).
+        val pem = jwkToPem(rsaPrivateKey, "pkcs8") // -----BEGIN PRIVATE KEY----- (RFC 5958)
+        val imported = jwkFromPem(pem) // also reads -----BEGIN RSA PRIVATE KEY----- (RFC 8017 Appendix A.1.2)
+        val publicKey = jwkToPublic(imported) // only n and e, safe to publish
         // docs:end manage-keys/rsa-private
-        assertEquals("UnsupportedAlgorithm", code)
+        assertTrue(pem.startsWith("-----BEGIN PRIVATE KEY-----"), pem)
+        val original = JSONObject(rsaPrivateKey)
+        val back = JSONObject(imported)
+        for (name in listOf("n", "e", "d", "p", "q", "dp", "dq", "qi")) {
+            assertEquals(original.getString(name), back.getString(name), name)
+        }
+        val public = JSONObject(publicKey)
+        assertEquals(original.getString("n"), public.getString("n"))
+        for (name in listOf("d", "p", "q", "dp", "dq", "qi")) assertFalse(public.has(name), name)
+        val fromDer = JSONObject(jwkFromDer(jwkToDer(rsaPrivateKey, "pkcs8"), "pkcs8"))
+        assertEquals(original.getString("qi"), fromDer.getString("qi"))
+        // PKCS #1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
+        assertTrue(jwkToPem(rsaPrivateKey, "pkcs1").startsWith("-----BEGIN RSA PUBLIC KEY-----"))
+        // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
+        assertEquals("InvalidKey", errorCodeOf { jwkParse(rsaExponentOnlyJwk()) })
+        // RSA keys can't be generated.
+        assertEquals("UnsupportedAlgorithm", errorCodeOf { jwkGenerateForAlg("RS256") })
     }
 
     @Test

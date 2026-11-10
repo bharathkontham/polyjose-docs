@@ -3,14 +3,16 @@
 // The excerpts below are copied verbatim from the RFC text at
 // rfc-editor.org (RFC 7515 Appendix A.1.1, A.2.1, A.3.1 and RFC 8037
 // Appendix A.1 and A.4), including the line breaks the RFCs add "for display
-// purposes only". For the RSA key only the public members are copied. As a
-// second, independent check, each key verifies the example signature that
-// its RFC publishes, using Node's own crypto as the oracle.
+// purposes only". The RSA key appears twice: `rsa-public` with the public
+// members only, and `rsa-private` with every member of the A.2.1 text. As a
+// second, independent check, each key verifies (or, for the RSA private key,
+// reproduces) the example signature that its RFC publishes, using Node's own
+// crypto as the oracle.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createHmac, createPublicKey, createPrivateKey, verify, timingSafeEqual } from 'node:crypto';
+import { createHmac, createPublicKey, createPrivateKey, sign, verify, timingSafeEqual } from 'node:crypto';
 
 const RFC = {
   hmacJwk: String.raw`
@@ -36,6 +38,38 @@ dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
       MTBQY4uDZlxvb3qCo5ZwKh9kG4LT6_I5IhlJH7aGhyxXFvUK-DWNmoudF8
       NAco9_h9iaGNj8q2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXpoQ",
  "e":"AQAB",
+`,
+  rsaPrivateJwk: String.raw`
+     {"kty":"RSA",
+      "n":"ofgWCuLjybRlzo0tZWJjNiuSfb4p4fAkd_wWJcyQoTbji9k0l8W26mPddx
+           HmfHQp-Vaw-4qPCJrcS2mJPMEzP1Pt0Bm4d4QlL-yRT-SFd2lZS-pCgNMs
+           D1W_YpRPEwOWvG6b32690r2jZ47soMZo9wGzjb_7OMg0LOL-bSf63kpaSH
+           SXndS5z5rexMdbBYUsLA9e-KXBdQOS-UTo7WTBEMa2R2CapHg665xsmtdV
+           MTBQY4uDZlxvb3qCo5ZwKh9kG4LT6_I5IhlJH7aGhyxXFvUK-DWNmoudF8
+           NAco9_h9iaGNj8q2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXpoQ",
+      "e":"AQAB",
+      "d":"Eq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyWPEAeP88vLNO97I
+           jlA7_GQ5sLKMgvfTeXZx9SE-7YwVol2NXOoAJe46sui395IW_GO-pWJ1O0
+           BkTGoVEn2bKVRUCgu-GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzjkn
+           439X0M_V51gfpRLI9JYanrC4D4qAdGcopV_0ZHHzQlBjudU2QvXt4ehNYT
+           CBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLh
+           BOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ",
+      "p":"4BzEEOtIpmVdVEZNCqS7baC4crd0pqnRH_5IB3jw3bcxGn6QLvnEtfdUdi
+           YrqBdss1l58BQ3KhooKeQTa9AB0Hw_Py5PJdTJNPY8cQn7ouZ2KKDcmnPG
+           BY5t7yLc1QlQ5xHdwW1VhvKn-nXqhJTBgIPgtldC-KDV5z-y2XDwGUc",
+      "q":"uQPEfgmVtjL0Uyyx88GZFF1fOunH3-7cepKmtH4pxhtCoHqpWmT8YAmZxa
+           ewHgHAjLYsp1ZSe7zFYHj7C6ul7TjeLQeZD_YwD66t62wDmpe_HlB-TnBA
+           -njbglfIsRLtXlnDzQkv5dTltRJ11BKBBypeeF6689rjcJIDEz9RWdc",
+      "dp":"BwKfV3Akq5_MFZDFZCnW-wzl-CCo83WoZvnLQwCTeDv8uzluRSnm71I3Q
+           CLdhrqE2e9YkxvuxdBfpT_PI7Yz-FOKnu1R6HsJeDCjn12Sk3vmAktV2zb
+           34MCdy7cpdTh_YVr7tss2u6vneTwrA86rZtu5Mbr1C1XsmvkxHQAdYo0",
+      "dq":"h_96-mK1R_7glhsum81dZxjTnYynPbZpHziZjeeHcXYsXaaMwkOlODsWa
+           7I9xXDoRwbKgB719rrmI2oKr6N3Do9U0ajaHF-NKJnwgjMd2w9cjz3_-ky
+           NlxAr2v4IKhGNpmM5iIgOS1VZnOZ68m6_pbLBSp3nssTdlqvd0tIiTHU",
+      "qi":"IYd7DHOhrWvxkwPQsRM2tOgrjbcrfvtQJipd-DlcxyVuuM9sQLdgjVk2o
+           y26F0EmpScGLq2MowX7fhd_QJQ3ydy5cY7YIBi87w93IKLEdfnbJtoOPLU
+           W0ITrJReOgo1cq9SbsxYawBgfp_gh6A5603k2-ZQwVK0JKSHuLFkuQ3U"
+     }
 `,
   rsaJws: String.raw`
 eyJhbGciOiJSUzI1NiJ9
@@ -111,8 +145,8 @@ function compact(excerpt) {
   return { input: Buffer.from(`${header}.${payload}`, 'ascii'), signature: b64u(signature) };
 }
 
-test('the fixture file has exactly the four RFC keys', () => {
-  assert.deepEqual(Object.keys(fixtures.keys), ['hmac', 'rsa-public', 'p256', 'ed25519']);
+test('the fixture file has exactly the five RFC keys', () => {
+  assert.deepEqual(Object.keys(fixtures.keys), ['hmac', 'rsa-public', 'rsa-private', 'p256', 'ed25519']);
   assert.match(fixtures.note, /published in RFC 7515 and RFC 8037/);
   assert.match(fixtures.note, /never in an application/);
 });
@@ -123,6 +157,7 @@ test('each key cites its RFC section', () => {
     {
       hmac: ['RFC 7515, Appendix A.1.1', 'https://www.rfc-editor.org/rfc/rfc7515#appendix-A.1.1'],
       'rsa-public': ['RFC 7515, Appendix A.2.1 (public members only)', 'https://www.rfc-editor.org/rfc/rfc7515#appendix-A.2.1'],
+      'rsa-private': ['RFC 7515, Appendix A.2.1', 'https://www.rfc-editor.org/rfc/rfc7515#appendix-A.2.1'],
       p256: ['RFC 7515, Appendix A.3.1', 'https://www.rfc-editor.org/rfc/rfc7515#appendix-A.3.1'],
       ed25519: ['RFC 8037, Appendix A.1', 'https://www.rfc-editor.org/rfc/rfc8037#appendix-A.1'],
     },
@@ -154,6 +189,22 @@ test('RFC 7515 A.2.1: the RSA public key verifies the RFC example RS256 signatur
   assert.equal(key.asymmetricKeyDetails.publicExponent, 65537n);
   const { input, signature } = compact(RFC.rsaJws);
   assert.ok(verify('sha256', input, key, signature));
+});
+
+test('RFC 7515 A.2.1: the RSA private key holds every member of the RFC text, in its order', () => {
+  const jwk = fixtures.keys['rsa-private'].jwk;
+  assert.deepEqual(jwk, parseJwk(RFC.rsaPrivateJwk));
+  assert.deepEqual(Object.keys(jwk), ['kty', 'n', 'e', 'd', 'p', 'q', 'dp', 'dq', 'qi']);
+  const pub = fixtures.keys['rsa-public'].jwk;
+  assert.deepEqual([jwk.kty, jwk.n, jwk.e], [pub.kty, pub.n, pub.e], 'the same key as rsa-public');
+});
+
+test('RFC 7515 A.2.1: the RSA private key reproduces the RFC example RS256 signature', () => {
+  // RSASSA-PKCS1-v1_5 is deterministic (RFC 8017 §8.2.1), so signing the RFC's signing input with
+  // the RFC's key gives the RFC's signature, octet for octet.
+  const key = createPrivateKey({ key: fixtures.keys['rsa-private'].jwk, format: 'jwk' });
+  const { input, signature } = compact(RFC.rsaJws);
+  assert.ok(timingSafeEqual(sign('sha256', input, key), signature));
 });
 
 test('RFC 7515 A.3.1: the P-256 key pair matches the RFC text', () => {

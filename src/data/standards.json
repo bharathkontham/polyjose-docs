@@ -20,7 +20,7 @@
       "title": "JSON Web Key (JWK)",
       "url": "https://www.rfc-editor.org/rfc/rfc7517",
       "updatedBy": [],
-      "implements": "JWKs and JWK Sets with key types `oct`, `RSA` (public keys only), `EC` and `OKP`, and the `use`, `key_ops`, `alg` and `kid` members. `x5c` and `x5t` are carried but not validated as X.509."
+      "implements": "JWKs and JWK Sets with key types `oct`, `RSA` (public keys, and two-prime private keys), `EC` and `OKP`, and the `use`, `key_ops`, `alg` and `kid` members. `x5c` and `x5t` are carried but not validated as X.509."
     },
     {
       "rfc": 7518,

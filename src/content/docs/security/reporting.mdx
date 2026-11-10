@@ -3,7 +3,7 @@ title: Reporting a vulnerability
 description: How to report a security issue in polyjose privately, what is in scope, and what happens after you do.
 ---
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 polyjose is a cryptographic library, so security reports are treated as top priority. The project's security policy is [`SECURITY.md`](https://github.com/bharathkontham/polyjose/blob/main/SECURITY.md) in the polyjose repository. This page restates it.
 
@@ -32,7 +32,7 @@ As `SECURITY.md` states, reports are acknowledged within 72 hours, and the aim i
 
 These are already known and don't need a report.
 
-- **RSA private-key operations.** The `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), and no fixed release exists yet. polyjose therefore supports RSA public-key operations only, and rejects RSA private keys with `UnsupportedAlgorithm`. [What polyjose does not support](/security/not-supported/#rsa-private-keys) explains the details.
+- **RSA private-key operations.** RSA signing and `RSA-OAEP-256` decryption use the `rsa` crate's blinded operations, in the first release that [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) lists as patched. The timing evidence is the `rsa` maintainers' BINSEC checks and polyjose's own statistical timing test. No Marvin-toolkit run has been done, and `rsa` has two known deviations from RFC 8017. The [security model](/security/model/#rsa-private-key-operations) describes both.
 - **No SHA-1 and no `RSA1_5`.** polyjose doesn't implement `RSA-OAEP` (SHA-1) or `RSA1_5`, on purpose. Use `RSA-OAEP-256` or `ECDH-ES`. See [SHA-1](/security/not-supported/#sha-1) and [`RSA1_5`](/security/not-supported/#rsa1_5).
 - **Secrets in host memory.** polyjose wipes the secrets it holds in Rust memory, but it can't wipe JavaScript, JVM or Swift strings, and the Kotlin and Swift bindings leave some un-wiped copies in Rust memory. The [security model](/security/model/#secrets-in-memory) lists exactly what is and isn't wiped.
 

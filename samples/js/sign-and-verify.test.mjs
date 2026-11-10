@@ -2,11 +2,11 @@
 // The Web run executes this same file with `@polyjose/node` replaced by `@polyjose/wasm`.
 //
 // JWS (RFC 7515) in the compact and JSON serializations, with ES256 (RFC 7518 §3.4), Ed25519
-// (RFC 8037 §3.1, RFC 9864 §2.2), HS256 (RFC 7518 §3.2) and RS256 verification (RFC 7518 §3.3),
+// (RFC 8037 §3.1, RFC 9864 §2.2), HS256 (RFC 7518 §3.2), RS256 and PS256 (RFC 7518 §3.3, §3.5),
 // detached content (RFC 7515 Appendix F) and the unencoded payload option (RFC 7797). The keys are
-// the RFC example keys in samples/fixtures/keys.json. ECDSA signatures are randomized, so those
-// tests check the parts they can and verify what they sign; HS256, EdDSA and RS256 also check the
-// RFCs' own example signatures.
+// the RFC example keys in samples/fixtures/keys.json. ECDSA and PS256 signatures are randomized,
+// so those tests check the parts they can and verify what they sign; HS256, EdDSA and RS256 also
+// check the RFCs' own example signatures.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -170,6 +170,33 @@ test('RS256 from an identity provider verifies with its RSA public JWK (RFC 7515
   assert.equal(verified.alg, 'RS256');
   assert.equal(decoder.decode(verified.payload), RFC7515_A2_PAYLOAD);
   assert.equal(claims.iss, 'joe');
+});
+
+test('RS256 and PS256 signing with an RSA private JWK (RFC 7515 A.2)', async () => {
+  const rsaPrivateKey = fixtureJwk('rsa-private');
+  const rsaPublicKey = fixtureJwk('rsa-public');
+  const payload = encoder.encode(RFC7515_A2_PAYLOAD);
+  // docs:start sign-and-verify/rsa-sign
+  // `rsaPrivateKey` is an RSA private JWK with n, e, d, p, q, dp, dq and qi (RFC 7518 §6.3.2).
+  const token = await jwsSignCompact(payload, rsaPrivateKey, { protectedHeader: { alg: 'RS256' } });
+
+  // Verifiers need only the public half: {"kty":"RSA","n":"...","e":"AQAB"}.
+  const verified = await jwsVerifyCompact(token, rsaPublicKey, { allowedAlgs: ['RS256'] });
+  // docs:end sign-and-verify/rsa-sign
+  // RSASSA-PKCS1-v1_5 is deterministic (RFC 8017 §8.2.1): the RFC's own token, octet for octet.
+  assert.equal(token, RFC7515_A2_JWS);
+  assert.equal(verified.alg, 'RS256');
+  assert.equal(decoder.decode(verified.payload), RFC7515_A2_PAYLOAD);
+  // PS256 (RFC 7518 §3.5) is randomized, so it is checked by verifying it.
+  const ps256 = await jwsSignCompact(payload, rsaPrivateKey, { protectedHeader: { alg: 'PS256' } });
+  const verifiedPs256 = await jwsVerifyCompact(ps256, rsaPublicKey, { allowedAlgs: ['PS256'] });
+  assert.equal(verifiedPs256.alg, 'PS256');
+  assert.equal(decoder.decode(verifiedPs256.payload), RFC7515_A2_PAYLOAD);
+  // A public key can't sign.
+  assert.equal(
+    await codeOf(jwsSignCompact(payload, rsaPublicKey, { protectedHeader: { alg: 'RS256' } })),
+    'KeyAlgorithmMismatch',
+  );
 });
 
 test('flattened JSON serialization with one signer', async () => {

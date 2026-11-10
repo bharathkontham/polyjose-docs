@@ -31,13 +31,13 @@ const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
 // Quarkslab post names subtle among the libraries it audited.
 const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa', 'crypto-bigint', 'subtle'];
 
-// Each crate's exact version in polyjose's Cargo.lock at commit 30a4a72, copied
+// Each crate's exact version in polyjose's Cargo.lock at commit f9d5bdc, copied
 // by hand. A fixture on purpose: the data file is compared with the lockfile's
 // values, not with itself.
 const LOCKED = {
   aes: '0.9.4', 'aes-gcm': '0.11.1', 'aes-kw': '0.3.1', cbc: '0.2.1', hmac: '0.13.0', sha2: '0.11.1',
   pbkdf2: '0.13.0', p256: '0.14.0', p384: '0.14.0', p521: '0.14.0', k256: '0.14.0', ecdsa: '0.17.0',
-  'elliptic-curve': '0.14.3', rsa: '0.10.0-rc.21', 'crypto-bigint': '0.7.10', zeroize: '1.9.1',
+  'elliptic-curve': '0.14.3', rsa: '0.10.0', 'crypto-bigint': '0.7.11', zeroize: '1.9.1',
   'curve25519-dalek': '5.0.0', 'ed25519-dalek': '3.0.0', 'x25519-dalek': '3.0.0', subtle: '2.6.1',
   getrandom: '0.4.3',
 };
@@ -270,15 +270,17 @@ test('x25519-dalek and ed25519-dalek: no audit of their own, the marginal review
   assert.match(byCrate.get('ed25519-dalek').audit.note, /RUSTSEC-2022-0093/);
 });
 
-test('rsa: Include Security, 2019, one minor finding, predates Marvin, public-key operations only', () => {
+test('rsa: Include Security, 2019, one minor finding, predates Marvin, the first patched release', () => {
   const { audit, sources, purpose } = byCrate.get('rsa');
   assert.equal(audit.by, 'Include Security');
   assert.equal(audit.year, 2019);
   assert.match(audit.note, /one minor finding/);
   assert.match(audit.note, /predates RUSTSEC-2023-0071/);
   assert.match(audit.note, /no published audit/);
-  assert.match(audit.note, /public-key operations only/);
-  assert.match(purpose, /public-key operations only/i);
+  assert.match(audit.note, /first that the advisory lists as patched/);
+  assert.match(purpose, /signing and verification/i);
+  assert.match(purpose, /blinded/);
+  assert.doesNotMatch(`${purpose} ${audit.note}`, /public-key operations only/i);
   assert.ok(sources.includes('https://rustsec.org/advisories/RUSTSEC-2023-0071.html'));
   assert.ok(sources.includes('https://github.com/RustCrypto/RSA'), 'the README the review is reported in');
   assert.equal(audit.status, 'partial', 'the current rewrite has no published audit');
@@ -337,11 +339,13 @@ test('page: links every crate and every report', { skip }, () => {
   }
 });
 
-test('page: rsa is public-key only, with the advisory and the not-supported page linked', { skip }, () => {
+test('page: rsa signs and decrypts on the first patched release, with the advisory and the security pages linked', { skip }, () => {
   assert.ok(main.includes('href="https://rustsec.org/advisories/RUSTSEC-2023-0071.html"'));
   assert.ok(main.includes('href="/security/not-supported/"'));
-  assert.match(text, /public-key operations only/);
-  assert.match(text, /no patched release/);
+  assert.ok(main.includes('href="/security/model/#rsa-private-key-operations"'));
+  assert.match(text, /first release that RUSTSEC-2023-0071 \(the Marvin attack\) lists as patched/);
+  assert.match(text, /with no exceptions/);
+  assert.doesNotMatch(text, /public-key operations only|no patched release/);
 });
 
 /**
@@ -369,10 +373,10 @@ test('page: says there is no SHA-1, so no RSA-OAEP, and no RSA1_5, with the alte
   for (const hash of ['sha-1', 'rsa1_5']) {
     assert.ok(body.includes(`href="/security/not-supported/#${hash}"`), `links /security/not-supported/#${hash}`);
   }
-  const rsa = sectionBody(main, 'rsa-public-key-operations-only');
+  const rsa = sectionBody(main, 'rsa-signing-and-decryption');
   assert.ok(
-    rsa.includes('href="/security/not-supported/#rsa-private-keys"'),
-    'the RSA section links /security/not-supported/#rsa-private-keys',
+    rsa.includes('href="/security/not-supported/#rsa-key-generation-and-multi-prime-keys"'),
+    'the RSA section links /security/not-supported/#rsa-key-generation-and-multi-prime-keys',
   );
 });
 
@@ -414,7 +418,7 @@ test('page: each row shows the crate\'s locked version, and says where the versi
     assert.match(row, new RegExp(`<td class="version[^"]*"[^>]*>\\s*<code[^>]*>${p.version.replace(/\./g, '\\.')}</code>`), `${p.crate}: version cell`);
   }
   assert.match(text, /Cargo\.lock/);
-  assert.match(text, /commit 038779a/);
+  assert.match(text, /commit f9d5bdc/);
   assert.doesNotMatch(text, /before 0\.1\.0 is published/);
 });
 
@@ -425,9 +429,9 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   }
   // The page's framing sentence names the polyjose release it describes. Only
   // that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.1.2.';
+  const framing = 'This page describes polyjose 0.2.0.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.1.2'), [], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.2.0'), [], 'outside the table, only the release the page describes');
 });

@@ -2,8 +2,8 @@
 //!
 //! Generating keys (RFC 7518 §6, RFC 8037 §2), public halves (RFC 7517 §4), PEM (RFC 7468) and
 //! DER import and export as PKCS#8 (RFC 5958), SubjectPublicKeyInfo (RFC 5280 §4.1.2.7),
-//! SEC1 ECPrivateKey (RFC 5915) and PKCS#1 RSAPublicKey (RFC 8017 Appendix A.1.1), and JWK
-//! Thumbprints (RFC 7638, RFC 9278).
+//! SEC1 ECPrivateKey (RFC 5915) and PKCS#1 (RFC 8017 Appendix A.1), RSA private keys
+//! (RFC 7518 §6.3.2), and JWK Thumbprints (RFC 7638, RFC 9278).
 //!
 //! The fixed keys are the RFC example keys of `samples/fixtures/keys.json`. Generated keys are
 //! checked by shape (`kty`, `crv`, which members are present), never by value.
@@ -11,7 +11,7 @@
 use polyjose::Error;
 use polyjose::json::Value;
 use polyjose::jwa::SigningAlg;
-use polyjose::jwk::{EcCurve, Jwk, KeyAlg, OkpCurve};
+use polyjose::jwk::{EcCurve, Jwk, KeyAlg, KeyMaterial, OkpCurve};
 use polyjose::keys::{self, KeyFormat, KeySpec};
 use polyjose::util::b64url_decode;
 use polyjose_samples::fixture_jwk;
@@ -151,20 +151,48 @@ fn rsa_public() -> Result<(), Error> {
 
 #[test]
 fn rsa_private() -> Result<(), Error> {
-    let mut rsa_private = fixture_jwk("rsa-public").to_object();
-    rsa_private.insert("d", RFC7515_A2_D);
+    let rsa_private = fixture_jwk("rsa-private");
     // docs:start manage-keys/rsa-private
-    // RSA private keys are not supported: a JWK with `d` (RFC 7518 §6.3.2) is refused.
-    let result = Jwk::from_object(&rsa_private);
+    // An RSA private key (RFC 7518 §6.3.2) as PKCS#8 (RFC 5958) PEM. `Jwk::from_pem` also reads
+    // PKCS#1 `RSA PRIVATE KEY` blocks (RFC 8017 Appendix A.1.2).
+    let pem = rsa_private.to_pem(KeyFormat::Pkcs8)?;
+    let imported = Jwk::from_pem(&pem)?;
 
-    let err = result.expect_err("RSA private keys are refused");
-    assert_eq!(err.code(), "UnsupportedAlgorithm");
+    // Publish only the public half: `n` and `e`.
+    let public_key = imported.to_public().expect("an RSA key has a public half");
+    assert!(public_key.is_public());
     // docs:end manage-keys/rsa-private
-    assert_eq!(err, Error::UnsupportedAlgorithm);
-    let json = rsa_private.to_json();
+    assert!(pem.starts_with("-----BEGIN PRIVATE KEY-----\n"));
+    let KeyMaterial::Rsa(rsa) = imported.material() else {
+        panic!("an RSA key");
+    };
+    assert!(rsa.is_private());
+    for name in ["n", "e", "d", "p", "q", "dp", "dq", "qi"] {
+        assert_eq!(
+            member(&imported, name),
+            member(&rsa_private, name),
+            "{name}"
+        );
+    }
+    assert_eq!(member(&public_key, "n"), member(&rsa_private, "n"));
+    for name in ["d", "p", "q", "dp", "dq", "qi"] {
+        assert_eq!(member(&public_key, name), None, "{name}");
+    }
+    let der = rsa_private.to_der(KeyFormat::Pkcs8)?;
+    let from_der = Jwk::from_der(&der, KeyFormat::Pkcs8)?;
+    assert_eq!(member(&from_der, "qi"), member(&rsa_private, "qi"));
+    // PKCS#1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
+    assert!(
+        rsa_private
+            .to_pem(KeyFormat::Pkcs1)?
+            .starts_with("-----BEGIN RSA PUBLIC KEY-----\n")
+    );
+    // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
+    let mut exponent_only = fixture_jwk("rsa-public").to_object();
+    exponent_only.insert("d", RFC7515_A2_D);
     assert_eq!(
-        Jwk::from_json(json.as_bytes()).err(),
-        Some(Error::UnsupportedAlgorithm)
+        Jwk::from_object(&exponent_only).err().map(|e| e.code()),
+        Some("InvalidKey")
     );
     Ok(())
 }

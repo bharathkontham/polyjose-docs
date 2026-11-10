@@ -3,35 +3,32 @@ title: What polyjose does not support
 description: Algorithms and features polyjose leaves out on purpose, why each one is excluded, and what to use instead.
 ---
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 polyjose leaves some algorithms and features out on purpose. Each section below says what is excluded, why, and what to use instead.
 
 Where you can still ask for an excluded algorithm, for example by passing a token or a key that uses it, polyjose fails with the stable error code `UnsupportedAlgorithm` instead of guessing. Error codes are listed under [Errors](/concepts/errors/), and what polyjose does support is under [Algorithms](/concepts/algorithms/).
 
-## RSA private keys
+## RSA key generation and multi-prime keys
 
-**Not supported in 0.1.2:** signing with RSA (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`), decrypting with RSA (`RSA-OAEP-256`), generating RSA keys, and RSA private keys in any format. Importing an RSA private JWK, PEM or DER key fails with `UnsupportedAlgorithm`, and so does a JWK Set that contains an RSA private key.
+polyjose signs with RSA private keys (`RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`) and decrypts `RSA-OAEP-256` with them. It imports them as JWK, PKCS#8 or PKCS#1 and exports them as JWK or PKCS#8. A few RSA features are still left out:
 
-**Why:** the pure-Rust `rsa` crate is affected by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), the Marvin attack: a timing side channel that could allow recovery of the private key. It affects operations that use the private key, which are signing and decryption. No fixed release of `rsa` exists yet.
+- **No RSA key generation.** `jwkGenerateForAlg` with `RS256`, `PS256` or `RSA-OAEP-256` fails with `UnsupportedAlgorithm`. Generate RSA keys with your platform's key tools or a hardware key store, then import them.
+- **No multi-prime keys.** An RSA private key with more than two primes (a JWK with `oth`, RFC 7518 §6.3.2.7, or a PKCS#1 `multi` key) fails with `UnsupportedAlgorithm`.
+- **No private key without its CRT members.** RFC 7518 §6.3.2 says a producer SHOULD include `p`, `q`, `dp`, `dq` and `qi` with `d`. A private JWK that has only `d` fails with `InvalidKey`.
+- **No `RSA1_5`**, in either direction: see [below](#rsa1_5).
 
-**Supported, because they use only public keys:** operations that never touch an RSA private key handle no secret, so the advisory doesn't apply to them.
+**Why:** RSA key generation means generating large primes, which has a timing and review surface of its own, and its cost in WebAssembly and on mobile devices hasn't been measured, so polyjose doesn't offer it yet. Multi-prime keys are rarely used with JOSE. A key without its CRT members would need a second, slower private-key path, for no gain in interoperability.
 
-- verifying `RS256`, `RS384`, `RS512`, `PS256`, `PS384` and `PS512` signatures, such as tokens from an identity provider
-- encrypting to an `RSA-OAEP-256` recipient
-- importing RSA public keys, on their own or in a JWK Set
-
-**Instead:** to issue tokens, sign with `ES256` or `Ed25519`, or with `HS256` when both sides share a secret. To receive encrypted data, have senders use `ECDH-ES` with your elliptic-curve key.
-
-RSA signing, RSA decryption and RSA key generation will return once a fixed `rsa` release exists.
+**Instead:** for new keys, generate an EC or OKP key with polyjose (`ES256`, `Ed25519`, or `ECDH-ES` for encryption). Where you need RSA, create the key elsewhere and import it as a two-prime key.
 
 ## `RSA1_5`
 
 **Not supported:** the `RSA1_5` key management algorithm (RSAES-PKCS1-v1_5), in either direction. polyjose neither encrypts to it nor decrypts it, and a token that uses it fails with `UnsupportedAlgorithm`.
 
-**Why:** RFC 8725 §3.2 ("Use Appropriate Algorithms") tells applications to avoid all RSA-PKCS1 v1.5 encryption algorithms and to prefer RSAES-OAEP. PKCS #1 v1.5 encryption has a long history of padding-oracle attacks. Decrypting it would also need an RSA private key, which polyjose doesn't accept ([see above](#rsa-private-keys)).
+**Why:** RFC 8725 §3.2 ("Use Appropriate Algorithms") tells applications to avoid all RSA-PKCS1 v1.5 encryption algorithms and to prefer RSAES-OAEP. PKCS #1 v1.5 encryption has a long history of padding-oracle attacks, so polyjose doesn't decrypt it even when you pass an RSA private key.
 
-**Instead:** encrypt to RSA public keys with `RSA-OAEP-256`, or use `ECDH-ES`.
+**Instead:** encrypt to RSA keys, and decrypt with them, using `RSA-OAEP-256`, or use `ECDH-ES`.
 
 ## SHA-1
 
@@ -41,11 +38,11 @@ RSA signing, RSA decryption and RSA key generation will return once a fixed `rsa
 - **No SHA-1 thumbprints.** JWK thumbprints (RFC 7638) are computed with SHA-256, SHA-384 or SHA-512. Asking for a SHA-1 thumbprint fails with `UnsupportedAlgorithm`.
 - **`x5t` is carried, never computed.** The `x5t` member holds a SHA-1 certificate thumbprint. polyjose passes it through unchanged but never computes or checks it.
 
-**Why:** SHA-1 isn't practically broken inside OAEP, because OAEP doesn't rely on collision resistance. But SHA-1 has been retired almost everywhere else, and leaving it out entirely means one fewer primitive to trust. `RSA-OAEP` is not a Required algorithm in RFC 7518 §4.1, so omitting it keeps polyjose conformant.
+**Why:** SHA-1 isn't practically broken inside OAEP, because OAEP doesn't rely on collision resistance. But SHA-1 has been retired almost everywhere else, and leaving it out entirely means one fewer primitive to trust. `RSA-OAEP` is Recommended+, not Required, in RFC 7518 §4.1, so omitting it keeps polyjose conformant to the Required set.
 
 It conforms as follows:
 
-> Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits `RSA-OAEP` (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see [the security page](#rsa-private-keys)) and `RSA1_5`.
+> Conforms to RFC 7518: implements every algorithm marked Required or Recommended, except `RSA1_5` and `RSA-OAEP` (SHA-1), which it deliberately omits (see [the security page](#rsa1_5)).
 
 **Instead:** use `RSA-OAEP-256`, or `ECDH-ES` for new recipients. polyjose can't encrypt to a recipient that accepts only `RSA-OAEP`.
 
@@ -67,7 +64,7 @@ It conforms as follows:
 
 ## Out of scope
 
-**Not in 0.1.2:**
+**Not in 0.2.0:**
 
 - **Ed448 and X448.** The pure-Rust implementations are not yet stable releases. Use `Ed25519` and `X25519`.
 - **X.509 certificate chain validation.** The `x5c` and `x5u` members are carried as data. polyjose never validates a certificate chain, and never uses one to pick a key. Validate certificates with your platform's X.509 tools, then pass polyjose the public key you trust.
@@ -76,8 +73,8 @@ It conforms as follows:
 
 ## Java
 
-**Not supported in 0.1.2:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
+**Not supported in 0.2.0:** a Java-friendly API. The Android and JVM package is designed for Kotlin.
 
-**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.1.2.
+**Why:** the package's API uses Kotlin features that Java can't use directly. Members that take Kotlin unsigned integers (`UInt`) get mangled names when seen from Java, and Kotlin default arguments don't exist in Java, so every argument has to be passed. Java code can call the package, but it's awkward in 0.2.0.
 
 **Instead:** call polyjose from Kotlin. See [Android and JVM (Kotlin)](/start/android/).

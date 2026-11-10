@@ -5,13 +5,23 @@
 // samples/fixtures/jwks.json: the public halves of the RFC 7515 A.3.1 P-256 key and the RFC 8037
 // A.1 Ed25519 key, each with a `kid` (RFC 7517 §4.5), `alg` (§4.4) and `use` (§4.2). The tokens
 // are signed with the private halves, whose `kid` the JWT header carries (RFC 7515 §4.1.4).
+// The last sample keeps a set of one's own keys, with an RSA private member (RFC 7518 §6.3.2) for
+// RSA-OAEP-256 decryption, and publishes its public halves (RFC 7517 §4).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { jwksSelect, jwtSign, jwtVerifyWithJwks, PolyjoseError } from '@polyjose/node';
+import {
+  jweDecryptCompact,
+  jweEncryptCompact,
+  jwksSelect,
+  jwkToPublic,
+  jwtSign,
+  jwtVerifyWithJwks,
+  PolyjoseError,
+} from '@polyjose/node';
 import { fixtureJwk } from './lib/fixtures.mjs';
 
 /**
@@ -147,23 +157,35 @@ test('a selector that matches two keys: MultipleMatchingKeys', async () => {
   assert.equal(code, 'MultipleMatchingKeys');
 });
 
-test('a set holding an RSA private key is refused', async () => {
-  const token = await issue(signingKey('p256', 'p256-2026'), 'ES256');
-  const rsaPrivateKey = {
-    ...fixtureJwk('rsa-public'),
-    d: 'Eq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyWPEAeP88vLNO97IjlA7_GQ5sLKMgvfTeXZx9SE-7YwVol2NXOoAJe46sui395IW_GO-pWJ1O0BkTGoVEn2bKVRUCgu-GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzjkn439X0M_V51gfpRLI9JYanrC4D4qAdGcopV_0ZHHzQlBjudU2QvXt4ehNYTCBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLhBOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ', // RFC 7515 A.2.1
+test('a set of your own keys holds an RSA-OAEP-256 decryption key', async () => {
+  const privateJwks = {
+    keys: [
+      { ...fixtureJwk('p256'), kid: 'p256-2026', alg: 'ES256', use: 'sig' },
+      { ...fixtureJwk('rsa-private'), kid: 'enc-2026', alg: 'RSA-OAEP-256', use: 'enc' },
+    ],
   };
+  // A sender encrypts to the published RSA key.
+  const token = await jweEncryptCompact(new TextEncoder().encode('top secret'), {
+    enc: 'A256GCM',
+    recipients: [{ alg: 'RSA-OAEP-256', key: { ...fixtureJwk('rsa-public'), kid: 'enc-2026' } }],
+  });
   // docs:start jwk-sets/rsa-private
-  // A set that publishes an RSA private key ("d") by mistake.
-  const leaked = { keys: [rsaPrivateKey] };
-  let code;
-  try {
-    await jwtVerifyWithJwks(token, leaked, { allowedAlgs: ['ES256'] });
-  } catch (err) {
-    if (!(err instanceof PolyjoseError)) throw err;
-    code = err.code; // "UnsupportedAlgorithm": the whole set is refused
-  }
+  // `privateJwks` is your own set, private members included: never publish it as it is.
+  const key = await jwksSelect(privateJwks, { kid: 'enc-2026', alg: 'RSA-OAEP-256' });
+  const decrypted = await jweDecryptCompact(token, key, {
+    allowedAlgs: ['RSA-OAEP-256'],
+    allowedEnc: ['A256GCM'],
+  });
+
+  // Publish the public halves only.
+  const published = { keys: await Promise.all(privateJwks.keys.map((k) => jwkToPublic(k))) };
   // docs:end jwk-sets/rsa-private
-  assert.equal(code, 'UnsupportedAlgorithm');
-  assert.equal(await codeOf(jwksSelect(leaked, {})), 'UnsupportedAlgorithm');
+  assert.equal(new TextDecoder().decode(decrypted.plaintext), 'top secret');
+  assert.equal(key.kid, 'enc-2026');
+  assert.equal(key.d, fixtureJwk('rsa-private').d, 'the RSA private member is kept as imported');
+  assert.equal(published.keys.length, 2);
+  for (const k of published.keys) {
+    for (const secret of ['d', 'p', 'q', 'dp', 'dq', 'qi']) assert.equal(k[secret], undefined, `${k.kid}: ${secret}`);
+  }
+  assert.deepEqual(published.keys[1], { ...fixtureJwk('rsa-public'), kid: 'enc-2026', alg: 'RSA-OAEP-256', use: 'enc' });
 });

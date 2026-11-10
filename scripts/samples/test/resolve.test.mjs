@@ -305,9 +305,11 @@ test('resolveSample returns one platform', () => {
 test('validateReasons accepts the site table and rejects bad entries', () => {
   const table = JSON.parse(readFileSync(new URL('../../../src/data/unavailable.json', import.meta.url), 'utf8'));
   assert.doesNotThrow(() => validateReasons(table));
-  for (const key of ['zip-bindings', 'rsa-private', 'sha1']) {
+  for (const key of ['zip-bindings', 'sha1']) {
     assert.equal(typeof table[key], 'string', key);
   }
+  // RSA signing and decryption are offered on every platform, so no reason says otherwise.
+  assert.equal(table['rsa-private'], undefined);
   assert.match(table['zip-bindings'], /^Compression \(`zip`\) is available only in the Rust crate, with the `deflate` feature/);
   assert.throws(() => validateReasons([]), /must be an object/);
   assert.throws(() => validateReasons({ 'Bad Key': 'x' }), /"Bad Key"/);

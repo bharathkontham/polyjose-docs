@@ -2,8 +2,9 @@
 //
 // Verifying JWTs against a JWK Set (RFC 7517 §5), as an issuer publishes at its jwks_uri: the key
 // is chosen by the token's kid (RFC 7515 §4.1.4) and alg, the issuer is still checked
-// (RFC 8725 §3.8), and a set holding an RSA private key is refused. The set is
-// fixtures/jwks.json; the signers are the matching fixture private keys with the same kid.
+// (RFC 8725 §3.8), and a set of one's own keys holds an RSA private key for RSA-OAEP-256
+// decryption. The set is fixtures/jwks.json; the signers are the matching fixture private keys
+// with the same kid.
 
 import Foundation
 import Polyjose
@@ -104,18 +105,40 @@ final class JwkSetsTests: XCTestCase {
     }
 
     func testRsaPrivate() throws {
-        let token = try signedToken("p256", kid: "p256-2026", alg: "ES256")
-        let rsaPrivateKey = try rsaPrivateJwk()
-        let leaked = #"{"keys":[\#(rsaPrivateKey)]}"#
+        var rsaMember = try jsonObject(try rsaPrivateJwk())
+        rsaMember["kid"] = "enc-2026"
+        rsaMember["alg"] = "RSA-OAEP-256"
+        rsaMember["use"] = "enc"
+        var p256Member = try jsonObject(try fixtureJwk("p256"))
+        p256Member["kid"] = "p256-2026"
+        p256Member["alg"] = "ES256"
+        p256Member["use"] = "sig"
+        let privateJwks = try jsonText(["keys": [p256Member, rsaMember]])
+        // A sender encrypts to the published RSA key.
+        let token = try jweEncryptCompact(
+            plaintext: Data("hello".utf8),
+            options: JweEncryptOptions(
+                enc: "A256GCM", recipients: [JweRecipient(alg: "RSA-OAEP-256", key: try fixtureJwk("rsa-public"))]))
         // docs:start jwk-sets/rsa-private
-        // A set that contains an RSA private key (one with "d") is refused as a whole.
-        var code: String?
-        do {
-            _ = try jwtVerifyWithJwks(token: token, jwks: leaked, options: options)
-        } catch let error as PolyjoseError {
-            code = error.code()  // "UnsupportedAlgorithm"
-        }
+        // privateJwks is your own set, private members included: never publish it as it is.
+        let key = try jwksSelect(jwks: privateJwks, selector: JwkSelector(kid: "enc-2026", alg: "RSA-OAEP-256"))
+        let decrypted = try jweDecryptCompact(
+            token: token,
+            key: key,
+            options: JweDecryptOptions(allowedAlgs: ["RSA-OAEP-256"], allowedEnc: ["A256GCM"])
+        )
+        // Publish the public halves only.
+        let members = try jsonObject(privateJwks)["keys"] as? [[String: Any]] ?? []
+        let published = try members.map { try jwkToPublic(jwk: try jsonText($0)) }
         // docs:end jwk-sets/rsa-private
-        XCTAssertEqual(code, "UnsupportedAlgorithm")
+        XCTAssertEqual(String(decoding: decrypted.plaintext, as: UTF8.self), "hello")
+        XCTAssertEqual(try jsonObject(key)["d"] as? String, try jsonObject(try rsaPrivateJwk())["d"] as? String)
+        XCTAssertEqual(published.count, 2)
+        for jwk in try published.map(jsonObject) {
+            for name in ["d", "p", "q", "dp", "dq", "qi"] {
+                XCTAssertNil(jwk[name], name)
+            }
+        }
+        XCTAssertEqual(try jsonObject(published[1])["kid"] as? String, "enc-2026")
     }
 }
