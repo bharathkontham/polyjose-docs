@@ -134,12 +134,32 @@ fn a256kw() -> Result<(), Error> {
 #[test]
 fn rsa_oaep_256() -> Result<(), Error> {
     let rsa_public = fixture_jwk("rsa-public");
+    let rsa_private = fixture_jwk("rsa-private");
     // docs:start encrypt-and-decrypt/rsa-oaep-256
-    // RSA-OAEP-256 (RFC 7518 §4.3) encrypts to an RSA public key.
+    // RSA-OAEP-256 (RFC 7518 §4.3): the sender encrypts to the recipient's RSA public key.
     let token = Encryptor::new(ContentEncAlg::A256GCM)
         .recipient(Recipient::new(KeyMgmtAlg::RsaOaep256, &rsa_public))
         .encrypt_compact(PLAINTEXT)?;
+
+    // The recipient decrypts with its RSA private key.
+    let policy = DecryptPolicy::new(&[KeyMgmtAlg::RsaOaep256], &[ContentEncAlg::A256GCM])?;
+    let decrypted = jwe::decrypt_compact(&token, &rsa_private, &policy)?;
     // docs:end encrypt-and-decrypt/rsa-oaep-256
+    assert_eq!(decrypted.plaintext(), PLAINTEXT);
+    // A changed Encrypted Key fails like every other decryption failure (RFC 7516 §11.5).
+    let mut parts: Vec<String> = token.split('.').map(str::to_owned).collect();
+    let mut encrypted_key = b64url_decode(&parts[1])?;
+    encrypted_key[10] ^= 1;
+    parts[1] = b64url_encode(&encrypted_key);
+    assert_eq!(
+        jwe::decrypt_compact(&parts.join("."), &rsa_private, &policy).err(),
+        Some(Error::DecryptionFailed)
+    );
+    // The public key can't decrypt.
+    assert_eq!(
+        jwe::decrypt_compact(&token, &rsa_public, &policy).err(),
+        Some(Error::KeyAlgorithmMismatch)
+    );
     let parts: Vec<&str> = token.split('.').collect();
     assert_eq!(parts.len(), 5);
     let header = protected_header(&token)?;

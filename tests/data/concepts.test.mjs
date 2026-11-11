@@ -69,13 +69,13 @@ const IANA_ZIP = { DEF: ['zip', null, 'RFC 7516'] };
 const EXPECTED_STATUS = {
 	'jws-alg': {
 		HS256: 'yes', HS384: 'yes', HS512: 'yes',
-		RS256: 'verify-only', RS384: 'verify-only', RS512: 'verify-only',
-		PS256: 'verify-only', PS384: 'verify-only', PS512: 'verify-only',
+		RS256: 'yes', RS384: 'yes', RS512: 'yes',
+		PS256: 'yes', PS384: 'yes', PS512: 'yes',
 		ES256: 'yes', ES384: 'yes', ES512: 'yes', ES256K: 'yes',
 		Ed25519: 'yes', EdDSA: 'yes', none: 'no',
 	},
 	'jwe-alg': {
-		'RSA-OAEP-256': 'encrypt-only',
+		'RSA-OAEP-256': 'yes',
 		A128KW: 'yes', A192KW: 'yes', A256KW: 'yes',
 		A128GCMKW: 'yes', A192GCMKW: 'yes', A256GCMKW: 'yes', dir: 'yes',
 		'ECDH-ES': 'yes', 'ECDH-ES+A128KW': 'yes', 'ECDH-ES+A192KW': 'yes', 'ECDH-ES+A256KW': 'yes',
@@ -97,7 +97,7 @@ const GROUP_OPERATIONS = {
 const GROUP_USAGE = { 'jws-alg': 'alg', 'jwe-alg': 'alg', 'jwe-enc': 'enc', zip: 'zip' };
 const STATUSES = ['yes', 'verify-only', 'encrypt-only', 'no'];
 // Fixed heading ids on Security › Not supported.
-const NOT_SUPPORTED_IDS = ['rsa-private-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
+const NOT_SUPPORTED_IDS = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
 
 // polyjose's Error::CODES (crates/polyjose/src/error.rs) at commit 30a4a72, in its order.
 const ERROR_CODES = [
@@ -140,7 +140,7 @@ const OPERATIONS = {
 // The conformance statement, as its text content renders (code spans become
 // plain text). It must match character for character.
 const CONFORMANCE =
-	'Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits RSA-OAEP (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see the security page) and RSA1_5.';
+	'Conforms to RFC 7518: implements every algorithm marked Required or Recommended, except RSA1_5 and RSA-OAEP (SHA-1), which it deliberately omits (see the security page).';
 
 const rows = (groupId) => algorithms.groups.find((g) => g.id === groupId)?.rows ?? [];
 const allRows = () => algorithms.groups.flatMap((g) => g.rows.map((r) => ({ group: g.id, ...r })));
@@ -233,7 +233,7 @@ test('statuses are valid for their group and link into Not supported when limite
 		assert.ok(r.key?.length > 0, `${r.name} needs a key type`);
 	}
 	const key = (name) => allRows().find((r) => r.name === name).notSupported;
-	for (const n of ['RS256', 'RS384', 'RS512', 'PS256', 'PS384', 'PS512', 'RSA-OAEP-256']) assert.equal(key(n), 'rsa-private-keys');
+	for (const n of ['RS256', 'RS384', 'RS512', 'PS256', 'PS384', 'PS512', 'RSA-OAEP-256']) assert.equal(key(n), undefined, `${n} is fully supported`);
 	assert.equal(key('RSA-OAEP'), 'sha-1');
 	assert.equal(key('RSA1_5'), 'rsa1_5');
 	assert.equal(key('DEF'), 'zip-in-bindings');
@@ -261,6 +261,19 @@ test('every algorithm RFC 7518 marks Required is implemented', () => {
 	const required = Object.entries(IANA).filter(([, [, level]]) => level === 'Required').map(([n]) => n);
 	assert.deepEqual(required.sort(), ['A128CBC-HS256', 'A256CBC-HS512', 'HS256']);
 	for (const n of required) assert.equal(allRows().find((r) => r.name === n).status, 'yes', n);
+});
+
+// The conformance statement's second claim: every Recommended algorithm (Recommended+ and
+// Recommended- included) is implemented in both directions, except the two it names.
+test('every algorithm marked Recommended is implemented, except RSA1_5 and RSA-OAEP', () => {
+	const recommended = Object.entries(IANA)
+		.filter(([, [, level]]) => /^Recommended[+-]?$/.test(level))
+		.map(([n]) => n);
+	assert.ok(recommended.includes('RS256') && recommended.includes('ES256'), 'the IANA fixture has the Recommended rows');
+	for (const n of recommended) {
+		const expected = n === 'RSA1_5' || n === 'RSA-OAEP' ? 'no' : 'yes';
+		assert.equal(allRows().find((r) => r.name === n).status, expected, n);
+	}
 });
 
 // --- error-codes.json ---------------------------------------------------
@@ -321,8 +334,7 @@ test('Algorithms: the conformance statement is published verbatim', () => {
 	assert.ok(statement, 'no blockquote with the conformance statement');
 	assert.equal(textOf(statement[1]).trim(), CONFORMANCE);
 	const inner = statement[1];
-	assert.match(inner, /<code\b[^>]*>RSA-OAEP<\/code> \(SHA-1\)/);
-	assert.match(inner, /<code\b[^>]*>RSA1_5<\/code>\./);
+	assert.match(inner, /except <code\b[^>]*>RSA1_5<\/code> and <code\b[^>]*>RSA-OAEP<\/code> \(SHA-1\)/);
 	assert.match(inner, /<a\b[^>]*href="\/security\/not-supported\/"[^>]*>the security page<\/a>/);
 	assert.equal(all(inner, /<code\b/g).length, 2, 'only the two identifiers are code spans');
 	assert.equal(all(inner, /<a\b/g).length, 1, 'only "the security page" is a link');

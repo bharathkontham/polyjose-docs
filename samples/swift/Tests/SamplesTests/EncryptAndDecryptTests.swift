@@ -103,8 +103,9 @@ final class EncryptAndDecryptTests: XCTestCase {
 
     func testRsaOaep256() throws {
         let rsaPublicKey = try fixtureJwk("rsa-public")
+        let rsaPrivateKey = try rsaPrivateJwk()
         // docs:start encrypt-and-decrypt/rsa-oaep-256
-        // Encrypt to an RSA public key; only its holder can decrypt (RFC 7518 §4.3).
+        // The sender encrypts to the recipient's RSA public key (RFC 7518 §4.3).
         let token = try jweEncryptCompact(
             plaintext: plaintext,
             options: JweEncryptOptions(
@@ -112,7 +113,24 @@ final class EncryptAndDecryptTests: XCTestCase {
                 recipients: [JweRecipient(alg: "RSA-OAEP-256", key: rsaPublicKey)]
             )
         )
+        // The recipient decrypts with its RSA private JWK.
+        let options = JweDecryptOptions(allowedAlgs: ["RSA-OAEP-256"], allowedEnc: ["A256GCM"])
+        let decrypted = try jweDecryptCompact(token: token, key: rsaPrivateKey, options: options)
         // docs:end encrypt-and-decrypt/rsa-oaep-256
+        XCTAssertEqual(String(decoding: decrypted.plaintext, as: UTF8.self), "hello")
+        // A changed Encrypted Key fails like every other decryption failure (RFC 7516 §11.5).
+        var tamperedParts = token.components(separatedBy: ".")
+        var encryptedKey = try base64urlDecode(text: tamperedParts[1])
+        encryptedKey[encryptedKey.startIndex + 10] ^= 1
+        tamperedParts[1] = base64urlEncode(data: encryptedKey)
+        let tampered = tamperedParts.joined(separator: ".")
+        XCTAssertEqual(
+            try errorCode { _ = try jweDecryptCompact(token: tampered, key: rsaPrivateKey, options: options) },
+            "DecryptionFailed")
+        // The public key can't decrypt.
+        XCTAssertEqual(
+            try errorCode { _ = try jweDecryptCompact(token: token, key: rsaPublicKey, options: options) },
+            "KeyAlgorithmMismatch")
         let parts = token.components(separatedBy: ".")
         XCTAssertEqual(parts.count, 5)
         let header = try protectedHeader(of: token)

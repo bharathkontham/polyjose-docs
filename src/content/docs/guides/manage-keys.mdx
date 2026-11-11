@@ -1,11 +1,11 @@
 ---
 title: Manage keys (JWK)
-description: Generate JSON Web Keys, publish their public halves, import and export PEM and DER, compute thumbprints, and handle secret key material on each platform.
+description: Generate JSON Web Keys, publish their public halves, import and export PEM and DER, including RSA private keys, compute thumbprints, and handle secret key material on each platform.
 ---
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 polyjose works with keys as JSON Web Keys (JWK, [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517)). In JavaScript a JWK is a plain object or its JSON text, in Kotlin and Swift it is JSON text, and in Rust it is a `jwk::Jwk`. Every key is validated when it is used: a point off its curve, a key of the wrong length or a malformed member fails before any cryptography runs.
 
@@ -17,7 +17,7 @@ Generated keys come from the operating system's random number generator. If it i
 - `jwkGenerateEc(curve)`: an EC private key on `P-256`, `P-384`, `P-521` ([RFC 7518 §6.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.2)) or `secp256k1` ([RFC 8812 §3.1](https://www.rfc-editor.org/rfc/rfc8812#section-3.1)).
 - `jwkGenerateOkp(curve)`: an `Ed25519` signing key or an `X25519` key-agreement key ([RFC 8037 §2](https://www.rfc-editor.org/rfc/rfc8037#section-2)).
 
-In Rust, `keys::generate` takes a `keys::KeySpec`. RSA keys can't be generated (see [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys)).
+In Rust, `keys::generate` takes a `keys::KeySpec`. RSA keys can't be generated (see [Not supported › RSA key generation](/security/not-supported/#rsa-key-generation-and-multi-prime-keys)): import them instead, as [below](#rsa-private-keys).
 
 <Samples id="manage-keys/generate" />
 
@@ -27,7 +27,7 @@ In Rust, `keys::generate` takes a `keys::KeySpec`. RSA keys can't be generated (
 
 ## Publish only the public half
 
-`jwkToPublic` removes the private members, such as `d` ([RFC 7518 §6.2.1](https://www.rfc-editor.org/rfc/rfc7518#section-6.2.1)). Publish or send only that public half: anyone who has the private key can sign or decrypt as you. An `oct` key has no public half: `jwkToPublic` fails with `UnsupportedAlgorithm`, and Rust's `Jwk::to_public` returns `None`.
+`jwkToPublic` removes the private members: `d` of an EC or OKP key ([RFC 7518 §6.2.1](https://www.rfc-editor.org/rfc/rfc7518#section-6.2.1)), and `d`, `p`, `q`, `dp`, `dq` and `qi` of an RSA key ([§6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)). Publish or send only that public half: anyone who has the private key can sign or decrypt as you. An `oct` key has no public half: `jwkToPublic` fails with `UnsupportedAlgorithm`, and Rust's `Jwk::to_public` returns `None`.
 
 <Samples id="manage-keys/to-public" />
 
@@ -45,10 +45,10 @@ Keys from other tools often come as PEM ([RFC 7468](https://www.rfc-editor.org/r
 		</tr>
 	</thead>
 	<tbody>
-		<tr><th scope="row"><code>pkcs8</code></th><td><code>PRIVATE KEY</code></td><td>An EC or OKP private key (<a href="https://www.rfc-editor.org/rfc/rfc5958#section-2">RFC 5958 §2</a>)</td></tr>
+		<tr><th scope="row"><code>pkcs8</code></th><td><code>PRIVATE KEY</code></td><td>An EC, OKP or RSA private key (<a href="https://www.rfc-editor.org/rfc/rfc5958#section-2">RFC 5958 §2</a>)</td></tr>
 		<tr><th scope="row"><code>spki</code></th><td><code>PUBLIC KEY</code></td><td>An EC, OKP or RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.7">RFC 5280 §4.1.2.7</a>); a private key exports its public half</td></tr>
 		<tr><th scope="row"><code>sec1</code></th><td><code>EC PRIVATE KEY</code></td><td>An EC private key (<a href="https://www.rfc-editor.org/rfc/rfc5915#section-3">RFC 5915 §3</a>)</td></tr>
-		<tr><th scope="row"><code>pkcs1</code></th><td><code>RSA PUBLIC KEY</code></td><td>An RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1">RFC 8017 Appendix A.1.1</a>)</td></tr>
+		<tr><th scope="row"><code>pkcs1</code></th><td><code>RSA PUBLIC KEY</code>, <code>RSA PRIVATE KEY</code></td><td>An RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1">RFC 8017 Appendix A.1.1</a>), or on import a two-prime RSA private key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.2">Appendix A.1.2</a>); exporting a private key fails with <code>InvalidKey</code></td></tr>
 	</tbody>
 </table>
 
@@ -66,9 +66,13 @@ RSA public keys import and export as `spki` or `pkcs1`:
 
 <Samples id="manage-keys/rsa-public" />
 
-RSA private keys are refused in every form, JWK, PEM or DER, with `UnsupportedAlgorithm`. Encrypted private keys (`ENCRYPTED PRIVATE KEY`) are refused the same way.
+## RSA private keys
+
+An RSA private key signs RS256 to PS512 tokens and decrypts RSA-OAEP-256. As a JWK it has `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi` ([RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)). polyjose imports it from a JWK, from PKCS#8 (`PRIVATE KEY`) and from PKCS#1 (`RSA PRIVATE KEY`, or DER with the format `pkcs1`), and exports it as a JWK or as PKCS#8. Exporting it as `spki` writes its public half. Exporting it as `pkcs1` fails with `InvalidKey`, because that format only writes an RSA public key ([RFC 8017 Appendix A.1.1](https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1)) and polyjose won't drop the private members without being asked: call `jwkToPublic` first.
 
 <Samples id="manage-keys/rsa-private" />
+
+Every imported RSA key is checked before use. Its modulus must be 2048 to 8192 bits, and its private members must belong to its `n` and `e`. A private JWK with only `d`, without the other members, fails with `InvalidKey`, and so does a key whose two primes differ too much in size. A key with more than two primes (`oth`) fails with `UnsupportedAlgorithm`. Encrypted private keys (`ENCRYPTED PRIVATE KEY`) are refused with `UnsupportedAlgorithm`: decrypt them with your platform's tools first.
 
 ## Thumbprints
 

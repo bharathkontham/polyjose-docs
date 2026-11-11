@@ -1,7 +1,7 @@
 // Framing tests for every Security and Concepts page. They read the built
 // HTML, so run `npm run build` first (`npm run verify` does).
 //
-// These pages describe polyjose 0.1.2, the current release.
+// These pages describe polyjose 0.2.0, the release they are written for.
 // Each page opens with one framing sentence, and the statements below it are
 // written in the present tense. What the framing does not cover is machinery
 // that a page should describe as it actually runs; the helper tests below stay
@@ -22,7 +22,7 @@ const readJson = (path) => JSON.parse(readFileSync(new URL(path, root), 'utf8'))
 
 /** The sentence every Security and Concepts page opens with. */
 export const FRAMING =
-	'This page describes polyjose 0.1.2.';
+	'This page describes polyjose 0.2.0.';
 
 /** Every page under /security/ and /concepts/. */
 export const FRAMED_PAGES = [
@@ -176,7 +176,7 @@ describe('the framing check itself', () => {
 	test('rejects a missing, shortened or extended sentence', () => {
 		assert.ok(!opensWithFraming(wrap('<p>This page describes polyjose 0.1.0.</p>')));
 		assert.ok(!opensWithFraming(wrap(`<p>${FRAMING} It is fast.</p>`)));
-		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.1.2.</p>')));
+		assert.ok(!opensWithFraming(wrap('<p>This list describes polyjose 0.2.0.</p>')));
 		assert.ok(!opensWithFraming(wrap('')));
 	});
 });

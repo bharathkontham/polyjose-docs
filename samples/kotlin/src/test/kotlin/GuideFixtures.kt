@@ -9,7 +9,7 @@ import dev.polyjose.samples.Fixtures
 import java.io.File
 import org.json.JSONObject
 
-/** RFC 7515 Appendix A.2: an RS256 JWS, signed with the `rsa-public` fixture's private key. */
+/** RFC 7515 Appendix A.2: an RS256 JWS, signed with the `rsa-private` fixture. */
 const val RFC7515_A2_JWS =
     "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.cC4hiUPoj9Eetdgtv3hF80EGrhuB__dzERat0XF9g2VtQgr9PJbu3XOiZj5RZmh7AAuHIm4Bh-0Qc_lF5YKt_O8W2Fp5jujGbds9uJdbF9CUAr7t1dnZcAcQjbKBYNX4BAynRFdiuB--f_nZLgrnbyTyWzO75vRK5h6xBArLIARNPvkSjtQBMHlb1L07Qe7K0GarZRmB_eSN9383LcOLn6_dO--xi12jzDwusC-eOkHWEsqtFZESc6BfI7noOPqvhJ1phCnvWh6IeYI2w9QOYEUipUTI8np6LbgGY9Fs98rqVt5AXLIhWkWywlVmtVrBp0igcN_IoypGlUPQGe77Rw"
 
@@ -51,8 +51,23 @@ const val SUBJECT = "user-123"
 /** A fixed validation time, whole seconds since the epoch (RFC 7519 §2, NumericDate). */
 const val NOW = 1_700_000_000L
 
-/** The `rsa-public` fixture with the RFC 7515 Appendix A.2.1 private exponent added. */
-fun rsaPrivateJwk(): String = JSONObject(fixtureJwk("rsa-public")).put("d", RFC7515_A2_D).toString()
+/** The RFC 7515 Appendix A.2.1 RSA private key, with every member (RFC 7518 §6.3.2). */
+fun rsaPrivateJwk(): String = fixtureJwk("rsa-private")
+
+/**
+ * The `rsa-public` fixture with only the private exponent `d` added: no CRT members, which
+ * RFC 7518 §6.3.2 says producers SHOULD include, so polyjose refuses it.
+ */
+fun rsaExponentOnlyJwk(): String = JSONObject(fixtureJwk("rsa-public")).put("d", RFC7515_A2_D).toString()
+
+/** The [PolyjoseException] code that [call] throws, or null when it returns. */
+fun errorCodeOf(call: () -> Unit): String? =
+    try {
+        call()
+        null
+    } catch (e: PolyjoseException) {
+        e.code()
+    }
 
 /** [jwk] with its `kid` (RFC 7517 §4.5) set to [kid]. */
 fun withKid(jwk: String, kid: String): String = JSONObject(jwk).put("kid", kid).toString()
@@ -61,7 +76,7 @@ fun withKid(jwk: String, kid: String): String = JSONObject(jwk).put("kid", kid).
 fun protectedHeaderOf(token: String): JSONObject =
     JSONObject(base64urlDecode(token.substringBefore('.')).decodeToString())
 
-/** The fixture JWK named [name] as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`. */
+/** The fixture JWK named [name] as JSON text: `hmac`, `rsa-public`, `rsa-private`, `p256` or `ed25519`. */
 fun fixtureJwk(name: String): String = Fixtures.jwk(name)
 
 /** The public half of the fixture JWK named [name] (RFC 7517 §4, RFC 7518 §6): `d` removed. */

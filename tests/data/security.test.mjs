@@ -113,6 +113,27 @@ test('Security model: each fact is stated', async (t) => {
     assert.ok(links.includes('/security/cryptographic-foundations/'), 'links to Security › Cryptographic foundations');
   });
 
+  await t.test('1b. RSA private-key operations: the timing evidence, said honestly', () => {
+    assert.ok(links.includes(MARVIN_URL), 'links the RUSTSEC-2023-0071 advisory');
+    assertPhrases(text, 'evidence', [
+      'RUSTSEC-2023-0071',
+      'Marvin',
+      /blinded/i,
+      'BINSEC',
+      'cargo checkct',
+      /dudect/i,
+      /No one has run the Marvin toolkit/,
+      /no published independent audit/,
+    ]);
+    assertPhrases(text, 'the OAEP first-octet deviation', [
+      'RFC 8017 §7.1.2 step 3.g',
+      /first octet of the encoded message is zero/,
+      /can['’]t help an attacker/,
+      'RFC 7516 §11.5',
+    ]);
+    assertPhrases(text, 'unbalanced primes', [/Unbalanced primes are refused/, 'InvalidKey']);
+  });
+
   await t.test('3. algorithm verification', () => {
     assertPhrases(text, 'allow-lists', ['allow-list', 'enc', /empty list/i]);
     assertPhrases(text, 'none', [/`?none`? is never accepted/i]);
@@ -160,7 +181,8 @@ test('Security model: each fact is stated', async (t) => {
   await t.test('7. JWK Sets', () => {
     assertPhrases(text, 'filter', ['kid', 'alg', 'use', 'key_ops']);
     assertPhrases(text, 'bound', [/at most 8\b/i, /in order/i]);
-    assertPhrases(text, 'RSA private key in a set', [/set (that )?contain(s|ing) an RSA private key/i]);
+    assertPhrases(text, 'RSA private keys in a set', [/private keys, RSA ones included, which are kept as imported/, 'jwkToPublic']);
+    assert.doesNotMatch(text, /rejected as a whole/, 'a set with an RSA private key is no longer refused');
   });
 
   await t.test('8. secrets in memory', () => {
@@ -186,7 +208,7 @@ test('Security model: each fact is stated', async (t) => {
 
 test('Not supported: every item has its fixed heading id, reason and alternative', async (t) => {
   const { html, text, links } = page('security/not-supported');
-  const ids = ['rsa-private-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
+  const ids = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
 
   await t.test('heading ids', () => {
     for (const id of ids) {
@@ -194,17 +216,21 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     }
   });
 
-  await t.test('RSA private keys', () => {
-    assert.ok(links.includes(MARVIN_URL), 'links the RUSTSEC-2023-0071 advisory');
-    assertPhrases(text, 'reason and alternative', [
-      'RUSTSEC-2023-0071',
-      'Marvin',
+  await t.test('RSA key generation and multi-prime keys', () => {
+    const section = textOf(sectionHtml(html, 'rsa-key-generation-and-multi-prime-keys'));
+    assertPhrases(section, 'what is left out, why, and instead', [
       'RS256',
       'PS256',
       'RSA-OAEP-256',
+      /No RSA key generation/,
+      'jwkGenerateForAlg',
       'UnsupportedAlgorithm',
-      /fixed `?rsa`? release/i,
+      'oth',
+      'InvalidKey',
+      'RFC 7518 §6.3.2',
+      /import/i,
     ]);
+    assert.doesNotMatch(section, /RUSTSEC|fixed `?rsa`? release/i, 'RSA signing and decryption are supported now');
   });
 
   await t.test('RSA1_5', () => {
@@ -221,7 +247,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
 
   await t.test('decode without verify, out of scope, Java', () => {
     assertPhrases(text, 'decode', [/decode/i, 'JWS', 'JWE']);
-    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.1.2']);
+    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.2.0']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
@@ -238,11 +264,11 @@ test('Not supported: every item has its fixed heading id, reason and alternative
 });
 
 // The public conformance statement, as its text content renders (the code
-// spans around RSA-OAEP and RSA1_5 become plain text). It is published
+// spans around RSA1_5 and RSA-OAEP become plain text). It is published
 // verbatim on Concepts › Algorithms and here; tests/data/concepts.test.mjs
 // holds the same string. Change it only together with the accepted decision.
 const CONFORMANCE =
-  'Conforms to RFC 7518: implements every algorithm marked Required. It deliberately omits RSA-OAEP (SHA-1), RSA signing and decryption (pending RUSTSEC-2023-0071, see the security page) and RSA1_5.';
+  'Conforms to RFC 7518: implements every algorithm marked Required or Recommended, except RSA1_5 and RSA-OAEP (SHA-1), which it deliberately omits (see the security page).';
 const CONFORMANCE_FRAMING = 'It conforms as follows:';
 
 test('Not supported: the SHA-1 section quotes the conformance statement verbatim', async (t) => {
@@ -258,16 +284,16 @@ test('Not supported: the SHA-1 section quotes the conformance statement verbatim
   await t.test('code spans and the link', () => {
     assert.deepEqual(
       [...inner.matchAll(/<code\b[^>]*>([\s\S]*?)<\/code>/gi)].map((m) => textContent(m[1])),
-      ['RSA-OAEP', 'RSA1_5'],
-      'exactly RSA-OAEP and RSA1_5 are code spans',
+      ['RSA1_5', 'RSA-OAEP'],
+      'exactly RSA1_5 and RSA-OAEP are code spans',
     );
-    assert.match(inner, /omits <code\b[^>]*>RSA-OAEP<\/code> \(SHA-1\)/);
-    assert.match(inner, /and <code\b[^>]*>RSA1_5<\/code>\./);
+    assert.match(inner, /except <code\b[^>]*>RSA1_5<\/code> and <code\b[^>]*>RSA-OAEP<\/code> \(SHA-1\)/);
     const anchors = [...inner.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)];
     assert.equal(anchors.length, 1, 'only "the security page" is a link');
     assert.equal(textContent(anchors[0][2]), 'the security page');
-    // The reader is already on the security page, so it links the heading.
-    assert.match(anchors[0][1], /\bhref="#rsa-private-keys"/);
+    // The reader is already on the security page, so it links the RSA1_5 heading (this section
+    // is the SHA-1 one).
+    assert.match(anchors[0][1], /\bhref="#rsa1_5"/);
   });
 
   await t.test('the framing line comes right before it', () => {

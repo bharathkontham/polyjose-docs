@@ -1,11 +1,11 @@
 ---
 title: Sign and verify (JWS)
-description: Create JSON Web Signatures with ES256, Ed25519 and HS256, verify them against an explicit allow-list, and use the JSON serialization, detached and unencoded payloads.
+description: Create JSON Web Signatures with ES256, Ed25519, HS256 and RSA (RS256, PS256), verify them against an explicit allow-list, and use the JSON serialization, detached and unencoded payloads.
 ---
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 A JSON Web Signature (JWS, [RFC 7515](https://www.rfc-editor.org/rfc/rfc7515)) protects a payload with a digital signature or a MAC. Every sample on this page is a test that runs against polyjose on each platform; pick your platform in any tab and the others follow. The keys are the published RFC example keys, so never use them in an application.
 
@@ -43,13 +43,17 @@ A token whose header, payload or signature was changed fails with `InvalidSignat
 
 Branch on the error code, never on the message. [Errors](/concepts/errors/) lists every code.
 
-## Verify RS256 tokens from an identity provider
+## Sign and verify with RSA
 
 Many identity providers sign with RS256, RSASSA-PKCS1-v1_5 with SHA-256 ([RFC 7518 §3.3](https://www.rfc-editor.org/rfc/rfc7518#section-3.3)). polyjose verifies RS256, RS384, RS512 and PS256 to PS512 signatures with the provider's RSA public JWK on every platform. This sample verifies the example token of [RFC 7515 Appendix A.2](https://www.rfc-editor.org/rfc/rfc7515#appendix-A.2):
 
 <Samples id="sign-and-verify/rs256" />
 
-Signing with an RSA private key isn't available. See [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys) for why. To sign your own tokens, use ES256 or Ed25519.
+To issue RSA-signed tokens yourself, sign with an RSA private key: a JWK with `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi` ([RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)), or a key imported from PEM or DER (see [Manage keys › RSA private keys](/guides/manage-keys/#rsa-private-keys)). RS256 signatures are deterministic, so this sample produces exactly the RFC 7515 Appendix A.2 token. PS256, PS384 and PS512, RSASSA-PSS ([RFC 7518 §3.5](https://www.rfc-editor.org/rfc/rfc7518#section-3.5)), work the same way with their own `alg`, and their signatures are randomized. Signing with a public key fails with `KeyAlgorithmMismatch`.
+
+<Samples id="sign-and-verify/rsa-sign" />
+
+polyjose doesn't generate RSA keys (see [Not supported › RSA key generation](/security/not-supported/#rsa-key-generation-and-multi-prime-keys)). For new signing keys you create with polyjose, use ES256 or Ed25519.
 
 ## The JSON serialization
 

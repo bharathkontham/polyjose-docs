@@ -1,7 +1,7 @@
 // The samples of Guides › Sign and verify (src/content/docs/guides/sign-and-verify.mdx).
 //
 // JWS (RFC 7515) with the fixture keys: ES256 (RFC 7518 §3.4), Ed25519 (RFC 9864) and EdDSA
-// (RFC 8037 §3.1), HS256 (RFC 7518 §3.2), RS256 verification (RFC 7518 §3.3), the JSON
+// (RFC 8037 §3.1), HS256 (RFC 7518 §3.2), RS256 and PS256 (RFC 7518 §3.3, §3.5), the JSON
 // serializations (RFC 7515 §7.2), detached and unencoded payloads (RFC 7515 Appendix F, RFC 7797),
 // and the allow-list every verify takes (RFC 8725 §3.1). ECDSA and the generated keys are
 // randomized, so each test checks the shape of what it signs and verifies it.
@@ -121,6 +121,33 @@ class SignAndVerifyTest {
         // docs:end sign-and-verify/rs256
         assertEquals("RS256", verified.alg)
         assertEquals(RFC7515_A2_PAYLOAD, claims)
+    }
+
+    @Test
+    fun rsaSign() {
+        val rsaPrivateKey = rsaPrivateJwk()
+        val rsaPublicKey = fixtureJwk("rsa-public")
+        val payload = RFC7515_A2_PAYLOAD.toByteArray()
+        // docs:start sign-and-verify/rsa-sign
+        // rsaPrivateKey is an RSA private JWK with n, e, d, p, q, dp, dq and qi (RFC 7518 §6.3.2).
+        val token = jwsSignCompact(
+            payload = payload,
+            key = rsaPrivateKey,
+            options = JwsSignOptions(protectedHeader = """{"alg":"RS256"}"""),
+        )
+        // Verifiers need only the public half: {"kty":"RSA","n":"...","e":"AQAB"}.
+        val verified = jwsVerifyCompact(token, rsaPublicKey, JwsVerifyOptions(allowedAlgs = listOf("RS256")))
+        // docs:end sign-and-verify/rsa-sign
+        assertEquals(RFC7515_A2_JWS, token, "RSASSA-PKCS1-v1_5 is deterministic (RFC 8017 §8.2.1)")
+        assertEquals(RFC7515_A2_PAYLOAD, verified.payload.decodeToString())
+        // PS256 (RFC 7518 §3.5) is randomized, so it is checked by verifying it.
+        val ps256 = jwsSignCompact(payload, rsaPrivateKey, JwsSignOptions(protectedHeader = """{"alg":"PS256"}"""))
+        assertEquals("PS256", jwsVerifyCompact(ps256, rsaPublicKey, JwsVerifyOptions(allowedAlgs = listOf("PS256"))).alg)
+        // A public key can't sign.
+        assertEquals(
+            "KeyAlgorithmMismatch",
+            errorCodeOf { jwsSignCompact(payload, rsaPublicKey, JwsSignOptions(protectedHeader = """{"alg":"RS256"}""")) },
+        )
     }
 
     @Test

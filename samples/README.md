@@ -97,7 +97,7 @@ This prints the install line for `rust` (`cargo add`), `node` or `web` (`npm ins
 
 ## Fixtures
 
-`fixtures/keys.json` holds example keys published in the RFCs: the HMAC key from RFC 7515 Appendix A.1, the RSA public key from Appendix A.2, the P-256 key pair from Appendix A.3 and the Ed25519 key pair from RFC 8037 Appendix A.1. Each entry names its source. **These keys are public test keys. Their private parts are printed in the RFCs, so they protect nothing; never use them in an application.** A test checks every value against the RFC text and against the example signatures in the RFCs.
+`fixtures/keys.json` holds example keys published in the RFCs: the HMAC key from RFC 7515 Appendix A.1, the RSA key from Appendix A.2 (as `rsa-public` with its public members only, and as `rsa-private` with all of them), the P-256 key pair from Appendix A.3 and the Ed25519 key pair from RFC 8037 Appendix A.1. Each entry names its source. **These keys are public test keys. Their private parts are printed in the RFCs, so they protect nothing; never use them in an application.** A test checks every value against the RFC text and against the example signatures in the RFCs.
 
 Samples that generate keys check the shape of the result (`kty`, `crv`), not its value. Samples that issue a JWT set `exp` a few minutes ahead and verify the token in the same test, so they don't depend on a fixed clock.
 

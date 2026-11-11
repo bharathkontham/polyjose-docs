@@ -16,7 +16,7 @@ object Fixtures {
         JSONObject(File(path).readText()).getJSONObject("keys")
     }
 
-    /** The fixture JWK named [name] as JSON text: `hmac`, `rsa-public`, `p256` or `ed25519`. */
+    /** The fixture JWK named [name] as JSON text: `hmac`, `rsa-public`, `rsa-private`, `p256` or `ed25519`. */
     fun jwk(name: String): String = keys.getJSONObject(name).getJSONObject("jwk").toString()
 
     /** The public half of [jwk] (RFC 7517 §4, RFC 7518 §6.2.1): the private member `d` removed. */

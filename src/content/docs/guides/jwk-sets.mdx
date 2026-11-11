@@ -5,7 +5,7 @@ description: Validate JWTs against an issuer's JSON Web Key Set, understand how 
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)), a JSON object with a `keys` array, often at the `jwks_uri` of its OpenID Connect or OAuth metadata. Each key carries a `kid`, so the issuer can rotate keys and a token can say which one signed it ([RFC 7515 §4.1.4](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4)).
 
@@ -51,10 +51,14 @@ A set's order has no meaning ([RFC 7517 §5.1](https://www.rfc-editor.org/rfc/rf
 
 Selecting a key doesn't decide which algorithm it may be used with. Pass the key only to an operation with an allow-list, and when a `kid` comes from an untrusted header, select with an `alg` as well. Give every `oct` key an `alg`, or select it by `kid`: an `oct` key without `alg` matches every symmetric algorithm. The selected key may be private, so call `jwkToPublic` before publishing it (see [Manage keys](/guides/manage-keys/#publish-only-the-public-half)).
 
-## A set with an RSA private key
+## Keep your own private keys in a set
 
-A set that contains an RSA private key, for example one published by mistake, is refused as a whole with `UnsupportedAlgorithm`, because RSA private keys aren't supported (see [Not supported › RSA private keys](/security/not-supported/#rsa-private-keys)).
+A set may also hold private keys, such as your own RSA-OAEP-256 decryption key with its `d`, `p`, `q`, `dp`, `dq` and `qi`. polyjose keeps private members as imported, for RSA as for EC and OKP keys. Select the key by `kid` and `alg`, and decrypt with it. Before you publish the set, replace every key with its public half:
 
 <Samples id="jwk-sets/rsa-private" />
+
+Never serve the set you keep at a `jwks_uri`. polyjose doesn't refuse a set because it holds a private key, so checking what you publish is up to you.
+
+An RSA private key can serve two jobs: it signs `RS256` to `PS512` tokens and it decrypts `RSA-OAEP-256`. If you keep one for decryption only, or for signing only, set its `use` (`enc` or `sig`, [RFC 7517 §4.2](https://www.rfc-editor.org/rfc/rfc7517#section-4.2)) or its `alg` ([§4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.4)). polyjose checks both when it signs, verifies or decrypts with the key and when it picks keys from a set, so a decryption key can't be picked to sign a token, and a signing key can't be picked to decrypt one. Use a separate key pair for each job rather than one key for both.
 
 [Security model › JWK Sets](/security/model/#jwk-sets) summarises these rules.

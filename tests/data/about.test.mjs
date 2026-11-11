@@ -108,8 +108,8 @@ const futureWording = [
 	/\bplanned for after the 0\.1\.0 release\b/i,
 ];
 
-/** The sentence that frames the About page's list as the 0.1.2 release. */
-const framingSentence = /This list describes polyjose 0\.1\.2\./;
+/** The sentence that frames the About page's list as the 0.2.0 release. */
+const framingSentence = /This list describes polyjose 0\.2\.0\./;
 
 const pages = {
 	landing: '',
@@ -131,7 +131,7 @@ describe('the future-wording checks themselves', () => {
 	test('accept the released phrasings', () => {
 		for (const now of [
 			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
-			'RFC coverage. polyjose 0.1.2 implements: RFC 7515 (JWS)',
+			'RFC coverage. polyjose 0.2.0 implements: RFC 7515 (JWS)',
 			'The @polyjose/node package, a native addon that ships with prebuilt binaries.',
 			'Every binding passes the same conformance tests.',
 		]) {
@@ -139,8 +139,8 @@ describe('the future-wording checks themselves', () => {
 		}
 	});
 	test('the framing sentence pattern matches only the full sentence', () => {
-		assert.match('This list describes polyjose 0.1.2.', framingSentence);
-		assert.doesNotMatch('This list describes polyjose 0.1.2', framingSentence);
+		assert.match('This list describes polyjose 0.2.0.', framingSentence);
+		assert.doesNotMatch('This list describes polyjose 0.2.0', framingSentence);
 	});
 });
 
@@ -292,7 +292,7 @@ describe('About › Why polyjose', () => {
 		assert.match(text, /One JOSE implementation, every platform\./);
 	});
 
-	test('frames the "what makes polyjose different" list as the 0.1.2 release', () => {
+	test('frames the "what makes polyjose different" list as the 0.2.0 release', () => {
 		assert.match(text, framingSentence);
 		const framing = text.search(framingSentence);
 		const heading = text.search(/What makes polyjose different/);

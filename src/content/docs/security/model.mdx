@@ -3,7 +3,7 @@ title: Security model
 description: How polyjose builds on its cryptography, the safe defaults it applies to every token, and what remains your responsibility.
 ---
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 It covers how polyjose builds on its cryptography and the safe defaults it applies, with the RFC sections behind each rule. The same rules hold on every platform: Rust, Node.js, Web, Android and the JVM, and Swift (iOS).
 
@@ -13,7 +13,22 @@ polyjose uses pure-Rust cryptographic primitives from the [RustCrypto](https://g
 
 Pure Rust gives memory safety, not freedom from side channels. How well each primitive resists timing attacks depends on the crate that provides it. [Cryptographic foundations](/security/cryptographic-foundations/) lists every primitive crate and what its maintainers say about it.
 
-**Randomness comes only from the operating system's CSPRNG**, through the `getrandom` crate. That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys and generated keys. In the WebAssembly package the source is `crypto.getRandomValues`. If the system generator is unavailable, the operation fails. There is no fallback generator. ECDSA nonces are derived deterministically as in RFC 6979, which RFC 8725 §3.2 recommends for JWT libraries, so the nonce never depends on the random source alone. polyjose also mixes in added randomness as defence in depth.
+**Randomness comes only from the operating system's CSPRNG**, through the `getrandom` crate. That covers content encryption keys, initialization vectors, PBES2 salts, ephemeral ECDH keys, RSA blinding and PSS salts, and generated keys. In the WebAssembly package the source is `crypto.getRandomValues`. If the system generator is unavailable, the operation fails. There is no fallback generator. ECDSA nonces are derived deterministically as in RFC 6979, which RFC 8725 §3.2 recommends for JWT libraries, so the nonce never depends on the random source alone. polyjose also mixes in added randomness as defence in depth.
+
+### RSA private-key operations
+
+RSA signing (`RS256` to `RS512`, `PS256` to `PS512`) and `RSA-OAEP-256` decryption come from the RustCrypto `rsa` crate, the only pure-Rust RSA implementation. polyjose uses the first `rsa` release that [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) lists as patched. That advisory, the Marvin attack, is a timing side channel in RSA private-key operations. polyjose calls only `rsa`'s blinded signing and decryption, with randomness from the operating system, and a build check rejects any other private-key path.
+
+The evidence that these operations don't leak the key through timing is, said plainly:
+
+- The `rsa` maintainers check their private-key code with the BINSEC binary analyser (`cargo checkct`), which looks for branches and memory accesses that depend on secret values.
+- polyjose runs its own dudect-style statistical timing test: it compares decrypting valid and invalid `RSA-OAEP-256` encrypted keys, and signing different messages.
+- No one has run the Marvin toolkit against polyjose, and the current `rsa` rewrite has no published independent audit.
+
+Two known deviations of `rsa`:
+
+- **The first octet of an OAEP message isn't checked.** RSA-OAEP decryption doesn't check that the first octet of the encoded message is zero (RFC 8017 §7.1.2 step 3.g). In JWE this can't help an attacker: anyone with the public key can already encrypt any content key, the content key is authenticated by the tag, and a failed decryption never says which step failed (RFC 7516 §11.5, [below](#jwe)).
+- **Unbalanced primes are refused.** An RSA private key whose two primes differ in size by more than the half-modulus width fails to import with `InvalidKey`.
 
 ## Dependencies
 
@@ -26,12 +41,12 @@ polyjose's test suite fails when the core's dependency tree contains any crate t
 - **You choose the algorithms.** Every verify and decrypt call takes an explicit allow-list of algorithms, and every JWE decrypt call also takes an allow-list of content encryption (`enc`) algorithms. A token's `alg` or `enc` header never decides alone: a value outside your list fails with `AlgorithmNotAllowed` before any cryptography runs. An empty list, or one containing only `none`, is rejected.
 - **`none` is never accepted.** An unsecured token always fails with `AlgorithmNotAllowed`, and there is no option to allow it.
 - **Keys are bound to their algorithm family.** An HMAC (`oct`) key can't verify an `RS256` token, and an RSA key can't verify `ES256`. When a JWK carries `alg`, `use` or `key_ops`, they must agree with the operation. A mismatch fails with `KeyAlgorithmMismatch`.
-- **Weak keys are rejected.** RSA keys under 2048 bits are rejected (RFC 7518 §3.3), and so are HMAC keys shorter than the hash output (RFC 7518 §3.2). EC points are validated on the curve when a key is imported, including ephemeral public keys carried in a JWE header.
+- **Weak keys are rejected.** RSA keys under 2048 bits are rejected (RFC 7518 §3.3), and so are HMAC keys shorter than the hash output (RFC 7518 §3.2). EC points are validated on the curve when a key is imported, including ephemeral public keys carried in a JWE header. An RSA private key is checked when it is imported: its private members must belong to its `n` and `e`.
 - **Embedded keys are never trusted.** The `jwk`, `jku`, `x5u`, `x5c` and `kid` header members never select or replace the key you pass. They are returned to you as data. `kid` only narrows the candidates inside a JWK Set you provide ([below](#jwk-sets)).
 
 These rules follow RFC 8725 §3.1 ("Perform Algorithm Verification") and RFC 8725 §3.2 ("Use Appropriate Algorithms"). They answer the attacks described in RFC 8725 §2.1 ("Weak Signatures and Insufficient Signature Validation"): changing `alg` to `none`, or turning an `RS256` token into `HS256` so that the RSA public key is used as an HMAC secret.
 
-Some algorithms are left out entirely. RSA is public-key only, because [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) affects RSA private-key operations and has no fixed release. There is no SHA-1, so no `RSA-OAEP` (use `RSA-OAEP-256` or `ECDH-ES`), and there is no `RSA1_5`. [What polyjose does not support](/security/not-supported/) explains each one.
+Some algorithms are left out entirely. There is no SHA-1, so no `RSA-OAEP` (use `RSA-OAEP-256` or `ECDH-ES`), and there is no `RSA1_5`. RSA keys can't be generated, only imported. [What polyjose does not support](/security/not-supported/) explains each one.
 
 ## JWS
 
@@ -43,7 +58,7 @@ Some algorithms are left out entirely. RSA is public-key only, because [RUSTSEC-
 
 ## JWE
 
-- **One error for every decryption failure.** Once decryption starts, every failure (a wrong key, a bad authentication tag, bad padding, a PBES2 count above the bound, a decompression error) returns the same error code, `DecryptionFailed`. An attacker can't tell the causes apart, so there is no padding oracle. Malformed tokens and algorithms you didn't allow are rejected earlier, with their own codes, before any key is used.
+- **One error for every decryption failure.** Once decryption starts, every failure (a wrong key, a bad authentication tag, bad padding, a PBES2 count above the bound, a decompression error) returns the same error code, `DecryptionFailed`. An attacker can't tell the causes apart, so there is no padding oracle. For `RSA-OAEP-256`, an encrypted key that doesn't decrypt is never reported as such: polyjose continues with a random content key, so the token fails at the tag, by the same path as any other bad token (RFC 7516 §11.5). Malformed tokens and algorithms you didn't allow are rejected earlier, with their own codes, before any key is used.
 - **PBES2 iteration counts are bounded.** An incoming token's `p2c` may be at most 10,000 by default, so a hostile token can't make you run an unbounded number of PBKDF2 iterations. You can raise the bound explicitly, up to 1,000,000. Tokens polyjose creates use 10,000, above the minimum of 1,000 that RFC 7518 §4.8.1.2 recommends.
 - **Prefer high-entropy secrets over high counts.** Iterations only slow down guessing, and they don't make a weak password strong. Use randomly generated secrets wherever you can. RFC 8725 §3.5 ("Ensure Cryptographic Keys Have Sufficient Entropy") notes that password-based encryption is still subject to brute-force attacks.
 - **Input limits.** A serialized JWE may be at most 1 MiB, and a JSON JWE may have at most 16 recipients. Both are configurable.
@@ -67,7 +82,7 @@ When you verify against a JWK Set, polyjose picks candidate keys from it:
 
 - Candidates are filtered by the key type and curve that the token's `alg` needs, then by each key's own `alg`, `use` and `key_ops` (RFC 7517 §4.2–§4.4), then by `kid` when the token carries one. A `kid` is compared as an exact string and never used as a path, URL or query (RFC 8725 §3.10).
 - At most 8 candidates are tried, in order, and the first that verifies wins. A token that matches more candidates fails with `NoMatchingKey` before any signature is checked. The bound is configurable.
-- A set containing an RSA private key is rejected as a whole, with `UnsupportedAlgorithm`, so a published private key can't go unnoticed.
+- A set may contain private keys, RSA ones included, which are kept as imported. That lets you keep your own decryption keys in a set. Call `jwkToPublic` on each key before you publish a set, so a private key is never published.
 
 polyjose never fetches a JWK Set itself. You fetch the issuer's set and pass it in.
 

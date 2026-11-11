@@ -2,10 +2,10 @@
 // The Web run executes this same file with `@polyjose/node` replaced by `@polyjose/wasm`.
 //
 // JWE (RFC 7516) in the compact and JSON serializations, with ECDH-ES+A256KW (RFC 7518 §4.6,
-// RFC 8037 §3.2), dir (RFC 7518 §4.5), A256KW (RFC 7518 §4.4), RSA-OAEP-256 (RFC 7518 §4.3,
-// encryption only), PBES2 (RFC 7518 §4.8) and A256GCM content encryption (RFC 7518 §5.3). Keys are
-// generated in each test, except the RSA public key, which is RFC 7515 Appendix A.2.1's. Every
-// decryption failure has the one code DecryptionFailed (RFC 7516 §11.5).
+// RFC 8037 §3.2), dir (RFC 7518 §4.5), A256KW (RFC 7518 §4.4), RSA-OAEP-256 (RFC 7518 §4.3),
+// PBES2 (RFC 7518 §4.8) and A256GCM content encryption (RFC 7518 §5.3). Keys are generated in each
+// test, except the RSA key pair, which is RFC 7515 Appendix A.2.1's. Every decryption failure has
+// the one code DecryptionFailed (RFC 7516 §11.5).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -114,19 +114,41 @@ test('A256KW with A256GCM and a shared key', async () => {
   assert.equal(decoder.decode(decrypted.plaintext), 'top secret');
 });
 
-test('RSA-OAEP-256 encryption to an RSA public key', async () => {
+test('RSA-OAEP-256 to an RSA public key, decrypted with the private key', async () => {
   const rsaPublicKey = fixtureJwk('rsa-public');
+  const rsaPrivateKey = fixtureJwk('rsa-private');
   // docs:start encrypt-and-decrypt/rsa-oaep-256
-  // `rsaPublicKey` is the recipient's public JWK: {"kty":"RSA","n":"...","e":"AQAB"}.
+  // The sender has the recipient's public JWK: {"kty":"RSA","n":"...","e":"AQAB"}.
   const token = await jweEncryptCompact(new TextEncoder().encode('top secret'), {
     enc: 'A256GCM',
     recipients: [{ alg: 'RSA-OAEP-256', key: rsaPublicKey }],
+  });
+
+  // The recipient decrypts with its RSA private JWK.
+  const decrypted = await jweDecryptCompact(token, rsaPrivateKey, {
+    allowedAlgs: ['RSA-OAEP-256'],
+    allowedEnc: ['A256GCM'],
   });
   // docs:end encrypt-and-decrypt/rsa-oaep-256
   const parts = token.split('.');
   assert.equal(parts.length, 5);
   assert.deepEqual(protectedHeaderOf(token), { alg: 'RSA-OAEP-256', enc: 'A256GCM' });
   assert.equal(Buffer.from(parts[1], 'base64url').length, 256, 'one 2048-bit RSA block');
+  assert.equal(decoder.decode(decrypted.plaintext), 'top secret');
+  // A changed Encrypted Key is not reported as such: it fails like every other decryption
+  // failure (RFC 7516 §11.5).
+  const encryptedKey = Buffer.from(parts[1], 'base64url');
+  encryptedKey[10] ^= 1;
+  const tampered = [parts[0], encryptedKey.toString('base64url'), ...parts.slice(2)].join('.');
+  await assert.rejects(
+    jweDecryptCompact(tampered, rsaPrivateKey, { allowedAlgs: ['RSA-OAEP-256'], allowedEnc: ['A256GCM'] }),
+    (err) => err instanceof PolyjoseError && err.code === 'DecryptionFailed',
+  );
+  // The public key can't decrypt.
+  await assert.rejects(
+    jweDecryptCompact(token, rsaPublicKey, { allowedAlgs: ['RSA-OAEP-256'], allowedEnc: ['A256GCM'] }),
+    (err) => err instanceof PolyjoseError && err.code === 'KeyAlgorithmMismatch',
+  );
 });
 
 /** Stands in for a password the user enters: random bytes, so no password is written in source. */

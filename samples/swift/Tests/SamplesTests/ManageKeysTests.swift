@@ -100,15 +100,34 @@ final class ManageKeysTests: XCTestCase {
     func testRsaPrivate() throws {
         let rsaPrivateKey = try rsaPrivateJwk()
         // docs:start manage-keys/rsa-private
-        // rsaPrivateKey holds an RSA private exponent "d" (RFC 7518 §6.3.2).
-        var code: String?
-        do {
-            _ = try jwkParse(jwk: rsaPrivateKey)
-        } catch let error as PolyjoseError {
-            code = error.code()  // "UnsupportedAlgorithm": RSA private keys are refused
-        }
+        // rsaPrivateKey is an RSA private JWK with n, e, d, p, q, dp, dq and qi (RFC 7518 §6.3.2).
+        let pem = try jwkToPem(jwk: rsaPrivateKey, format: "pkcs8")  // -----BEGIN PRIVATE KEY----- (RFC 5958)
+        let imported = try jwkFromPem(pem: pem)  // also reads -----BEGIN RSA PRIVATE KEY----- (RFC 8017 Appendix A.1.2)
+        let publicKey = try jwkToPublic(jwk: imported)  // only n and e, safe to publish
         // docs:end manage-keys/rsa-private
-        XCTAssertEqual(code, "UnsupportedAlgorithm")
+        XCTAssertTrue(pem.hasPrefix("-----BEGIN PRIVATE KEY-----"), pem)
+        let original = try jsonObject(rsaPrivateKey)
+        let back = try jsonObject(imported)
+        for name in ["n", "e", "d", "p", "q", "dp", "dq", "qi"] {
+            XCTAssertEqual(back[name] as? String, original[name] as? String, name)
+        }
+        let publicMembers = try jsonObject(publicKey)
+        XCTAssertEqual(publicMembers["n"] as? String, original["n"] as? String)
+        for name in ["d", "p", "q", "dp", "dq", "qi"] {
+            XCTAssertNil(publicMembers[name], name)
+        }
+        let der = try jwkToDer(jwk: rsaPrivateKey, format: "pkcs8")
+        XCTAssertEqual(try jsonObject(try jwkFromDer(der: der, format: "pkcs8"))["qi"] as? String, original["qi"] as? String)
+        // PKCS #1 export writes only an RSAPublicKey (RFC 8017 Appendix A.1.1), so a private key is
+        // refused rather than silently reduced to its public half: call jwkToPublic first.
+        XCTAssertEqual(try errorCode { _ = try jwkToPem(jwk: rsaPrivateKey, format: "pkcs1") }, "InvalidKey")
+        XCTAssertEqual(try errorCode { _ = try jwkToDer(jwk: rsaPrivateKey, format: "pkcs1") }, "InvalidKey")
+        XCTAssertTrue(try jwkToPem(jwk: publicKey, format: "pkcs1").hasPrefix("-----BEGIN RSA PUBLIC KEY-----"))
+        // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
+        let exponentOnly = try rsaExponentOnlyJwk()
+        XCTAssertEqual(try errorCode { _ = try jwkParse(jwk: exponentOnly) }, "InvalidKey")
+        // RSA keys can't be generated.
+        XCTAssertEqual(try errorCode { _ = try jwkGenerateForAlg(alg: "RS256") }, "UnsupportedAlgorithm")
     }
 
     func testThumbprint() throws {

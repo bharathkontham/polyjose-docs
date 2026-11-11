@@ -5,7 +5,7 @@ description: The pure-Rust cryptographic libraries polyjose builds on, their lic
 
 import PrimitivesTable from '../../../components/PrimitivesTable.astro';
 
-This page describes polyjose 0.1.2.
+This page describes polyjose 0.2.0.
 
 polyjose implements the JOSE standards (JWS, JWE, JWK and JWT) without implementing any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
 
@@ -22,7 +22,7 @@ Everything that is not a cryptographic primitive, such as JSON, base64url and DE
 polyjose uses a cryptographic library only when all of these hold:
 
 - It comes from the RustCrypto or dalek-cryptography projects, is written in pure Rust, and is actively maintained.
-- It has no unresolved RustSec advisory at the version polyjose pins. polyjose's test suite fails on any RustSec advisory against a version it pins. The one exception, `rsa`, is limited to operations the advisory does not affect; see [below](#rsa-public-key-operations-only).
+- It has no unresolved RustSec advisory at the version polyjose pins. polyjose's test suite fails on any RustSec advisory against a version it pins, with no exceptions.
 - Its algorithm is not broken for the way JOSE uses it.
 - It passes the RFC, NIST and Wycheproof test vectors at that exact version, in polyjose's conformance tests.
 - Its audit status is disclosed, on this page.
@@ -31,7 +31,7 @@ Where more than one library qualifies, polyjose prefers the one with the stronge
 
 Randomness comes only from the operating system's random number generator, through `getrandom` from the rust-random project.
 
-The table below shows the exact version of each library in polyjose's lockfile (`Cargo.lock`) at commit `038779a`. An upgrade goes only through a change that reruns the full test suite and rechecks the library's audit status.
+The table below shows the exact version of each library in polyjose's lockfile (`Cargo.lock`) at commit `cfeed85`. An upgrade goes only through a change that reruns the full test suite and rechecks the library's audit status.
 
 Pure Rust gives memory safety, not freedom from side channels. How well each library resists timing attacks is described in its own documentation.
 
@@ -43,11 +43,11 @@ Audit status is given as the reviewers and the libraries' maintainers published 
 
 <PrimitivesTable />
 
-## RSA: public-key operations only
+## RSA signing and decryption
 
-polyjose uses `rsa` for public-key operations only, because [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) (the Marvin attack) has no patched release. The advisory describes a timing side channel that can leak the private key, so it affects operations that use the private key: signing and decryption.
+polyjose uses `rsa` to sign and verify RS256, RS384, RS512, PS256, PS384 and PS512 signatures, and to encrypt and decrypt RSA-OAEP-256. The version in the table is the first release that [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) (the Marvin attack) lists as patched. That advisory describes a timing side channel that can leak the private key during signing and decryption, and polyjose's advisory check now runs with no exception for it.
 
-Public-key operations handle no secret, so polyjose offers them: verifying RS256, RS384, RS512, PS256, PS384 and PS512 signatures, and encrypting to RSA-OAEP-256 recipients. RSA signing, RSA decryption and RSA key generation are not offered; [RSA private keys](/security/not-supported/#rsa-private-keys) explains why and what to use instead.
+polyjose calls only the crate's blinded private-key operations. [Security model › RSA private-key operations](/security/model/#rsa-private-key-operations) gives the timing evidence and the two places where `rsa` differs from RFC 8017. RSA key generation and multi-prime keys are not offered; [RSA key generation and multi-prime keys](/security/not-supported/#rsa-key-generation-and-multi-prime-keys) explains why and what to use instead.
 
 ## No SHA-1 and no RSA1_5
 

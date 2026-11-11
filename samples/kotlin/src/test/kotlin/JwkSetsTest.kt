@@ -2,8 +2,9 @@
 //
 // Verifying JWTs against a JWK Set (RFC 7517 §5), as an issuer publishes at its jwks_uri: the key
 // is chosen by the token's kid (RFC 7515 §4.1.4) and alg, the issuer is still checked
-// (RFC 8725 §3.8), and a set holding an RSA private key is refused. The set is
-// fixtures/jwks.json; the signers are the matching fixture private keys with the same kid.
+// (RFC 8725 §3.8), and a set of one's own keys holds an RSA private key for RSA-OAEP-256
+// decryption. The set is fixtures/jwks.json; the signers are the matching fixture private keys
+// with the same kid.
 
 import dev.polyjose.*
 import java.time.Instant
@@ -107,17 +108,32 @@ class JwkSetsTest {
 
     @Test
     fun rsaPrivate() {
-        val token = signedToken(withKid(fixtureJwk("p256"), "p256-2026"), "ES256")
-        val leaked = """{"keys":[${rsaPrivateJwk()}]}"""
+        val rsaMember = JSONObject(rsaPrivateJwk()).put("kid", "enc-2026").put("alg", "RSA-OAEP-256").put("use", "enc")
+        val p256Member = JSONObject(fixtureJwk("p256")).put("kid", "p256-2026").put("alg", "ES256").put("use", "sig")
+        val privateJwks = """{"keys":[$p256Member,$rsaMember]}"""
+        // A sender encrypts to the published RSA key.
+        val token = jweEncryptCompact(
+            "hello".toByteArray(),
+            JweEncryptOptions(enc = "A256GCM", recipients = listOf(JweRecipient(alg = "RSA-OAEP-256", key = fixtureJwk("rsa-public")))),
+        )
         // docs:start jwk-sets/rsa-private
-        // A set that contains an RSA private key (one with "d") is refused as a whole.
-        val code = try {
-            jwtVerifyWithJwks(token, leaked, options)
-            null
-        } catch (e: PolyjoseException) {
-            e.code() // "UnsupportedAlgorithm"
-        }
+        // privateJwks is your own set, private members included: never publish it as it is.
+        val key = jwksSelect(privateJwks, JwkSelector(kid = "enc-2026", alg = "RSA-OAEP-256"))
+        val decrypted = jweDecryptCompact(
+            token,
+            key,
+            JweDecryptOptions(allowedAlgs = listOf("RSA-OAEP-256"), allowedEnc = listOf("A256GCM")),
+        )
+        // Publish the public halves only.
+        val keys = JSONObject(privateJwks).getJSONArray("keys")
+        val published = (0 until keys.length()).map { jwkToPublic(keys.getJSONObject(it).toString()) }
         // docs:end jwk-sets/rsa-private
-        assertEquals("UnsupportedAlgorithm", code)
+        assertEquals("hello", decrypted.plaintext.decodeToString())
+        assertEquals(JSONObject(rsaPrivateJwk()).getString("d"), JSONObject(key).getString("d"), "kept as imported")
+        assertEquals(2, published.size)
+        for (jwk in published.map { JSONObject(it) }) {
+            for (name in listOf("d", "p", "q", "dp", "dq", "qi")) assertFalse(jwk.has(name), name)
+        }
+        assertEquals("enc-2026", JSONObject(published[1]).getString("kid"))
     }
 }

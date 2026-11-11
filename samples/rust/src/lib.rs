@@ -11,7 +11,7 @@ use polyjose::jwk::Jwk;
 const KEYS_JSON: &str = include_str!("../../fixtures/keys.json");
 
 /// The fixture JWK named `name`: `hmac` (RFC 7515 A.1.1), `rsa-public` (A.2.1, public members
-/// only), `p256` (A.3.1) or `ed25519` (RFC 8037 A.1).
+/// only), `rsa-private` (A.2.1, every member), `p256` (A.3.1) or `ed25519` (RFC 8037 A.1).
 ///
 /// # Panics
 ///
