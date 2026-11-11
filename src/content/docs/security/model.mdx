@@ -80,7 +80,7 @@ Claims are read only after the signature has been verified, so a tampered token 
 
 When you verify against a JWK Set, polyjose picks candidate keys from it:
 
-- Candidates are filtered by the key type and curve that the token's `alg` needs, then by each key's own `alg`, `use` and `key_ops` (RFC 7517 §4.2–§4.4), then by `kid` when the token carries one. A `kid` is compared as an exact string and never used as a path, URL or query (RFC 8725 §3.10).
+- Candidates are filtered by the key type and curve that the token's `alg` needs, then by each key's own `alg`, `use` and `key_ops` (RFC 7517 §4.2–§4.4), then by `kid` when the token carries one, so that a key without a `kid` never matches a token that names one. A `kid` is compared as an exact string and never used as a path, URL or query (RFC 8725 §3.10).
 - At most 8 candidates are tried, in order, and the first that verifies wins. A token that matches more candidates fails with `NoMatchingKey` before any signature is checked. The bound is configurable.
 - A set may contain private keys, RSA ones included, which are kept as imported. That lets you keep your own decryption keys in a set. Call `jwkToPublic` on each key before you publish a set, so a private key is never published.
 

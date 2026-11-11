@@ -7,7 +7,7 @@ import Samples from '../../../components/samples/Samples.astro';
 
 This page describes polyjose 0.2.0.
 
-An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)), a JSON object with a `keys` array, often at the `jwks_uri` of its OpenID Connect or OAuth metadata. Each key carries a `kid`, so the issuer can rotate keys and a token can say which one signed it ([RFC 7515 §4.1.4](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4)).
+An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)), a JSON object with a `keys` array, often at the `jwks_uri` of its OpenID Connect or OAuth metadata. A key usually carries a `kid`, so the issuer can rotate keys and a token can say which one signed it ([RFC 7515 §4.1.4](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4)), but the `kid` is optional ([RFC 7517 §4.5](https://www.rfc-editor.org/rfc/rfc7517#section-4.5)).
 
 ## Verify a JWT against a set
 
@@ -21,7 +21,7 @@ Don't read the token's header yourself to pick a key before verifying. Pass the 
 
 ## How a key is chosen
 
-For the token's `alg`, polyjose takes the keys of the set that can serve it: the right key type and curve, a JWK `alg` that is absent or equal, a `use` that is absent or `sig`, and `key_ops` that are absent or contain `verify` ([RFC 7517 §4.2–§4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.2)). If the token's protected header has a `kid`, only keys with exactly that `kid` remain. The candidates are then tried in set order, and the first that verifies wins.
+For the token's `alg`, polyjose takes the keys of the set that can serve it: the right key type and curve, a JWK `alg` that is absent or equal, a `use` that is absent or `sig`, and `key_ops` that are absent or contain `verify` ([RFC 7517 §4.2–§4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.2)). If the token's protected header has a `kid`, only keys with exactly that `kid` remain: a key without a `kid` is never a candidate then, even when no key has that `kid`. If the header has no `kid`, every key that can serve the `alg` is a candidate, with or without a `kid`. The candidates are then tried in set order, and the first that verifies wins. When every candidate fails, you get the error of the candidate that got furthest: `InvalidSignature`, then `InvalidKey`, then `KeyAlgorithmMismatch`, with ties going to the earliest key in the set.
 
 - No candidate fails with `NoMatchingKey`, before any signature is checked.
 - More than 8 candidates also fail with `NoMatchingKey`, so a token without a `kid` can't make polyjose try every key of a large set. Change the limit with `maxKeyCandidates`.
