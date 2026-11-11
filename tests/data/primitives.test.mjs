@@ -31,7 +31,7 @@ const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
 // Quarkslab post names subtle among the libraries it audited.
 const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa', 'crypto-bigint', 'subtle'];
 
-// Each crate's exact version in polyjose's Cargo.lock at commit f9d5bdc, copied
+// Each crate's exact version in polyjose's Cargo.lock at commit cfeed85, copied
 // by hand. A fixture on purpose: the data file is compared with the lockfile's
 // values, not with itself.
 const LOCKED = {
@@ -418,7 +418,7 @@ test('page: each row shows the crate\'s locked version, and says where the versi
     assert.match(row, new RegExp(`<td class="version[^"]*"[^>]*>\\s*<code[^>]*>${p.version.replace(/\./g, '\\.')}</code>`), `${p.crate}: version cell`);
   }
   assert.match(text, /Cargo\.lock/);
-  assert.match(text, /commit f9d5bdc/);
+  assert.match(text, /commit cfeed85/);
   assert.doesNotMatch(text, /before 0\.1\.0 is published/);
 });
 

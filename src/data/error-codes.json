@@ -74,7 +74,8 @@
         "An RSA private JWK with `d` but not `p`, `q`, `dp`, `dq` and `qi`, or whose private members don't belong to its `n` and `e`",
         "An EC private key whose length is not the curve's field size",
         "An Ed25519 public key of small order",
-        "A requested `oct` key length outside 16 to 512 bytes"
+        "A requested `oct` key length outside 16 to 512 bytes",
+        "An RSA private key exported as `pkcs1`, which holds only a public key: call `jwkToPublic` first"
       ]
     },
     {

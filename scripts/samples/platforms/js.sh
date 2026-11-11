@@ -3,12 +3,11 @@
 # "Platform runners" in samples/README.md).
 #
 # Git mode, in the copy of the pinned commit that common.sh exports:
-#   1. bindings/node/scripts/pack.sh packs @polyjose/node and its darwin addon packages, and
-#      bindings/wasm/scripts/build-package.sh packs @polyjose/wasm. Both only pack (they never
-#      publish); pack.sh runs on macOS only.
-#   2. The tarballs are installed into samples/js/node_modules offline, with a fresh npm cache and
-#      no install scripts, as polyjose's own package test installs them. npm finds no other
-#      platform's addon offline and leaves those optional dependencies out.
+#   1. bindings/node/scripts/pack.sh packs @polyjose/node, one package that carries the macOS
+#      arm64 and x64 addons (polyjose 0.1.2 and later), and bindings/wasm/scripts/build-package.sh
+#      packs @polyjose/wasm. Both only pack (they never publish); pack.sh runs on macOS only.
+#   2. The two tarballs are installed into samples/js/node_modules offline, with a fresh npm cache
+#      and no install scripts, as polyjose's own package test installs them.
 #   3. Node.js: `node --test` runs samples/js.
 #   4. Web: samples/js is copied to samples/.generated/web with every `@polyjose/node` import
 #      rewritten to `@polyjose/wasm` by the site's own rewrite (toWebImports in
@@ -34,9 +33,8 @@ tsc="$SAMPLES_ROOT/node_modules/.bin/tsc"
 samples_export_polyjose
 
 case $(uname -m) in
-  arm64) addon=darwin-arm64 ;;
-  x86_64) addon=darwin-x64 ;;
-  *) samples_skip "no @polyjose/node addon is packed for macOS on $(uname -m)" ;;
+  arm64 | x86_64) ;;
+  *) samples_skip "@polyjose/node carries no addon for macOS on $(uname -m)" ;;
 esac
 
 echo "==> js: pack @polyjose/node (bindings/node/scripts/pack.sh)"
@@ -54,7 +52,6 @@ one_file() {
 }
 node_dist="$POLYJOSE_EXPORT/bindings/node/dist/npm"
 node_tgz=$(one_file "$node_dist/polyjose-node-[0-9]*.tgz")
-addon_tgz=$(one_file "$node_dist/polyjose-node-$addon-[0-9]*.tgz")
 wasm_tgz=$(one_file "$POLYJOSE_EXPORT/dist/npm/polyjose-wasm-[0-9]*.tgz")
 
 echo "==> js: install the tarballs into samples/js (offline)"
@@ -73,7 +70,7 @@ mkdir -p "$npm_home"
     npm_config_update_notifier=false npm_config_ignore_scripts=true \
     npm_config_package_lock=false npm_config_save=false
   cd "$SAMPLES_ROOT/samples/js" || exit 1
-  npm install --loglevel=error "$node_tgz" "$addon_tgz" "$wasm_tgz"
+  npm install --loglevel=error "$node_tgz" "$wasm_tgz"
 )
 
 echo "==> js: Node.js (@polyjose/node): node --test samples/js"

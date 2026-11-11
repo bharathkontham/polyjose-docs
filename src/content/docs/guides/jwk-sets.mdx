@@ -59,4 +59,6 @@ A set may also hold private keys, such as your own RSA-OAEP-256 decryption key w
 
 Never serve the set you keep at a `jwks_uri`. polyjose doesn't refuse a set because it holds a private key, so checking what you publish is up to you.
 
+An RSA private key can serve two jobs: it signs `RS256` to `PS512` tokens and it decrypts `RSA-OAEP-256`. If you keep one for decryption only, or for signing only, set its `use` (`enc` or `sig`, [RFC 7517 §4.2](https://www.rfc-editor.org/rfc/rfc7517#section-4.2)) or its `alg` ([§4.4](https://www.rfc-editor.org/rfc/rfc7517#section-4.4)). polyjose checks both when it signs, verifies or decrypts with the key and when it picks keys from a set, so a decryption key can't be picked to sign a token, and a signing key can't be picked to decrypt one. Use a separate key pair for each job rather than one key for both.
+
 [Security model › JWK Sets](/security/model/#jwk-sets) summarises these rules.

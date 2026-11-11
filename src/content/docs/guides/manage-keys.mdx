@@ -48,7 +48,7 @@ Keys from other tools often come as PEM ([RFC 7468](https://www.rfc-editor.org/r
 		<tr><th scope="row"><code>pkcs8</code></th><td><code>PRIVATE KEY</code></td><td>An EC, OKP or RSA private key (<a href="https://www.rfc-editor.org/rfc/rfc5958#section-2">RFC 5958 §2</a>)</td></tr>
 		<tr><th scope="row"><code>spki</code></th><td><code>PUBLIC KEY</code></td><td>An EC, OKP or RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc5280#section-4.1.2.7">RFC 5280 §4.1.2.7</a>); a private key exports its public half</td></tr>
 		<tr><th scope="row"><code>sec1</code></th><td><code>EC PRIVATE KEY</code></td><td>An EC private key (<a href="https://www.rfc-editor.org/rfc/rfc5915#section-3">RFC 5915 §3</a>)</td></tr>
-		<tr><th scope="row"><code>pkcs1</code></th><td><code>RSA PUBLIC KEY</code>, <code>RSA PRIVATE KEY</code></td><td>An RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1">RFC 8017 Appendix A.1.1</a>), or on import a two-prime RSA private key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.2">Appendix A.1.2</a>); a private key exports its public half</td></tr>
+		<tr><th scope="row"><code>pkcs1</code></th><td><code>RSA PUBLIC KEY</code>, <code>RSA PRIVATE KEY</code></td><td>An RSA public key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1">RFC 8017 Appendix A.1.1</a>), or on import a two-prime RSA private key (<a href="https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.2">Appendix A.1.2</a>); exporting a private key fails with <code>InvalidKey</code></td></tr>
 	</tbody>
 </table>
 
@@ -68,7 +68,7 @@ RSA public keys import and export as `spki` or `pkcs1`:
 
 ## RSA private keys
 
-An RSA private key signs RS256 to PS512 tokens and decrypts RSA-OAEP-256. As a JWK it has `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi` ([RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)). polyjose imports it from a JWK, from PKCS#8 (`PRIVATE KEY`) and from PKCS#1 (`RSA PRIVATE KEY`, or DER with the format `pkcs1`), and exports it as a JWK or as PKCS#8. Exporting it as `pkcs1` or `spki` writes its public half.
+An RSA private key signs RS256 to PS512 tokens and decrypts RSA-OAEP-256. As a JWK it has `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi` ([RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)). polyjose imports it from a JWK, from PKCS#8 (`PRIVATE KEY`) and from PKCS#1 (`RSA PRIVATE KEY`, or DER with the format `pkcs1`), and exports it as a JWK or as PKCS#8. Exporting it as `spki` writes its public half. Exporting it as `pkcs1` fails with `InvalidKey`, because that format only writes an RSA public key ([RFC 8017 Appendix A.1.1](https://www.rfc-editor.org/rfc/rfc8017#appendix-A.1.1)) and polyjose won't drop the private members without being asked: call `jwkToPublic` first.
 
 <Samples id="manage-keys/rsa-private" />
 

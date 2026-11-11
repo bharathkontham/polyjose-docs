@@ -157,9 +157,11 @@ test('RSA private keys in PKCS #8, and their public half', async () => {
   assert.deepEqual(publicKey, fixtureJwk('rsa-public'));
   const der = await jwkToDer(rsaPrivateKey, 'pkcs8');
   assert.deepEqual(await jwkFromDer(der, 'pkcs8'), rsaPrivateKey);
-  // PKCS #1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
-  const pkcs1 = await jwkToPem(rsaPrivateKey, 'pkcs1');
-  assert.ok(pkcs1.startsWith('-----BEGIN RSA PUBLIC KEY-----\n'));
+  // PKCS #1 export writes only an RSAPublicKey (RFC 8017 Appendix A.1.1), so a private key is
+  // refused rather than silently reduced to its public half: call jwkToPublic first.
+  await assert.rejects(jwkToPem(rsaPrivateKey, 'pkcs1'), (err) => err instanceof PolyjoseError && err.code === 'InvalidKey');
+  await assert.rejects(jwkToDer(rsaPrivateKey, 'pkcs1'), (err) => err instanceof PolyjoseError && err.code === 'InvalidKey');
+  assert.ok((await jwkToPem(publicKey, 'pkcs1')).startsWith('-----BEGIN RSA PUBLIC KEY-----\n'));
   // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
   const exponentOnly = { ...fixtureJwk('rsa-public'), d: RFC7515_A2_D };
   await assert.rejects(jwkParse(exponentOnly), (err) => err instanceof PolyjoseError && err.code === 'InvalidKey');

@@ -181,9 +181,18 @@ fn rsa_private() -> Result<(), Error> {
     let der = rsa_private.to_der(KeyFormat::Pkcs8)?;
     let from_der = Jwk::from_der(&der, KeyFormat::Pkcs8)?;
     assert_eq!(member(&from_der, "qi"), member(&rsa_private, "qi"));
-    // PKCS#1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
+    // PKCS#1 export writes only an RSAPublicKey (RFC 8017 Appendix A.1.1), so a private key is
+    // refused rather than silently reduced to its public half: call to_public first.
+    assert_eq!(
+        rsa_private.to_pem(KeyFormat::Pkcs1).err().map(|e| e.code()),
+        Some("InvalidKey")
+    );
+    assert_eq!(
+        rsa_private.to_der(KeyFormat::Pkcs1).err().map(|e| e.code()),
+        Some("InvalidKey")
+    );
     assert!(
-        rsa_private
+        public_key
             .to_pem(KeyFormat::Pkcs1)?
             .starts_with("-----BEGIN RSA PUBLIC KEY-----\n")
     );

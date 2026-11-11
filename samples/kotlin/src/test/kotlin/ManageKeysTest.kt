@@ -128,8 +128,11 @@ class ManageKeysTest {
         for (name in listOf("d", "p", "q", "dp", "dq", "qi")) assertFalse(public.has(name), name)
         val fromDer = JSONObject(jwkFromDer(jwkToDer(rsaPrivateKey, "pkcs8"), "pkcs8"))
         assertEquals(original.getString("qi"), fromDer.getString("qi"))
-        // PKCS #1 export writes the RSAPublicKey, the public half (RFC 8017 Appendix A.1.1).
-        assertTrue(jwkToPem(rsaPrivateKey, "pkcs1").startsWith("-----BEGIN RSA PUBLIC KEY-----"))
+        // PKCS #1 export writes only an RSAPublicKey (RFC 8017 Appendix A.1.1), so a private key is
+        // refused rather than silently reduced to its public half: call jwkToPublic first.
+        assertEquals("InvalidKey", errorCodeOf { jwkToPem(rsaPrivateKey, "pkcs1") })
+        assertEquals("InvalidKey", errorCodeOf { jwkToDer(rsaPrivateKey, "pkcs1") })
+        assertTrue(jwkToPem(publicKey, "pkcs1").startsWith("-----BEGIN RSA PUBLIC KEY-----"))
         // RFC 7518 §6.3.2: producers SHOULD include the CRT members, and polyjose requires them.
         assertEquals("InvalidKey", errorCodeOf { jwkParse(rsaExponentOnlyJwk()) })
         // RSA keys can't be generated.
