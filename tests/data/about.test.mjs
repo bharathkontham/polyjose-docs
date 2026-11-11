@@ -384,7 +384,7 @@ describe('Reference › API reference', () => {
 		assert.match(text, /\/api\/js\//);
 		assert.match(text, /@polyjose\/node/);
 		assert.match(text, /@polyjose\/wasm/);
-		assert.match(text, /0\.1\.1 release \(commit 038779a\)/, 'says which source the reference was generated from');
+		assert.match(text, /0\.2\.0 release \(commit f94b84a\)/, 'says which source the reference was generated from');
 		const js = links.filter((l) => l.href.startsWith('/api/js'));
 		assert.deepEqual(js.map((l) => l.href), ['/api/js/index.html'], 'one link, to the generated index page');
 		assert.ok(existsSync(`${dist}api/js/index.html`), 'npm run build generates dist/api/js/index.html');
