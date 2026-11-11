@@ -1,6 +1,44 @@
 ---
 title: Migrate to polyjose
-description: Move to polyjose from another JOSE library.
+description: Pick the migration guide for the JOSE library you use now, and see the changes that every move to polyjose brings.
 ---
 
-Migration guides are planned, with no date yet. They will compare polyjose with the JOSE libraries people move from most often and show the equivalent code side by side.
+This page describes polyjose 0.2.0.
+
+Each guide compares polyjose with one JOSE library and shows the same tasks in both, side by side: install and import, signing and verifying a JWT, JWS, JWE, keys, JWK Sets and errors. Both sides of every sample run as tests, the other library's against the exact version the guide names. Further tests pass tokens between the two libraries in both directions, so you can move one service at a time.
+
+## Choose your guide
+
+<table tabindex="0">
+	<caption>Migration guides by the library you use now</caption>
+	<thead>
+		<tr>
+			<th scope="col">You use now</th>
+			<th scope="col">Platform</th>
+			<th scope="col">polyjose package</th>
+			<th scope="col">Guide</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>jose</code> (panva/jose) 6.2.13</th><td>Node.js, browsers, Web Workers and Cloudflare Workers</td><td><code>@polyjose/node</code>, <code>@polyjose/wasm</code></td><td><a href="/guides/migrate/panva-jose/">From panva/jose</a></td></tr>
+		<tr><th scope="row"><code>jsonwebtoken</code> 9.0.3</th><td>Node.js</td><td><code>@polyjose/node</code></td><td><a href="/guides/migrate/jsonwebtoken/">From jsonwebtoken</a></td></tr>
+		<tr><th scope="row">Nimbus JOSE + JWT 10.10</th><td>Android and the JVM, from Kotlin or Java</td><td><code>dev.polyjose:polyjose</code> (Android), <code>dev.polyjose:polyjose-jvm</code> (JVM)</td><td><a href="/guides/migrate/nimbus/">From Nimbus JOSE + JWT</a></td></tr>
+		<tr><th scope="row">JOSESwift 3.0.0</th><td>iOS and macOS</td><td>The Swift package, product <code>Polyjose</code></td><td><a href="/guides/migrate/joseswift/">From JOSESwift</a></td></tr>
+	</tbody>
+</table>
+
+## What changes in every migration
+
+These rules hold on every platform, whichever library you leave. Each guide shows what they mean for that library's code, and [Security model](/security/model/#algorithm-verification) gives the reasons.
+
+- **The allow-list is required.** Every verify and decrypt call takes the list of algorithms you accept, `allowedAlgs`, and every JWE decrypt call also the list of content encryption algorithms, `allowedEnc`. There is no default list, and a token's own `alg` or `enc` never decides alone: a value outside your list fails with `AlgorithmNotAllowed` before any cryptography runs ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)).
+- **`none` is never accepted.** An unsecured token fails with `AlgorithmNotAllowed`, even when your allow-list names `none`, and polyjose can't create one ([RFC 8725 §3.2](https://www.rfc-editor.org/rfc/rfc8725#section-3.2)).
+- **Keys are bound to their algorithm family.** A key is used only with the algorithms of its type and curve: an RSA key can't verify `ES256`, and an `oct` key can't verify `RS256`. When a JWK carries `alg`, `use` or `key_ops`, they must agree with the operation too. A mismatch fails with `KeyAlgorithmMismatch`, before any signature is checked ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1)).
+- **Errors are codes.** Every failure is one error type, `PolyjoseError` in JavaScript and Swift and `PolyjoseException` in Kotlin, carrying one code from a fixed set that is the same on every platform. Branch on the code, with a default branch for codes added later. Messages are for logs: their wording can change between versions, and they never contain keys, tokens or plaintext. [Errors](/concepts/errors/) lists every code.
+
+Most migrations also meet these:
+
+- **Keys are JWKs.** Every call takes keys as JWKs. Convert PEM or DER once, with `jwkFromPem` or `jwkFromDer`, and store the JWK. Platform key objects such as `CryptoKey`, `KeyObject` or `SecKey` aren't accepted, so a key that never leaves hardware can only be used through its public half. See [Manage keys](/guides/manage-keys/).
+- **Strict JWT defaults.** `exp` is required, a token's `aud` is checked even when you configured no audience, and 60 seconds of leeway is allowed by default, at most 600. Each has an explicit setting: see [Validate a JWT](/guides/validate-jwt/).
+- **Nothing is fetched, and nothing is read unverified.** polyjose makes no network requests and never follows a `jku` or `x5u` header, so your application fetches and caches an issuer's JWK Set. No call returns a header, claims or payload before verifying them: pass the whole set to `jwtVerifyWithJwks` and let it choose the key ([Work with JWK Sets](/guides/jwk-sets/)).
+- **Some algorithms are left out on purpose,** among them `RSA1_5`, `RSA-OAEP` with SHA-1 and RSA key generation. [What polyjose does not support](/security/not-supported/) lists each one with the reason.

@@ -138,7 +138,7 @@ Nimbus can fetch the set itself: `JWKSourceBuilder` (or the older `RemoteJWKSet`
 
 <Sample platform="kotlin" id="migrate-nimbus/remote-jwks-before" title="Nimbus JOSE + JWT" />
 
-polyjose has no equivalent. It does no network I/O at all, so the fetching, caching and refreshing that `JWKSourceBuilder` did become your application's job. Fetch the issuer's `jwks_uri` over HTTPS with the HTTP client you already use, keep the response text in memory, refresh it on a schedule, and pass the cached text to `jwtVerifyWithJwks` as in the sample above. When a token names a `kid` that isn't in the cached set, refetch at most once in a while, so a stream of unknown `kid`s can't make your service fetch on every request. polyjose also never follows a `jku` or `x5u` header: a token that points at another key set is checked against the set you passed, and fails with `NoMatchingKey` when that set doesn't hold its key. [Work with JWK Sets](/guides/jwk-sets/) describes how keys are chosen and how to bind a set to its issuer.
+polyjose has no equivalent. It does no network I/O at all, so the fetching, caching and refreshing that `JWKSourceBuilder` did become your application's job. Fetch the issuer's `jwks_uri` over HTTPS with the HTTP client you already use, keep the response text in memory, refresh it on a schedule, and pass the cached text to `jwtVerifyWithJwks` as in the sample above. When a token names a `kid` that isn't in the cached set, refetch at most once in a while, so a stream of unknown `kid`s can't make your service fetch on every request. polyjose also never follows a `jku` or `x5u` header: a token that points at another key set is checked only against the set you passed. It fails unless a key of that set verifies it, with `NoMatchingKey` when its `kid` isn't in the set. [Work with JWK Sets](/guides/jwk-sets/) describes how keys are chosen and how to bind a set to its issuer.
 
 ## Handle errors
 
@@ -173,7 +173,7 @@ When a token is wrong in several ways, polyjose reports the first failing check 
 
 ## Behaviour differences
 
-Most of these are stricter defaults. Each is checked by the tests behind this page.
+[What changes in every migration](/guides/migrate/#what-changes-in-every-migration) states the rules that apply whichever library you leave. Against Nimbus, most of the changes are stricter defaults. Each is checked by the tests behind this page.
 
 - **The allow-list is required.** Every verify call takes `allowedAlgs`, and every decrypt call `allowedAlgs` and `allowedEnc`, with no default, so leaving them out doesn't compile. In Nimbus the same decision sits in the key selector or in the verifier class you pick.
 - **`none` is never accepted.** A Nimbus `PlainJWT` fails with `AlgorithmNotAllowed`, and `"none"` in `allowedAlgs` doesn't change that ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)). There is no class for unsecured JWTs.
