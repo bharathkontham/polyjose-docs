@@ -1,6 +1,211 @@
 ---
 title: Migrate from Nimbus JOSE + JWT
-description: Move a JVM project from Nimbus JOSE + JWT to polyjose.
+description: Move a Kotlin or Java project from Nimbus JOSE + JWT to polyjose, task by task, with the defaults and features that differ.
 ---
 
-This guide is planned, with no date yet. It will map common Nimbus JOSE + JWT tasks to polyjose in Kotlin, step by step.
+import Install from '../../../../components/samples/Install.astro';
+import Sample from '../../../../components/samples/Sample.astro';
+
+This page describes polyjose 0.2.0 and Nimbus JOSE + JWT 10.10.
+
+Each task below shows the Nimbus code first and the polyjose code after it. Both sides are compiled and run as tests against the same example keys. Further tests pass tokens between the two libraries in both directions: JWTs that Nimbus signs verify in polyjose, polyjose JWTs verify with Nimbus's `DefaultJWTProcessor`, and JWEs decrypt either way. So you can move one service at a time while the others still run Nimbus.
+
+The examples are in Kotlin, the language polyjose's Android and JVM package is designed for. If you call Nimbus from Java, see [Calling polyjose from Java](#calling-polyjose-from-java).
+
+## Install and import
+
+<Install platform="kotlin" />
+
+Both libraries can sit in one project during the migration; they share no class names. Remove `com.nimbusds:nimbus-jose-jwt` when nothing uses it any more.
+
+<Sample platform="kotlin" id="migrate-nimbus/imports-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/imports" title="polyjose" />
+
+The biggest change is the shape of the API. Nimbus has a class per concept: `JWSObject`, `SignedJWT`, `JWTClaimsSet`, `ECKey`, a signer and a verifier per algorithm family. polyjose has a function per operation, and it takes and returns keys, headers and claims as JSON text. The key's JWK decides which algorithm family runs, and an options record says what to allow. Build and read the JSON with the library your project already uses; these samples use `org.json`.
+
+## Concept map
+
+<table tabindex="0">
+	<caption>Nimbus JOSE + JWT types and the polyjose calls that replace them</caption>
+	<thead>
+		<tr>
+			<th scope="col">Nimbus JOSE + JWT</th>
+			<th scope="col">polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>JWSObject</code> with <code>MACSigner</code>, <code>RSASSASigner</code>, <code>ECDSASigner</code>, <code>Ed25519Signer</code></th><td><code>jwsSignCompact(payload, key, JwsSignOptions(protectedHeader = ...))</code>; the JWK's <code>kty</code> picks the family</td></tr>
+		<tr><th scope="row"><code>JWSObject.verify(JWSVerifier)</code></th><td><code>jwsVerifyCompact(token, key, JwsVerifyOptions(allowedAlgs = ...))</code></td></tr>
+		<tr><th scope="row"><code>JWSObjectJSON</code>, <code>JWEObjectJSON</code></th><td><code>jwsSignFlattened</code>, <code>jwsSignGeneral</code>, <code>jwsVerifyJson</code>, <code>jweEncryptJson</code>, <code>jweDecryptJson</code></td></tr>
+		<tr><th scope="row"><code>SignedJWT</code> with a <code>JWTClaimsSet</code></th><td><code>jwtSign(claims, key, JwtSignOptions(alg = ...))</code>, with the claims as JSON text</td></tr>
+		<tr><th scope="row"><code>DefaultJWTProcessor</code> with a <code>JWSVerificationKeySelector</code> and a <code>DefaultJWTClaimsVerifier</code></th><td><code>jwtVerify(token, key, JwtVerifyOptions(...))</code>, or <code>jwtVerifyWithJwks</code> for a key set</td></tr>
+		<tr><th scope="row"><code>DefaultJWTClaimsVerifier</code>: accepted audience, exact-match claims, required claims, <code>setMaxClockSkew</code></th><td><code>JwtVerifyOptions</code>: <code>audiences</code>, <code>issuers</code>, <code>subject</code>, <code>requiredClaims</code>, <code>leeway</code></td></tr>
+		<tr><th scope="row">overriding <code>currentTime()</code></th><td><code>JwtVerifyOptions(now = ...)</code>, in seconds</td></tr>
+		<tr><th scope="row"><code>JWEObject</code> with <code>RSAEncrypter</code>, <code>ECDHEncrypter</code>, <code>AESEncrypter</code>, <code>DirectEncrypter</code>, <code>PasswordBasedEncrypter</code></th><td><code>jweEncryptCompact(plaintext, JweEncryptOptions(enc = ..., recipients = listOf(JweRecipient(alg = ..., key = ...))))</code></td></tr>
+		<tr><th scope="row"><code>JWEObject.decrypt</code> with <code>RSADecrypter</code>, <code>ECDHDecrypter</code> and the rest</th><td><code>jweDecryptCompact(token, key, JweDecryptOptions(allowedAlgs = ..., allowedEnc = ...))</code></td></tr>
+		<tr><th scope="row"><code>EncryptedJWT</code> holding a <code>SignedJWT</code></th><td><code>jwtEncryptNested</code>, <code>jwtDecryptNested</code> (see <a href="/guides/validate-jwt/#nested-jwts-sign-then-encrypt">nested JWTs</a>)</td></tr>
+		<tr><th scope="row"><code>JWK.parse</code>, <code>toJSONString()</code></th><td><code>jwkParse</code>; a key is its JSON text</td></tr>
+		<tr><th scope="row"><code>toPublicJWK()</code></th><td><code>jwkToPublic</code></td></tr>
+		<tr><th scope="row"><code>computeThumbprint()</code></th><td><code>jwkThumbprint</code>, <code>jwkThumbprintUri</code></td></tr>
+		<tr><th scope="row"><code>ECKeyGenerator</code>, <code>OctetKeyPairGenerator</code>, <code>OctetSequenceKeyGenerator</code></th><td><code>jwkGenerateEc</code>, <code>jwkGenerateOkp</code>, <code>jwkGenerateOct</code>, <code>jwkGenerateForAlg</code></td></tr>
+		<tr><th scope="row"><code>RSAKeyGenerator</code></th><td>none: see <a href="#not-supported-or-different">Not supported</a></td></tr>
+		<tr><th scope="row"><code>JWK.parseFromPEMEncodedObjects</code>, <code>ECKey.Builder</code> from a <code>java.security</code> key, <code>toECPublicKey()</code></th><td><code>jwkFromPem</code>, <code>jwkFromDer</code>, <code>jwkToPem</code>, <code>jwkToDer</code></td></tr>
+		<tr><th scope="row"><code>JWKSet.parse</code> with <code>JWKSelector</code> and <code>JWKMatcher</code></th><td><code>jwksSelect(jwks, JwkSelector(kid = ..., alg = ..., keyUse = ...))</code></td></tr>
+		<tr><th scope="row"><code>ImmutableJWKSet</code></th><td>the set's JSON text, passed to <code>jwtVerifyWithJwks</code></td></tr>
+		<tr><th scope="row"><code>JWKSourceBuilder</code>, <code>RemoteJWKSet</code></th><td>none: your application fetches and caches the set</td></tr>
+		<tr><th scope="row"><code>JOSEException</code>, <code>BadJOSEException</code> and its subclasses, <code>java.text.ParseException</code></th><td><code>PolyjoseException</code>, with a stable <code>code()</code></td></tr>
+	</tbody>
+</table>
+
+## Sign and verify a JWT
+
+Nimbus builds a `JWTClaimsSet` and signs a `SignedJWT`. polyjose signs the claims' JSON. `jwtSign` writes `"typ": "JWT"` ([RFC 7519 §5.1](https://www.rfc-editor.org/rfc/rfc7519#section-5.1)), and copies the key's `kid` into the header if it has one, which with Nimbus you set yourself with `JWSHeader.Builder.keyID`.
+
+<Sample platform="kotlin" id="migrate-nimbus/sign-jwt-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/sign-jwt" title="polyjose" />
+
+To verify, Nimbus wires a processor from a key selector, which says which algorithms and keys are accepted, and a claims verifier. polyjose takes the same decisions as one options record. `issuers` replaces the exact-match `iss` claim, `audiences` the accepted audience, and `requiredClaims` the required claims. `exp` is required without being listed (see [Behaviour differences](#behaviour-differences)).
+
+<Sample platform="kotlin" id="migrate-nimbus/verify-jwt-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/verify-jwt" title="polyjose" />
+
+`verified.claims` is the claims set as JSON text, and `verified.header` the protected header. [Validate a JWT](/guides/validate-jwt/) covers every option, including `subject`, `maxAge`, `leeway`, explicit typing and RFC 9068 access tokens.
+
+## Sign and verify a JWS
+
+For a JWS that isn't a JWT, Nimbus's `JWSObject` maps to `jwsSignCompact` and `jwsVerifyCompact`. The payload is bytes.
+
+<Sample platform="kotlin" id="migrate-nimbus/jws-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jws" title="polyjose" />
+
+With Nimbus's low-level `JWSObject.verify`, the verifier class decides which algorithms it accepts. A `MACVerifier`, for example, accepts every HMAC algorithm its secret is long enough for, which is why the Nimbus sample checks the header's `alg` itself. polyjose has no such step to forget: every verify call takes `allowedAlgs`, and a token whose `alg` isn't listed fails with `AlgorithmNotAllowed` before any cryptography runs. A Nimbus `OctetSequenceKey`'s `toJSONString()` is a JWK that polyjose accepts as it is, and the other way round. [Sign and verify](/guides/sign-and-verify/) covers the other algorithms and the JSON serializations.
+
+## Encrypt and decrypt a JWE
+
+`JWEObject` with an encrypter maps to `jweEncryptCompact` with one recipient, and a decrypter to `jweDecryptCompact`. Decrypting takes two allow-lists: `allowedAlgs` for the key management algorithm and `allowedEnc` for the content encryption.
+
+<Sample platform="kotlin" id="migrate-nimbus/jwe-rsa-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jwe-rsa" title="polyjose" />
+
+`ECDHEncrypter` and `ECDHDecrypter` map the same way, with the recipient's public JWK for encryption and its private JWK for decryption:
+
+<Sample platform="kotlin" id="migrate-nimbus/jwe-ecdh-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jwe-ecdh" title="polyjose" />
+
+The plaintext comes back as bytes. When it is secret, wipe it with `decrypted.plaintext.fill(0)` once you are done with it. [Encrypt and decrypt](/guides/encrypt-and-decrypt/) covers `dir`, AES key wrap, passwords and the JSON serialization.
+
+## Import and export a JWK
+
+Nimbus parses a JWK into a typed key object. polyjose keeps the JWK as JSON text: `jwkParse` validates it and returns it re-serialized, and every other call accepts the text directly. The public JWK and the thumbprint come out the same in both libraries.
+
+<Sample platform="kotlin" id="migrate-nimbus/jwk-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jwk" title="polyjose" />
+
+`withKid` in the sample is a small helper of the tests that adds a `kid` member to the JSON. polyjose's generators don't set a `kid`; add one with your JSON library, or use the key's thumbprint as its `kid`.
+
+Where Nimbus builds a JWK from a `java.security` key, polyjose reads the key's standard encoding: `getEncoded()` of a public key is an X.509 SubjectPublicKeyInfo, and of a private key a PKCS #8 structure.
+
+<Sample platform="kotlin" id="migrate-nimbus/java-keys-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/java-keys" title="polyjose" />
+
+`jwkToDer` and `jwkToPem` go the other way. [Manage keys](/guides/manage-keys/) covers PEM, RSA private keys and how to handle secrets.
+
+## Select a key from a JWK Set
+
+`JWKSelector` with a `JWKMatcher` returns every matching key. `jwksSelect` returns exactly one: a selector that matches several keys fails with `MultipleMatchingKeys`, and no match fails with `NoMatchingKey`.
+
+<Sample platform="kotlin" id="migrate-nimbus/jwks-select-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jwks-select" title="polyjose" />
+
+To verify JWTs against an issuer's set, Nimbus's `JWSVerificationKeySelector` over an `ImmutableJWKSet` maps to `jwtVerifyWithJwks`. polyjose picks the candidate keys from the token's `kid` and `alg`, and the result says which key verified.
+
+<Sample platform="kotlin" id="migrate-nimbus/jwks-verify-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/jwks-verify" title="polyjose" />
+
+### Remote key sets
+
+Nimbus can fetch the set itself: `JWKSourceBuilder` (or the older `RemoteJWKSet`) downloads it from the issuer's URL, caches it, and refreshes and retries for you.
+
+<Sample platform="kotlin" id="migrate-nimbus/remote-jwks-before" title="Nimbus JOSE + JWT" />
+
+polyjose has no equivalent. It does no network I/O at all, so the fetching, caching and refreshing that `JWKSourceBuilder` did become your application's job. Fetch the issuer's `jwks_uri` over HTTPS with the HTTP client you already use, keep the response text in memory, refresh it on a schedule, and pass the cached text to `jwtVerifyWithJwks` as in the sample above. When a token names a `kid` that isn't in the cached set, refetch at most once in a while, so a stream of unknown `kid`s can't make your service fetch on every request. polyjose also never follows a `jku` or `x5u` header: a token that points at another key set is checked against the set you passed, and fails with `NoMatchingKey` when that set doesn't hold its key. [Work with JWK Sets](/guides/jwk-sets/) describes how keys are chosen and how to bind a set to its issuer.
+
+## Handle errors
+
+Nimbus reports failures through a hierarchy of exceptions: `BadJOSEException` and its subclasses when a token is rejected, `JOSEException` when processing fails, and `java.text.ParseException` when the input isn't a JOSE object. polyjose throws one type, `PolyjoseException`, whose `code()` is one of a fixed set of strings, the same on every platform. Branch on the code, never on the message.
+
+<Sample platform="kotlin" id="migrate-nimbus/errors-before" title="Nimbus JOSE + JWT" />
+
+<Sample platform="kotlin" id="migrate-nimbus/errors" title="polyjose" />
+
+For the same token, the tests on this page see these Nimbus exceptions and polyjose codes:
+
+<table tabindex="0">
+	<caption>What each library reports for the same rejected JWT</caption>
+	<thead>
+		<tr>
+			<th scope="col">The token</th>
+			<th scope="col">Nimbus <code>DefaultJWTProcessor</code> throws</th>
+			<th scope="col">polyjose <code>code()</code></th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">expired, beyond the leeway</th><td><code>ExpiredJWTException</code></td><td><code>TokenExpired</code></td></tr>
+		<tr><th scope="row"><code>nbf</code> in the future</th><td><code>BadJWTException</code></td><td><code>TokenNotYetValid</code></td></tr>
+		<tr><th scope="row">wrong <code>iss</code> or <code>aud</code>, or a required claim missing</th><td><code>BadJWTException</code></td><td><code>InvalidClaim</code></td></tr>
+		<tr><th scope="row">changed after signing</th><td><code>BadJWSException</code></td><td><code>InvalidSignature</code></td></tr>
+		<tr><th scope="row">an <code>alg</code> the verifier doesn't accept</th><td><code>BadJOSEException</code></td><td><code>AlgorithmNotAllowed</code></td></tr>
+		<tr><th scope="row">not a JWT at all</th><td><code>ParseException</code></td><td><code>InvalidFormat</code>, <code>InvalidBase64</code> or <code>InvalidJson</code></td></tr>
+	</tbody>
+</table>
+
+When a token is wrong in several ways, polyjose reports the first failing check in a fixed order, so the code doesn't depend on the platform. [Errors](/concepts/errors/) lists every code and that order. Messages never contain keys, tokens or plaintext, so an error is safe to log, but tell clients only that the token was rejected.
+
+## Behaviour differences
+
+Most of these are stricter defaults. Each is checked by the tests behind this page.
+
+- **The allow-list is required.** Every verify call takes `allowedAlgs`, and every decrypt call `allowedAlgs` and `allowedEnc`, with no default, so leaving them out doesn't compile. In Nimbus the same decision sits in the key selector or in the verifier class you pick.
+- **`none` is never accepted.** A Nimbus `PlainJWT` fails with `AlgorithmNotAllowed`, and `"none"` in `allowedAlgs` doesn't change that ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)). There is no class for unsecured JWTs.
+- **`exp` is required.** `DefaultJWTClaimsVerifier` checks `exp` only when the token has one, unless you list it as required. polyjose rejects a token without `exp` with `InvalidClaim`; set `allowMissingExp = true` for tokens that really have none.
+- **A token with `aud` needs a configured audience.** With no accepted audience, Nimbus accepts any `aud`. polyjose rejects a token that has an `aud` with `InvalidClaim` unless you set `audiences`, or opt out with `ignoreAudience = true` ([RFC 7519 §4.1.3](https://www.rfc-editor.org/rfc/rfc7519#section-4.1.3)).
+- **Keys are bound to their algorithm family.** A key of the wrong type for the token's `alg`, such as an RSA key for an ES256 token, fails with `KeyAlgorithmMismatch`, and so does a key whose `use` is `enc` when it's asked to verify. So does a key whose `alg` member names a different algorithm.
+- **The same leeway and typing defaults.** Both libraries allow 60 seconds of clock skew by default, and both accept a JWT whose `typ` is absent or `JWT`.
+- **Error codes, not exception classes.** See [Handle errors](#handle-errors).
+
+## Not supported or different
+
+polyjose leaves some Nimbus features out on purpose. [What polyjose does not support](/security/not-supported/) explains each exclusion.
+
+- **Fetching key sets.** There is no `JWKSource`, `JWKSourceBuilder` or `RemoteJWKSet`, and no network I/O of any kind. Fetch and cache the set yourself, as described in [Remote key sets](#remote-key-sets).
+- **Reading a token without verifying it.** Nimbus lets you parse a `SignedJWT` and read its claims before, or without, verifying it. polyjose has no operation that returns a payload, claims or plaintext without checking the signature or decrypting with your key. To choose a key by `kid`, pass the whole set to `jwtVerifyWithJwks`.
+- **Unsecured JWTs.** There is no `PlainJWT`, and `none` can't be allowed.
+- **RSA key generation.** There is no `RSAKeyGenerator`: `jwkGenerateForAlg("RS256")` fails with `UnsupportedAlgorithm`. Generate RSA keys with your platform's tools and import them, or switch to EC or Ed25519 keys, which polyjose generates.
+- **`RSA1_5` and `RSA-OAEP`.** Nimbus still supports both. polyjose does neither, in either direction, and a token that uses them fails with `UnsupportedAlgorithm`. Ask senders to move to `RSA-OAEP-256` or `ECDH-ES` before you switch the recipient over.
+- **Compression.** The Kotlin package is built without JWE compression, so a token that Nimbus encrypted with `"zip": "DEF"` fails with `UnsupportedAlgorithm`. Send content uncompressed ([RFC 8725 §3.6](https://www.rfc-editor.org/rfc/rfc8725#section-3.6)).
+- **Keys that never leave hardware.** Nimbus signers and decrypters accept a `java.security.PrivateKey`, which may be a handle to an Android Keystore or PKCS #11 key. polyjose needs the private key as a JWK, so it can't sign or decrypt with such a key. It can verify for it and encrypt to it with the public key, imported with `jwkFromDer(publicKey.encoded, "spki")`. [Store keys securely](/guides/secure-key-storage/) shows how to keep a JWK protected by the Android Keystore instead.
+- **Certificates.** Nimbus has helpers for X.509 certificates and can build a JWK from one. polyjose carries `x5c` and `x5u` as data, never validates a certificate chain and doesn't import certificates. Validate certificates with the JVM's own X.509 support, then pass polyjose the public key you trust.
+
+### Calling polyjose from Java
+
+The package's API is designed for Kotlin, and calling it from Java is awkward in 0.2.0. The functions are Kotlin top-level functions, which Java sees as static methods of `dev.polyjose.Polyjose_ffiKt`. Java has no default arguments, so you pass every field of an options record, and members that take Kotlin unsigned integers get mangled names. If your project is Java only, a small Kotlin module that wraps the calls you need is the simplest route. See [Android and JVM (Kotlin)](/start/android/) and [Java](/security/not-supported/#java).
+
+## Checklist
+
+1. Add polyjose next to Nimbus, and move one operation at a time; tokens pass between the two in both directions.
+2. For each `DefaultJWTProcessor`, list the same algorithms in `allowedAlgs`, and move the accepted audience, the exact-match `iss` and the required claims to `audiences`, `issuers` and `requiredClaims`.
+3. Decide about `exp` and `aud`: polyjose requires `exp` and rejects an unexpected `aud` by default.
+4. Replace remote key sources with your own fetch and cache, and pass the set's text to `jwtVerifyWithJwks`.
+5. Move senders off `RSA1_5`, `RSA-OAEP` and `zip` before the recipient switches.
+6. Replace `catch` blocks on Nimbus exception classes with branches on `PolyjoseException.code()`, keeping a default branch.
+7. Remove the Nimbus dependency.

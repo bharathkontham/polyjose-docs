@@ -25,6 +25,9 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     // Reads samples/fixtures/keys.json; never shown on a page.
     testImplementation(libs.org.json)
+    // The "before" side of Migrate from Nimbus JOSE + JWT (MigrateNimbusTest.kt), pinned exactly.
+    // Its POM declares only optional dependencies (BouncyCastle, Tink), and the samples use none.
+    testImplementation("com.nimbusds:nimbus-jose-jwt:10.10")
 }
 
 tasks.test {
