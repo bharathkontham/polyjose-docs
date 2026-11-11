@@ -171,10 +171,12 @@ Where JOSESwift's errors end up:
 
 ## Behaviour differences
 
+[What changes in every migration](/guides/migrate/#what-changes-in-every-migration) states the rules that apply whichever library you leave. Here is what changes against JOSESwift:
+
 - **The allow-list is required.** JOSESwift's `Verifier` and `Decrypter` each name one algorithm. polyjose's verify and decrypt calls take a list, with no default, and the token's own `alg` is never trusted alone ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)).
 - **`none` is never accepted.** Neither library verifies an unsigned token. polyjose fails with `AlgorithmNotAllowed`, even when the allow-list names `none` ([RFC 8725 §3.2](https://www.rfc-editor.org/rfc/rfc8725#section-3.2)).
 - **Keys are bound to their algorithm family.** An RSA key can't be used for ES256, an EC key can't be used as an HMAC secret, and a JWK's `alg`, `use` and `key_ops`, when present, limit what it can do. A mismatch fails with `KeyAlgorithmMismatch` ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1)).
-- **Error codes, not error cases.** polyjose reports a stable code string, and its messages never contain keys, tokens, payloads or plaintext.
+- **Error codes, not error cases.** See [Handle errors](#handle-errors).
 - **No payload before verification.** JOSESwift's `JWS(compactSerialization:)` exposes `payload` before `validate(using:)` runs. polyjose returns the payload only from a successful verify ([Not supported › Decode without verify](/security/not-supported/#decode-without-verify)).
 - **More in polyjose.** JWT validation, the JSON serializations ([RFC 7515 §7.2](https://www.rfc-editor.org/rfc/rfc7515#section-7.2), [RFC 7516 §7.2](https://www.rfc-editor.org/rfc/rfc7516#section-7.2)), Ed25519 and X25519 keys, JWK Set selection and nested JWTs. [Algorithms](/concepts/algorithms/) lists every algorithm.
 

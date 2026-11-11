@@ -151,6 +151,8 @@ Both libraries give every error a stable `code` to branch on. In polyjose every 
 
 ## Behaviour differences
 
+[What changes in every migration](/guides/migrate/#what-changes-in-every-migration) states the rules that apply whichever library you leave. Here is what changes against `jose`:
+
 - **The allow-list is required.** `jose` falls back to the algorithms that fit the key when you leave out `algorithms`. polyjose has no default: verifying or decrypting without `allowedAlgs` (and `allowedEnc` for a JWE) fails with `AlgorithmNotAllowed`.
 - **`none` is never accepted.** A token from `UnsecuredJWT` fails with `AlgorithmNotAllowed`, even when `"none"` is in the allow-list, and polyjose can't create one.
 - **Keys are bound to their algorithm family.** A key is used only with the algorithms of its type and curve, and a JWK with an `alg` member only with that algorithm. Using it otherwise fails with `KeyAlgorithmMismatch`, before any signature is checked.

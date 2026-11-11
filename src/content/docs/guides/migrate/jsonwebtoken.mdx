@@ -176,6 +176,8 @@ A token that is wrong in several ways reports the first failing check, in a fixe
 
 ## Behaviour differences
 
+[What changes in every migration](/guides/migrate/#what-changes-in-every-migration) states the rules that apply whichever library you leave. Here is what changes against `jsonwebtoken`:
+
 - **The allow-list is required.** Without `algorithms`, `jsonwebtoken` picks default algorithms from the type of key. polyjose has no default: a verify without `allowedAlgs` fails with `AlgorithmNotAllowed`. Name only the algorithms your issuer uses, and never mix `HS*` with public-key algorithms.
 - **`none` is never accepted.** `jsonwebtoken` can sign and verify unsecured tokens (`algorithm: 'none'`). polyjose refuses them with `AlgorithmNotAllowed`, even when `"none"` is in the allow-list, and can't create one.
 - **Keys are bound to their algorithm family.** An EC key verifies only ECDSA with its curve, an `oct` key only HMAC, and a JWK with an `alg` member only that algorithm. Anything else fails with `KeyAlgorithmMismatch`. There is no counterpart to `allowInvalidAsymmetricKeyTypes`.
