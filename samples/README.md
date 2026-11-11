@@ -96,7 +96,7 @@ import Sample from '../../../components/samples/Sample.astro';
 <Sample platform="node" id="migrate-jsonwebtoken/sign" title="polyjose" />
 ```
 
-The other library is a test dependency of that platform's sample project only, pinned to an exact version with a committed lockfile. In `samples/js` they are `devDependencies` in `package.json`, recorded in `package-lock.json`, and the runner installs them with `npm ci --ignore-scripts`. Each guide's test file also has interop tests: a token made by the other library verifies in polyjose, and a polyjose token verifies in the other library.
+The other library is a test dependency of that platform's sample project only, pinned to an exact version. npm and SwiftPM also record it in a committed lockfile; Kotlin has none and pins the exact version in `build.gradle.kts`. In `samples/js` they are `devDependencies` in `package.json`, recorded in `package-lock.json`, and the runner installs them with `npm ci --ignore-scripts`. Each guide's test file also has interop tests: a token made by the other library verifies in polyjose, and a polyjose token verifies in the other library.
 
 ### Install lines
 

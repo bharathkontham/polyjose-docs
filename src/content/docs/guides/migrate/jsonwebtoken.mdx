@@ -38,7 +38,7 @@ The same code runs in browsers and Workers with `@polyjose/wasm`: see [Web (WASM
 		<tr><th scope="row"><code>jwt.verify(token, key, options)</code>, with or without a callback</th><td><code>await jwtVerify(token, key, &#123; allowedAlgs, … &#125;)</code>, which returns <code>&#123; claims, header, alg &#125;</code></td></tr>
 		<tr><th scope="row"><code>jwt.verify(token, getKey, …)</code> with a key function</th><td><code>await jwtVerifyWithJwks(token, jwks, options)</code></td></tr>
 		<tr><th scope="row"><code>jwt.decode(token)</code></th><td>None: polyjose reads a token only by verifying it</td></tr>
-		<tr><th scope="row">A secret string or <code>Buffer</code></th><td>An <code>oct</code> JWK whose <code>k</code> is the base64url of the secret's bytes</td></tr>
+		<tr><th scope="row">A secret string or <code>Buffer</code></th><td>An <code>oct</code> JWK whose <code>k</code> is the base64url of the secret's bytes. A string's bytes are its UTF-8 encoding, <code>new TextEncoder().encode(secret)</code></td></tr>
 		<tr><th scope="row">A PEM string or <code>KeyObject</code></th><td>A JWK: convert PEM with <code>jwkFromPem</code></td></tr>
 		<tr><th scope="row"><code>TokenExpiredError</code>, <code>NotBeforeError</code>, <code>JsonWebTokenError</code></th><td><code>PolyjoseError</code>, with a <code>code</code> (<a href="#handle-errors">Handle errors</a>)</td></tr>
 	</tbody>

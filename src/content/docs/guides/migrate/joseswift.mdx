@@ -33,19 +33,19 @@ Check the platforms before you switch. polyjose needs iOS 16, macOS 13 or watchO
 		</tr>
 	</thead>
 	<tbody>
-		<tr><td><code>JWS(header:payload:signer:)</code>, <code>compactSerializedString</code></td><td><code>jwsSignCompact(payload:key:options:)</code>, which returns the token</td></tr>
-		<tr><td><code>JWS(compactSerialization:)</code> and <code>validate(using:)</code></td><td><code>jwsVerifyCompact(token:key:options:)</code> with <code>JwsVerifyOptions(allowedAlgs:)</code></td></tr>
-		<tr><td><code>JWSHeader</code>, <code>JWEHeader</code></td><td>A JSON header in the options, such as <code>JwsSignOptions(protectedHeader:)</code>; results return headers as JSON text</td></tr>
-		<tr><td><code>Payload</code></td><td><code>Data</code></td></tr>
-		<tr><td><code>Signer</code>, <code>Verifier</code></td><td>No object: the key and the algorithm go into each call</td></tr>
-		<tr><td><code>JWE(header:payload:encrypter:)</code> with <code>Encrypter</code></td><td><code>jweEncryptCompact(plaintext:options:)</code> with <code>JweEncryptOptions</code> and a <code>JweRecipient</code></td></tr>
-		<tr><td><code>JWE(compactSerialization:)</code> and <code>decrypt(using:)</code> with <code>Decrypter</code></td><td><code>jweDecryptCompact(token:key:options:)</code> with <code>JweDecryptOptions(allowedAlgs:allowedEnc:)</code></td></tr>
-		<tr><td><code>RSAPublicKey</code>, <code>RSAPrivateKey</code>, <code>ECPublicKey</code>, <code>ECPrivateKey</code>, <code>SymmetricKey</code></td><td>A JWK as JSON text (<code>String</code>); <code>jwkParse</code> checks one</td></tr>
-		<tr><td><code>SecKey</code> and <code>Data</code> keys, <code>converted(to: SecKey.self)</code></td><td>JWK text; <code>jwkFromDer</code> and <code>jwkFromPem</code> import a <code>SecKey</code>'s exported bytes</td></tr>
-		<tr><td><code>JWKSet</code></td><td>JWK Set text, with <code>jwksSelect</code> and <code>jwtVerifyWithJwks</code></td></tr>
-		<tr><td><code>thumbprint(algorithm:)</code></td><td><code>jwkThumbprint(jwk:hash:)</code> and <code>jwkThumbprintUri</code></td></tr>
-		<tr><td>No JWT type</td><td><code>jwtSign</code>, <code>jwtVerify</code> with <code>JwtVerifyOptions</code></td></tr>
-		<tr><td><code>JOSESwiftError</code></td><td><code>PolyjoseError</code>, read with <code>error.code()</code></td></tr>
+		<tr><th scope="row"><code>JWS(header:payload:signer:)</code>, <code>compactSerializedString</code></th><td><code>jwsSignCompact(payload:key:options:)</code>, which returns the token</td></tr>
+		<tr><th scope="row"><code>JWS(compactSerialization:)</code> and <code>validate(using:)</code></th><td><code>jwsVerifyCompact(token:key:options:)</code> with <code>JwsVerifyOptions(allowedAlgs:)</code></td></tr>
+		<tr><th scope="row"><code>JWSHeader</code>, <code>JWEHeader</code></th><td>A JSON header in the options, such as <code>JwsSignOptions(protectedHeader:)</code>; results return headers as JSON text</td></tr>
+		<tr><th scope="row"><code>Payload</code></th><td><code>Data</code></td></tr>
+		<tr><th scope="row"><code>Signer</code>, <code>Verifier</code></th><td>No object: the key and the algorithm go into each call</td></tr>
+		<tr><th scope="row"><code>JWE(header:payload:encrypter:)</code> with <code>Encrypter</code></th><td><code>jweEncryptCompact(plaintext:options:)</code> with <code>JweEncryptOptions</code> and a <code>JweRecipient</code></td></tr>
+		<tr><th scope="row"><code>JWE(compactSerialization:)</code> and <code>decrypt(using:)</code> with <code>Decrypter</code></th><td><code>jweDecryptCompact(token:key:options:)</code> with <code>JweDecryptOptions(allowedAlgs:allowedEnc:)</code></td></tr>
+		<tr><th scope="row"><code>RSAPublicKey</code>, <code>RSAPrivateKey</code>, <code>ECPublicKey</code>, <code>ECPrivateKey</code>, <code>SymmetricKey</code></th><td>A JWK as JSON text (<code>String</code>); <code>jwkParse</code> checks one</td></tr>
+		<tr><th scope="row"><code>SecKey</code> and <code>Data</code> keys, <code>converted(to: SecKey.self)</code></th><td>JWK text; <code>jwkFromDer</code> and <code>jwkFromPem</code> import a <code>SecKey</code>'s exported bytes</td></tr>
+		<tr><th scope="row"><code>JWKSet</code></th><td>JWK Set text, with <code>jwksSelect</code> and <code>jwtVerifyWithJwks</code></td></tr>
+		<tr><th scope="row"><code>thumbprint(algorithm:)</code></th><td><code>jwkThumbprint(jwk:hash:)</code> and <code>jwkThumbprintUri</code></td></tr>
+		<tr><th scope="row">No JWT type</th><td><code>jwtSign</code>, <code>jwtVerify</code> with <code>JwtVerifyOptions</code></td></tr>
+		<tr><th scope="row"><code>JOSESwiftError</code></th><td><code>PolyjoseError</code>, read with <code>error.code()</code></td></tr>
 	</tbody>
 </table>
 
@@ -154,16 +154,16 @@ Where JOSESwift's errors end up:
 		</tr>
 	</thead>
 	<tbody>
-		<tr><td><code>signingAlgorithmMismatch</code>, <code>keyManagementAlgorithmMismatch</code>, <code>contentEncryptionAlgorithmMismatch</code></td><td><code>AlgorithmNotAllowed</code>: the token's <code>alg</code> or <code>enc</code> is not in the allow-list</td></tr>
-		<tr><td><code>signatureInvalid</code>, <code>verifyingFailed</code></td><td><code>InvalidSignature</code></td></tr>
-		<tr><td><code>decryptingFailed</code></td><td><code>DecryptionFailed</code>, one code for every decryption failure</td></tr>
-		<tr><td><code>invalidCompactSerializationComponentCount</code></td><td><code>InvalidFormat</code></td></tr>
-		<tr><td><code>componentNotValidBase64URL</code>, and the <code>…NotBase64URLUIntEncoded</code> key errors</td><td><code>InvalidBase64</code></td></tr>
-		<tr><td><code>couldNotConstructJWK</code></td><td><code>InvalidKey</code></td></tr>
-		<tr><td>An initializer that returns <code>nil</code> for the wrong key type</td><td><code>KeyAlgorithmMismatch</code>, thrown by the call</td></tr>
-		<tr><td><code>compressionAlgorithmNotSupported</code>, <code>decompressionFailed</code></td><td><code>UnsupportedAlgorithm</code>: the Swift package has no compression</td></tr>
-		<tr><td><code>localAuthenticationFailed</code></td><td>No equivalent: polyjose never touches the Keychain</td></tr>
-		<tr><td>No equivalent</td><td><code>TokenExpired</code>, <code>TokenNotYetValid</code>, <code>InvalidClaim</code>, <code>NoMatchingKey</code>, <code>MultipleMatchingKeys</code></td></tr>
+		<tr><th scope="row"><code>signingAlgorithmMismatch</code>, <code>keyManagementAlgorithmMismatch</code>, <code>contentEncryptionAlgorithmMismatch</code></th><td><code>AlgorithmNotAllowed</code>: the token's <code>alg</code> or <code>enc</code> is not in the allow-list</td></tr>
+		<tr><th scope="row"><code>signatureInvalid</code>, <code>verifyingFailed</code></th><td><code>InvalidSignature</code></td></tr>
+		<tr><th scope="row"><code>decryptingFailed</code></th><td><code>DecryptionFailed</code>, one code for every decryption failure</td></tr>
+		<tr><th scope="row"><code>invalidCompactSerializationComponentCount</code></th><td><code>InvalidFormat</code></td></tr>
+		<tr><th scope="row"><code>componentNotValidBase64URL</code>, and the <code>…NotBase64URLUIntEncoded</code> key errors</th><td><code>InvalidBase64</code></td></tr>
+		<tr><th scope="row"><code>couldNotConstructJWK</code></th><td><code>InvalidKey</code></td></tr>
+		<tr><th scope="row">An initializer that returns <code>nil</code> for the wrong key type</th><td><code>KeyAlgorithmMismatch</code>, thrown by the call</td></tr>
+		<tr><th scope="row"><code>compressionAlgorithmNotSupported</code>, <code>decompressionFailed</code></th><td><code>UnsupportedAlgorithm</code>: the Swift package has no compression</td></tr>
+		<tr><th scope="row"><code>localAuthenticationFailed</code></th><td>No equivalent: polyjose never touches the Keychain</td></tr>
+		<tr><th scope="row">No equivalent</th><td><code>TokenExpired</code>, <code>TokenNotYetValid</code>, <code>InvalidClaim</code>, <code>NoMatchingKey</code>, <code>MultipleMatchingKeys</code></td></tr>
 	</tbody>
 </table>
 
@@ -182,7 +182,7 @@ Where JOSESwift's errors end up:
 
 ## Not supported, or different
 
-What JOSESwift 3.0.0 does that polyjose doesn't, and what to do instead. The tests check each of these against JOSESwift's output.
+What JOSESwift 3.0.0 does that polyjose doesn't, and what to do instead. For `RSA1_5` and `RSA-OAEP`, compression, RSA private JWKs without the CRT members and short RSA keys, the tests check polyjose's behaviour against JOSESwift's output.
 
 - **`RSA1_5` and `RSA-OAEP`.** polyjose neither decrypts nor encrypts them, even when the allow-list names them: both fail with `UnsupportedAlgorithm`. Move your senders and recipients to `RSA-OAEP-256` or ECDH-ES first. See [Not supported › `RSA1_5`](/security/not-supported/#rsa1_5) and [SHA-1](/security/not-supported/#sha-1).
 - **Compression.** A JWE that JOSESwift compressed (`"zip": "DEF"`) fails with `UnsupportedAlgorithm`, because the Swift package is built without compression. Send content uncompressed. See [Not supported › `zip` in bindings](/security/not-supported/#zip-in-bindings).
