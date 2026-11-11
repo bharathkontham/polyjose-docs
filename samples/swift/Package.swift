@@ -5,6 +5,9 @@
 // swift.sh exports that commit to samples/.polyjose/export/polyjose, builds its XCFramework with
 // platforms/swift/scripts/build-xcframework.sh, and runs `swift test` with
 // POLYJOSE_LOCAL_XCFRAMEWORK=1, which makes polyjose's Package.swift use that local build.
+//
+// JOSESwift is a test-only dependency, pinned to one exact version (Package.resolved is committed),
+// for the "before" side and the interop tests of Guides > Migrate from JOSESwift.
 import PackageDescription
 
 let package = Package(
@@ -13,13 +16,15 @@ let package = Package(
         .macOS(.v13)
     ],
     dependencies: [
-        .package(path: "../.polyjose/export/polyjose")
+        .package(path: "../.polyjose/export/polyjose"),
+        .package(url: "https://github.com/airsidemobile/JOSESwift.git", exact: "3.0.0"),
     ],
     targets: [
         .testTarget(
             name: "SamplesTests",
             dependencies: [
-                .product(name: "Polyjose", package: "polyjose")
+                .product(name: "Polyjose", package: "polyjose"),
+                .product(name: "JOSESwift", package: "JOSESwift"),
             ],
             path: "Tests/SamplesTests"
         )
