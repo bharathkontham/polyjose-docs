@@ -114,12 +114,55 @@ test('a samples/web region is used by <Samples> with the same id', () => {
   assert.deepEqual(checkCoverage(root).errors, []);
 });
 
-test('fails on <Sample> outside start/', () => {
+test('fails on <Sample> outside start/ and guides/migrate/', () => {
   const root = tree({
     'samples/rust/tests/guide.rs': region('guide/one'),
     'src/content/docs/guides/guide.mdx': `import Sample from '../../components/samples/Sample.astro';\n\n<Sample platform="rust" id="guide/one" />\n`,
   });
-  assert.match(errorsOf(root), /guides\/guide\.mdx:3: <Sample> is only for get-started pages \(start\/\); use <Samples> here/);
+  assert.match(
+    errorsOf(root),
+    /guides\/guide\.mdx:3: <Sample> is only for get-started pages \(start\/\) and migration guides \(guides\/migrate\/\); use <Samples> here/,
+  );
+});
+
+test('<Sample> on a page whose path only starts like guides/migrate/ fails', () => {
+  const root = tree({
+    'samples/js/guide.test.mjs': region('migrated/one'),
+    'src/content/docs/guides/migrated.mdx': '<Sample platform="node" id="migrated/one" />\n',
+    'src/content/docs/guides/migrate-other/x.mdx': '<Sample platform="node" id="migrated/one" />\n',
+  });
+  const errors = checkCoverage(root).errors;
+  assert.equal(errors.length, 2, errors.join('\n'));
+  assert.match(errors[0], /guides\/migrate-other\/x\.mdx:1: <Sample> is only for/);
+  assert.match(errors[1], /guides\/migrated\.mdx:1: <Sample> is only for/);
+});
+
+test('<Sample> on a migration guide passes, for the polyjose region and a before region in the same file', () => {
+  const file = region('migrate-jose/sign-before', 'await new SignJWT({}).sign(key);') + region('migrate-jose/sign', 'await jwtSign({}, key, { alg });');
+  const root = tree({
+    'samples/js/migrate-jose.test.mjs': file,
+    'src/content/docs/guides/migrate/jose.mdx': [
+      "import Sample from '../../../components/samples/Sample.astro';",
+      '',
+      '<Sample platform="node" id="migrate-jose/sign-before" title="jose" />',
+      '<Sample platform="node" id="migrate-jose/sign" title="polyjose" />',
+      '',
+    ].join('\n'),
+  });
+  const result = checkCoverage(root);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.usages, 2);
+  assert.equal(result.regions, 2);
+});
+
+test('a before region that no migration guide shows is an orphan', () => {
+  const root = tree({
+    'samples/js/migrate-jose.test.mjs': region('migrate-jose/sign-before') + region('migrate-jose/sign'),
+    'src/content/docs/guides/migrate/jose.mdx': '<Sample platform="node" id="migrate-jose/sign" />\n',
+  });
+  const errors = checkCoverage(root).errors;
+  assert.equal(errors.length, 1, errors.join('\n'));
+  assert.match(errors[0], /migrate-jose\.test\.mjs:1: region "migrate-jose\/sign-before" \(Node\.js\) is not used on any page/);
 });
 
 test('<Sample> under start/ passes and marks only its own platform as used', () => {

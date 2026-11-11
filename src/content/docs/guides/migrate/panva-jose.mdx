@@ -1,6 +1,191 @@
 ---
 title: Migrate from panva/jose
-description: Move a JavaScript project from panva/jose to polyjose.
+description: Move a Node.js or web project from the jose package to @polyjose/node or @polyjose/wasm, call by call, with the behaviour that changes.
 ---
 
-This guide is planned, with no date yet. It will map common panva/jose tasks to polyjose in Node.js and on the web, step by step.
+import Install from '../../../../components/samples/Install.astro';
+import Sample from '../../../../components/samples/Sample.astro';
+
+This page describes polyjose 0.2.0, compared with `jose` 6.2.13.
+
+Both sides of every sample on this page run as tests: the `jose` code against that exact version, the polyjose code against `@polyjose/node` and again against `@polyjose/wasm`. The same tests check that tokens made by either library are accepted by the other.
+
+The two libraries cover much the same ground: JWS, JWE, JWT, JWK and JWK Sets, with Promise-based calls. Most of a migration is renaming. The parts that need thought are the [behaviour differences](#behaviour-differences): polyjose has no default algorithm list, requires `exp`, takes keys only as JWKs and never fetches anything.
+
+## Install and import
+
+For Node.js:
+
+<Install platform="node" />
+
+For browsers, Web Workers and Cloudflare Workers:
+
+<Install platform="web" />
+
+Both packages have the same API, so moving between them means changing the import. Replace the `jose` import:
+
+<Sample platform="node" id="migrate-panva-jose/import-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/import" title="polyjose (Node.js)" />
+<Sample platform="web" id="migrate-panva-jose/import" title="polyjose (Web)" />
+
+polyjose exports functions, not classes. There are no builders such as `SignJWT`: each operation takes its inputs and options in one call.
+
+## Concept map
+
+<table tabindex="0">
+	<caption>jose APIs and their polyjose counterparts</caption>
+	<thead>
+		<tr>
+			<th scope="col">jose</th>
+			<th scope="col">polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>CryptoKey</code>, <code>KeyObject</code>, a <code>Uint8Array</code> secret</th><td>A JWK, as a plain object or JSON text. Every function takes keys this way.</td></tr>
+		<tr><th scope="row"><code>importJWK(jwk, alg)</code></th><td>Nothing to call: pass the JWK. Give it an <code>alg</code> member to bind it to one algorithm.</td></tr>
+		<tr><th scope="row"><code>exportJWK(key)</code></th><td>Nothing to call: keys are already JWKs. <code>jwkToPublic(jwk)</code> gives the public half.</td></tr>
+		<tr><th scope="row"><code>importPKCS8</code>, <code>importSPKI</code></th><td><code>jwkFromPem(pem)</code>, or <code>jwkFromDer(der, format)</code></td></tr>
+		<tr><th scope="row"><code>exportPKCS8</code>, <code>exportSPKI</code></th><td><code>jwkToPem(jwk, 'pkcs8')</code>, <code>jwkToPem(jwk, 'spki')</code>, or <code>jwkToDer</code></td></tr>
+		<tr><th scope="row"><code>generateKeyPair(alg)</code>, <code>generateSecret(alg)</code></th><td><code>jwkGenerateForAlg(alg)</code>, or <code>jwkGenerateEc</code>, <code>jwkGenerateOkp</code>, <code>jwkGenerateOct</code>. No RSA key generation.</td></tr>
+		<tr><th scope="row"><code>calculateJwkThumbprint</code>, <code>calculateJwkThumbprintUri</code></th><td><code>jwkThumbprint</code>, <code>jwkThumbprintUri</code></td></tr>
+		<tr><th scope="row"><code>new SignJWT(claims)…sign(key)</code></th><td><code>jwtSign(claims, key, &#123; alg &#125;)</code></td></tr>
+		<tr><th scope="row"><code>jwtVerify(token, key, options)</code></th><td><code>jwtVerify(token, key, &#123; allowedAlgs, … &#125;)</code>, which returns <code>&#123; claims, header, alg &#125;</code></td></tr>
+		<tr><th scope="row"><code>CompactSign</code>, <code>compactVerify</code></th><td><code>jwsSignCompact</code>, <code>jwsVerifyCompact</code></td></tr>
+		<tr><th scope="row"><code>FlattenedSign</code>, <code>GeneralSign</code>, <code>flattenedVerify</code>, <code>generalVerify</code></th><td><code>jwsSignFlattened</code>, <code>jwsSignGeneral</code>, <code>jwsVerifyJson</code> (<a href="/guides/sign-and-verify/">Sign and verify</a>)</td></tr>
+		<tr><th scope="row"><code>CompactEncrypt</code>, <code>compactDecrypt</code></th><td><code>jweEncryptCompact</code>, <code>jweDecryptCompact</code></td></tr>
+		<tr><th scope="row"><code>FlattenedEncrypt</code>, <code>GeneralEncrypt</code>, <code>flattenedDecrypt</code>, <code>generalDecrypt</code></th><td><code>jweEncryptJson(…, 'flattened')</code> or <code>'general'</code>, <code>jweDecryptJson</code> (<a href="/guides/encrypt-and-decrypt/">Encrypt and decrypt</a>)</td></tr>
+		<tr><th scope="row"><code>EncryptJWT</code>, <code>jwtDecrypt</code></th><td>Nested JWTs only, signed and then encrypted: <code>jwtEncryptNested</code>, <code>jwtDecryptNested</code> (<a href="/guides/validate-jwt/#nested-jwts-sign-then-encrypt">Validate a JWT</a>)</td></tr>
+		<tr><th scope="row"><code>createLocalJWKSet(jwks)</code> passed to <code>jwtVerify</code></th><td><code>jwtVerifyWithJwks(token, jwks, options)</code>; <code>jwksSelect</code> picks one key</td></tr>
+		<tr><th scope="row"><code>createRemoteJWKSet(url)</code></th><td>None: fetch and cache the set yourself, then pass it to <code>jwtVerifyWithJwks</code></td></tr>
+		<tr><th scope="row"><code>decodeJwt</code>, <code>decodeProtectedHeader</code>, <code>UnsecuredJWT</code></th><td>None: polyjose reads a token only by verifying it</td></tr>
+		<tr><th scope="row"><code>errors.*</code>, each with a <code>code</code></th><td><code>PolyjoseError</code>, with a <code>code</code> (<a href="#handle-errors">Handle errors</a>)</td></tr>
+		<tr><th scope="row"><code>base64url.encode</code>, <code>base64url.decode</code></th><td><code>base64urlEncode</code>, <code>base64urlDecode</code>, which return Promises</td></tr>
+	</tbody>
+</table>
+
+## Sign a JWT
+
+`jwtSign` takes the whole Claims Set. Times are whole seconds since the epoch: there are no `'5m'` strings or `Date` objects, and no claim is added for you, so set `iat` yourself if you want it. The header is `alg` plus `"typ": "JWT"`, and the `kid` of the key when it has one.
+
+<Sample platform="node" id="migrate-panva-jose/sign-jwt-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/sign-jwt" title="polyjose" />
+
+## Verify a JWT
+
+The options are renamed, and `allowedAlgs` is required. `issuers` and `audiences` are always arrays. `clockTolerance` becomes `leeway`, `maxTokenAge` becomes `maxAge` and `currentDate` becomes `now`, all three in seconds. `subject`, `typ` and `requiredClaims` keep their names. The result has `claims` where `jose` has `payload`, and `header` where it has `protectedHeader`.
+
+<Sample platform="node" id="migrate-panva-jose/verify-jwt-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/verify-jwt" title="polyjose" />
+
+[Validate a JWT](/guides/validate-jwt/) lists the defaults and every option.
+
+## Sign and verify a JWS
+
+<Sample platform="node" id="migrate-panva-jose/jws-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/jws" title="polyjose" />
+
+The protected header comes back as `protectedHeader`, as in `jose`, together with the `alg` that verified.
+
+## Encrypt and decrypt a JWE
+
+`keyManagementAlgorithms` becomes `allowedAlgs` and `contentEncryptionAlgorithms` becomes `allowedEnc`. Both are required. The encryption options name each recipient's `alg` and key, so the header isn't set separately.
+
+<Sample platform="node" id="migrate-panva-jose/jwe-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/jwe" title="polyjose" />
+
+## Keys
+
+`jose` turns keys into `CryptoKey` objects before use. polyjose works on JWKs throughout, so there is no import or export step, and a key you generate is already a JWK you can store. The two libraries compute the same RFC 7638 thumbprint, and each reads the PEM the other writes.
+
+<Sample platform="node" id="migrate-panva-jose/keys-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/keys" title="polyjose" />
+
+`jwkGenerateForAlg` sets the key's `alg`, which binds it to that one algorithm. [Manage keys](/guides/manage-keys/) covers PEM and DER formats, thumbprints and wiping secret bytes.
+
+## JWK Sets
+
+### A set you already have
+
+`jwtVerifyWithJwks` takes the set itself, as an object or JSON text, in place of the function `createLocalJWKSet` returns. The result says which key verified, by `kid` and `keyIndex`.
+
+<Sample platform="node" id="migrate-panva-jose/local-jwks-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/local-jwks" title="polyjose" />
+
+### An issuer's `jwks_uri`
+
+polyjose makes no network requests, so it has no counterpart to `createRemoteJWKSet`. Your application fetches the issuer's set, caches it and passes the cached copy to each call. Passing a URL in place of a set fails: a string is read as JSON text and fails with `InvalidJson`, and a `URL` object is a `TypeError`.
+
+<Sample platform="node" id="migrate-panva-jose/remote-jwks-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/remote-jwks" title="polyjose" />
+
+`createRemoteJWKSet` also refreshes the set and refetches it when a token names an unknown `kid`. Keep that behaviour in your own cache: refresh on a schedule, and when you get `NoMatchingKey`, refetch at most once in a while, so that a stream of made-up `kid`s can't make you fetch on every request. [Work with JWK Sets](/guides/jwk-sets/) explains how polyjose chooses a key from a set.
+
+## Handle errors
+
+Both libraries give every error a stable `code` to branch on. In polyjose every failure is a `PolyjoseError`, and the code is one of a fixed set of strings that is the same on every platform. Messages are for logs and may change between versions.
+
+<Sample platform="node" id="migrate-panva-jose/errors-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/errors" title="polyjose" />
+
+<table tabindex="0">
+	<caption>jose error codes and the polyjose codes for the same failure</caption>
+	<thead>
+		<tr>
+			<th scope="col">jose</th>
+			<th scope="col">polyjose <code>code</code></th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>ERR_JWT_EXPIRED</code> (<code>JWTExpired</code>)</th><td><code>TokenExpired</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWT_CLAIM_VALIDATION_FAILED</code> with <code>claim</code> <code>"nbf"</code></th><td><code>TokenNotYetValid</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWT_CLAIM_VALIDATION_FAILED</code> for another claim, such as <code>iss</code> or <code>aud</code></th><td><code>InvalidClaim</code></td></tr>
+		<tr><th scope="row"><code>ERR_JOSE_ALG_NOT_ALLOWED</code></th><td><code>AlgorithmNotAllowed</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWS_SIGNATURE_VERIFICATION_FAILED</code></th><td><code>InvalidSignature</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWS_INVALID</code> for a token that isn't three base64url parts</th><td><code>InvalidFormat</code>; other parse failures are <code>InvalidBase64</code>, <code>InvalidJson</code> or <code>InvalidHeader</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWKS_NO_MATCHING_KEY</code></th><td><code>NoMatchingKey</code></td></tr>
+		<tr><th scope="row"><code>ERR_JWE_DECRYPTION_FAILED</code></th><td><code>DecryptionFailed</code></td></tr>
+	</tbody>
+</table>
+
+`jose` tells you which claim failed in `err.claim`. polyjose has no such field; its message may name the claim, for your logs. When one token is wrong in several ways, polyjose checks in a fixed order, and the first failure decides the code: see [Errors](/concepts/errors/#the-order-of-jwt-checks), which also lists every code.
+
+## Behaviour differences
+
+- **The allow-list is required.** `jose` falls back to the algorithms that fit the key when you leave out `algorithms`. polyjose has no default: verifying or decrypting without `allowedAlgs` (and `allowedEnc` for a JWE) fails with `AlgorithmNotAllowed`.
+- **`none` is never accepted.** A token from `UnsecuredJWT` fails with `AlgorithmNotAllowed`, even when `"none"` is in the allow-list, and polyjose can't create one.
+- **Keys are bound to their algorithm family.** A key is used only with the algorithms of its type and curve, and a JWK with an `alg` member only with that algorithm. Using it otherwise fails with `KeyAlgorithmMismatch`, before any signature is checked.
+- **`exp` is required.** `jose` accepts a token without `exp`. polyjose rejects it with `InvalidClaim`, unless you pass `allowMissingExp: true`.
+- **An `aud` is always checked.** `jose` ignores a token's `aud` when you configure no `audience`. polyjose rejects it with `InvalidClaim`: configure your `audiences`, or pass `ignoreAudience: true` if the token really isn't meant for a specific recipient.
+- **60 seconds of leeway by default.** `jose` has no clock tolerance unless you set one. polyjose allows 60 seconds by default, and at most 600.
+- **Typed tokens need `typ`.** polyjose accepts a token whose `typ` is absent or `JWT`. A token typed as something else, such as an `at+jwt` access token, is refused with `InvalidHeader` unless you name its type. See [Explicit typing](/guides/validate-jwt/#explicit-typing-and-access-tokens).
+- **Times are numbers of seconds.** Duration strings such as `'2 hours'` and `Date` objects are `TypeError`s, and so is an option polyjose doesn't have, such as `clockTolerance`.
+- **Errors are codes.** See [Handle errors](#handle-errors).
+
+## On the web
+
+`jose` uses the platform's Web Crypto API. `@polyjose/wasm` brings the polyjose core compiled to WebAssembly instead, so:
+
+- Keys are JWKs, as in Node.js. A `CryptoKey` is not accepted (a `TypeError`), so a non-extractable key held by Web Crypto can't be used with polyjose. [Store keys securely](/guides/secure-key-storage/) discusses where keys can live on the web.
+- The WebAssembly module is loaded on the first call. A page with a Content Security Policy must allow it with `'wasm-unsafe-eval'`, and the `.wasm` file must be served unchanged: see [Web (WASM)](/start/web/#serving-the-module).
+- The work runs on the thread that calls polyjose. For slow operations, such as PBES2 with many iterations, call it from a Web Worker.
+
+In Node.js, `@polyjose/node` is a native addon whose calls run on the libuv thread pool. See [Node.js](/start/node/).
+
+## Not supported, or different
+
+- **Fetching a remote JWK Set.** polyjose does no network I/O, and never follows a `jku` or `x5u` header. [Fetch the set yourself](#an-issuers-jwks_uri).
+- **Reading a token without verifying it.** There is no `decodeJwt`, `decodeProtectedHeader` or `UnsecuredJWT.decode`. Verify first: the result carries the header and the claims. To choose a key by `kid`, pass the whole set. See [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+- **`CryptoKey` and `KeyObject` inputs.** Every key is a JWK. Convert PEM and DER with `jwkFromPem` and `jwkFromDer`, which read PKCS #8, SEC 1, SPKI and PKCS #1. There is no certificate import, and polyjose never validates a certificate chain.
+- **Encrypted JWTs without a signature** (`EncryptJWT`). polyjose encrypts JWTs only as nested JWTs: signed, then encrypted.
+- **RSA key generation.** polyjose signs and decrypts with RSA keys you import, but can't generate them. Other algorithms that polyjose leaves out, such as `RSA1_5` and `RSA-OAEP` with SHA-1, are listed with the reasons in [What polyjose does not support](/security/not-supported/).
+
+## Checklist
+
+1. Replace the `jose` import with `@polyjose/node` or `@polyjose/wasm`.
+2. Keep keys as JWKs; drop `importJWK` and `exportJWK`, and convert PEM with `jwkFromPem`.
+3. Pass `allowedAlgs` to every verify, and `allowedEnc` as well to every decrypt.
+4. Rename the JWT options: `issuers`, `audiences`, `leeway`, `maxAge`, `now`, all times in seconds.
+5. Make sure every token you accept has an `exp`, and configure `audiences` where tokens carry an `aud`.
+6. Fetch and cache remote JWK Sets yourself, and pass them to `jwtVerifyWithJwks`.
+7. Remove `decodeJwt` and `decodeProtectedHeader`; read headers and claims from the verified result.
+8. Branch on `PolyjoseError.code`, with a default branch for codes you don't handle.

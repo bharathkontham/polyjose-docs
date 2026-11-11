@@ -12,10 +12,11 @@
  *   `unavailable` names an unknown platform or a key missing from
  *   src/data/unavailable.json
  * - a region is defined but no page uses it (an orphan)
- * - <Sample> appears outside the get-started pages (start/)
+ * - <Sample> appears outside the get-started pages (start/) and the
+ *   migration guides (guides/migrate/)
  *
  * The build enforces the per-page rules as well; this check adds orphans and
- * the start/ rule, and runs without building the site.
+ * the <Sample> page rule, and runs without building the site.
  *
  * Usage: node scripts/samples/check-coverage.mjs [--root <docs repository>]
  */
@@ -28,6 +29,13 @@ import { PLATFORMS, collectRegions, isSampleSource, resolveSamples, resolveSampl
 import { findUsages } from './usages.mjs';
 
 const DOCS = 'src/content/docs';
+/**
+ * Page directories (under src/content/docs/) where <Sample> may show one
+ * platform's region without tabs: the get-started pages, each about one
+ * platform, and the migration guides, which put another library's code
+ * (a region in the same test file) next to the polyjose code.
+ */
+const SINGLE_SAMPLE_DIRS = ['start/', 'guides/migrate/'];
 const SKIP_DIRS = new Set(['node_modules', 'target', 'build']);
 
 /**
@@ -131,8 +139,11 @@ export function checkCoverage(root) {
     }
 
     // <Sample>
-    if (!relative(DOCS, usage.file).split(sep).join('/').startsWith('start/')) {
-      errors.push(`${at} <Sample> is only for get-started pages (start/); use <Samples> here so every platform is shown`);
+    const page = relative(DOCS, usage.file).split(sep).join('/');
+    if (!SINGLE_SAMPLE_DIRS.some((dir) => page.startsWith(dir))) {
+      errors.push(
+        `${at} <Sample> is only for get-started pages (start/) and migration guides (guides/migrate/); use <Samples> here so every platform is shown`,
+      );
     }
     try {
       const sample = resolveSample({ platform: /** @type {string} */ (usage.platform), id: usage.id, regions });

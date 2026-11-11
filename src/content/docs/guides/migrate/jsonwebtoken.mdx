@@ -1,0 +1,208 @@
+---
+title: Migrate from jsonwebtoken
+description: Move a Node.js project from the jsonwebtoken package to @polyjose/node, option by option, with the behaviour that changes.
+---
+
+import Install from '../../../../components/samples/Install.astro';
+import Sample from '../../../../components/samples/Sample.astro';
+
+This page describes polyjose 0.2.0, compared with `jsonwebtoken` 9.0.3.
+
+Both sides of every sample on this page run as tests: the `jsonwebtoken` code against that exact version, the polyjose code against `@polyjose/node` and again against `@polyjose/wasm`. The same tests check that a token signed by either library verifies in the other, with ES256 and with HS256.
+
+`jsonwebtoken` signs and verifies JWTs, which are JWSs. It has no encryption, so a migration from it is about JWS only. polyjose also does JWE: see [Encrypt and decrypt](/guides/encrypt-and-decrypt/) when you need it.
+
+## Install and import
+
+<Install platform="node" />
+
+polyjose is ESM only. CommonJS code can still load it with `require("@polyjose/node")` on Node.js 22.12 or later.
+
+<Sample platform="node" id="migrate-jsonwebtoken/import-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/import" title="polyjose" />
+
+The same code runs in browsers and Workers with `@polyjose/wasm`: see [Web (WASM)](/start/web/).
+
+## Concept map
+
+<table tabindex="0">
+	<caption>jsonwebtoken APIs and their polyjose counterparts</caption>
+	<thead>
+		<tr>
+			<th scope="col">jsonwebtoken</th>
+			<th scope="col">polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>jwt.sign(payload, key, options)</code></th><td><code>await jwtSign(claims, key, &#123; alg &#125;)</code></td></tr>
+		<tr><th scope="row"><code>jwt.verify(token, key, options)</code>, with or without a callback</th><td><code>await jwtVerify(token, key, &#123; allowedAlgs, … &#125;)</code>, which returns <code>&#123; claims, header, alg &#125;</code></td></tr>
+		<tr><th scope="row"><code>jwt.verify(token, getKey, …)</code> with a key function</th><td><code>await jwtVerifyWithJwks(token, jwks, options)</code></td></tr>
+		<tr><th scope="row"><code>jwt.decode(token)</code></th><td>None: polyjose reads a token only by verifying it</td></tr>
+		<tr><th scope="row">A secret string or <code>Buffer</code></th><td>An <code>oct</code> JWK whose <code>k</code> is the base64url of the secret's bytes</td></tr>
+		<tr><th scope="row">A PEM string or <code>KeyObject</code></th><td>A JWK: convert PEM with <code>jwkFromPem</code></td></tr>
+		<tr><th scope="row"><code>TokenExpiredError</code>, <code>NotBeforeError</code>, <code>JsonWebTokenError</code></th><td><code>PolyjoseError</code>, with a <code>code</code> (<a href="#handle-errors">Handle errors</a>)</td></tr>
+	</tbody>
+</table>
+
+## Sign a JWT
+
+`jwtSign` takes the whole Claims Set: the options that `jwt.sign` turns into claims become claims you write. Times are whole seconds since the epoch. polyjose adds no claim of its own, not even `iat`.
+
+<Sample platform="node" id="migrate-jsonwebtoken/sign-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/sign" title="polyjose" />
+
+<table tabindex="0">
+	<caption>jwt.sign options in polyjose</caption>
+	<thead>
+		<tr>
+			<th scope="col"><code>jwt.sign</code> option</th>
+			<th scope="col">With polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>algorithm</code> (default <code>HS256</code>)</th><td><code>alg</code> in the options. Required: there is no default.</td></tr>
+		<tr><th scope="row"><code>expiresIn: '5m'</code></th><td>The claim <code>exp: now + 300</code></td></tr>
+		<tr><th scope="row"><code>notBefore: '1m'</code></th><td>The claim <code>nbf: now + 60</code></td></tr>
+		<tr><th scope="row"><code>audience</code>, <code>issuer</code>, <code>subject</code>, <code>jwtid</code></th><td>The claims <code>aud</code>, <code>iss</code>, <code>sub</code>, <code>jti</code></td></tr>
+		<tr><th scope="row">The <code>iat</code> it adds, unless <code>noTimestamp</code></th><td>The claim <code>iat: now</code>, if you want one</td></tr>
+		<tr><th scope="row"><code>keyid</code></th><td>A <code>kid</code> member in the key's JWK, which is copied into the header</td></tr>
+		<tr><th scope="row"><code>header</code></th><td><code>header</code> in the options, for extra header parameters</td></tr>
+	</tbody>
+</table>
+
+`now` is `Math.floor(Date.now() / 1000)`.
+
+## Secrets and keys
+
+### HMAC secrets
+
+A shared secret becomes an `oct` JWK. Its `k` is the base64url of the secret's bytes, so tokens signed with the same bytes verify in both libraries.
+
+<Sample platform="node" id="migrate-jsonwebtoken/secret-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/secret" title="polyjose" />
+
+The key must be at least as long as the hash output: 32 bytes for HS256, 48 for HS384 and 64 for HS512 ([RFC 7518 §3.2](https://www.rfc-editor.org/rfc/rfc7518#section-3.2)). `jsonwebtoken` accepts shorter secrets. polyjose refuses them with `InvalidKey`, for signing and for verifying, so tokens signed with a short secret can't be verified after the move. Plan to replace such a secret with 32 random bytes or more, for example from `jwkGenerateForAlg('HS256')`.
+
+### PEM keys
+
+`jsonwebtoken` takes PEM text. polyjose takes JWKs, and converts PEM once, when you load the key. A key protected with a passphrase has to be decrypted first: polyjose reads no encrypted PEM, and fails with `UnsupportedAlgorithm`.
+
+<Sample platform="node" id="migrate-jsonwebtoken/keys" title="polyjose" />
+
+Pass the JWKs from then on. Passing PEM text where a JWK belongs fails with `InvalidJson`, and a `KeyObject` is a `TypeError`. [Manage keys](/guides/manage-keys/) covers PEM and DER in both directions.
+
+## Verify a JWT
+
+`algorithms` becomes `allowedAlgs`, and it is required. `issuer` and `audience` become the arrays `issuers` and `audiences`. `clockTolerance` becomes `leeway`.
+
+<Sample platform="node" id="migrate-jsonwebtoken/verify-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/verify" title="polyjose" />
+
+<table tabindex="0">
+	<caption>jwt.verify options in polyjose</caption>
+	<thead>
+		<tr>
+			<th scope="col"><code>jwt.verify</code> option</th>
+			<th scope="col">polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>algorithms</code></th><td><code>allowedAlgs</code>, required</td></tr>
+		<tr><th scope="row"><code>issuer</code>, <code>audience</code>, <code>subject</code></th><td><code>issuers</code>, <code>audiences</code> (strings, matched exactly, no regular expressions), <code>subject</code></td></tr>
+		<tr><th scope="row"><code>clockTolerance</code> (default 0)</th><td><code>leeway</code> (default 60, at most 600 seconds)</td></tr>
+		<tr><th scope="row"><code>maxAge</code></th><td><code>maxAge</code>, in seconds; it also makes <code>iat</code> required</td></tr>
+		<tr><th scope="row"><code>clockTimestamp</code></th><td><code>now</code>, in seconds</td></tr>
+		<tr><th scope="row"><code>complete: true</code></th><td>Always: the result has <code>header</code> and <code>claims</code></td></tr>
+		<tr><th scope="row"><code>jwtid</code>, <code>nonce</code></th><td>No option. Require the claim with <code>requiredClaims: ['jti']</code>, then compare its value in your code.</td></tr>
+		<tr><th scope="row"><code>ignoreExpiration</code>, <code>ignoreNotBefore</code></th><td>None. An expired token always fails; <code>leeway</code> is the only allowance.</td></tr>
+	</tbody>
+</table>
+
+polyjose rejects options it doesn't know with a `TypeError`, so a leftover `ignoreExpiration` or `clockTolerance` fails loudly instead of being ignored. Durations are numbers of seconds: a string such as `'2 days'` is a `TypeError` too. [Validate a JWT](/guides/validate-jwt/) lists every option and default.
+
+### Callbacks
+
+There is no callback form and no synchronous form: every polyjose call returns a Promise. Replace the callback with `await`, or with `.then`:
+
+<Sample platform="node" id="migrate-jsonwebtoken/callback-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/callback" title="polyjose" />
+
+The work runs on the libuv thread pool, so verifying doesn't block the event loop.
+
+### Choosing the key by `kid`
+
+With `jsonwebtoken`, a key function receives the decoded header and looks up the key, often through a JWKS client. With polyjose, pass the issuer's whole JWK Set to `jwtVerifyWithJwks`: it chooses the candidate keys from the token's `kid` and `alg`, and the result says which `kid` verified.
+
+<Sample platform="node" id="migrate-jsonwebtoken/jwks-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/jwks" title="polyjose" />
+
+polyjose makes no network requests: fetching the set from the issuer's `jwks_uri` and caching it is your application's job. [Work with JWK Sets](/guides/jwk-sets/) shows how keys are chosen and how to cache a set safely.
+
+## Reading a token without verifying it
+
+`jwt.decode` returns the claims of a token whose signature nobody checked. polyjose has no such function, under any name: claims read that way could have been written by anyone. Verify first, and read the header and the claims from the result.
+
+<Sample platform="node" id="migrate-jsonwebtoken/decode-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/decode" title="polyjose" />
+
+The usual reason to decode first is to find the `kid`, or the issuer, to pick a key. Pass the issuer's JWK Set instead, as [above](#choosing-the-key-by-kid), and choose the set from your endpoint's configuration, not from the token. See [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+
+## Handle errors
+
+`jsonwebtoken` throws three classes. polyjose throws one, `PolyjoseError`, whose `code` says what failed. Branch on the code, never on the message: messages are for logs and may change between versions.
+
+<Sample platform="node" id="migrate-jsonwebtoken/errors-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/errors" title="polyjose" />
+
+<table tabindex="0">
+	<caption>jsonwebtoken errors and the polyjose codes for the same failure</caption>
+	<thead>
+		<tr>
+			<th scope="col">jsonwebtoken</th>
+			<th scope="col">polyjose <code>code</code></th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>TokenExpiredError</code></th><td><code>TokenExpired</code></td></tr>
+		<tr><th scope="row"><code>NotBeforeError</code></th><td><code>TokenNotYetValid</code></td></tr>
+		<tr><th scope="row"><code>JsonWebTokenError</code>: <code>invalid signature</code></th><td><code>InvalidSignature</code></td></tr>
+		<tr><th scope="row"><code>JsonWebTokenError</code>: <code>invalid algorithm</code></th><td><code>AlgorithmNotAllowed</code></td></tr>
+		<tr><th scope="row"><code>JsonWebTokenError</code>: <code>jwt issuer invalid</code>, <code>jwt audience invalid</code></th><td><code>InvalidClaim</code></td></tr>
+		<tr><th scope="row"><code>JsonWebTokenError</code>: <code>jwt malformed</code></th><td><code>InvalidFormat</code>; other parse failures are <code>InvalidBase64</code>, <code>InvalidJson</code> or <code>InvalidHeader</code></td></tr>
+	</tbody>
+</table>
+
+A token that is wrong in several ways reports the first failing check, in a fixed order: see [Errors](/concepts/errors/#the-order-of-jwt-checks), which also lists every code.
+
+## Behaviour differences
+
+- **The allow-list is required.** Without `algorithms`, `jsonwebtoken` picks default algorithms from the type of key. polyjose has no default: a verify without `allowedAlgs` fails with `AlgorithmNotAllowed`. Name only the algorithms your issuer uses, and never mix `HS*` with public-key algorithms.
+- **`none` is never accepted.** `jsonwebtoken` can sign and verify unsecured tokens (`algorithm: 'none'`). polyjose refuses them with `AlgorithmNotAllowed`, even when `"none"` is in the allow-list, and can't create one.
+- **Keys are bound to their algorithm family.** An EC key verifies only ECDSA with its curve, an `oct` key only HMAC, and a JWK with an `alg` member only that algorithm. Anything else fails with `KeyAlgorithmMismatch`. There is no counterpart to `allowInvalidAsymmetricKeyTypes`.
+- **`exp` is required.** `jwt.sign` writes no `exp` without `expiresIn`, and `jwt.verify` accepts such tokens. polyjose rejects them with `InvalidClaim`, unless you pass `allowMissingExp: true`. Check what your issuers send before you switch.
+- **An `aud` is always checked.** `jwt.verify` ignores `aud` when you pass no `audience`. polyjose rejects a token that has an `aud` with `InvalidClaim` unless you configure `audiences`, or pass `ignoreAudience: true`.
+- **60 seconds of leeway by default,** where `jsonwebtoken` has none. A token that expired 30 seconds ago fails in `jsonwebtoken` and passes in polyjose. Pass `leeway: 0` to keep the old behaviour. The most it can be is 600 seconds.
+- **No weak keys.** HMAC secrets shorter than the hash and RSA keys under 2048 bits fail with `InvalidKey`. `jsonwebtoken`'s `allowInsecureKeySizes` has no counterpart.
+- **Errors are codes,** not classes: see [Handle errors](#handle-errors).
+
+## Not supported, or different
+
+- **JWE.** Not part of this migration, because `jsonwebtoken` has none. polyjose supports it: see [Encrypt and decrypt](/guides/encrypt-and-decrypt/).
+- **`jwt.decode`.** No unverified decoding; see [above](#reading-a-token-without-verifying-it).
+- **Encrypted PEM** (`{ key, passphrase }`). Decrypt the key with `node:crypto` and export a JWK, as in [PEM keys](#pem-keys).
+- **Regular expressions in `audience`,** and the `jwtid` and `nonce` checks. Audiences are exact strings; compare `jti` and `nonce` yourself after verifying.
+- **`ignoreExpiration` and `ignoreNotBefore`.** There is no way to accept a token outside its validity period beyond `leeway`.
+- **Fetching JWK Sets.** polyjose does no network I/O; fetch and cache the set yourself.
+
+polyjose also signs with algorithms `jsonwebtoken` doesn't have, such as `Ed25519`, and supports the JWS JSON serializations: see [Sign and verify](/guides/sign-and-verify/).
+
+## Checklist
+
+1. Replace `jsonwebtoken` with `@polyjose/node`, and `await` every call.
+2. Turn secrets into `oct` JWKs, and replace any secret shorter than the hash output.
+3. Convert PEM keys to JWKs once, with `jwkFromPem`; decrypt passphrase-protected keys first.
+4. Write `exp`, `iat`, `nbf`, `iss`, `aud`, `sub` and `jti` as claims when you sign.
+5. Pass `allowedAlgs` to every verify, and rename `issuer`, `audience` and `clockTolerance`.
+6. Make sure the tokens you accept carry `exp`, and configure `audiences` where they carry `aud`.
+7. Replace key functions with `jwtVerifyWithJwks`, and `jwt.decode` with the verified result.
+8. Branch on `PolyjoseError.code` instead of the error classes, with a default branch.

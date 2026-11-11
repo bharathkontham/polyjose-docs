@@ -7,7 +7,7 @@ Every polyjose code block in the guides comes from a file in this directory, and
 | Directory | Platform | What goes there |
 |---|---|---|
 | `samples/rust/` | Rust | A Cargo package. One `tests/<page>.rs` per guide. Each sample sits in a `#[test] fn … -> Result<(), polyjose::Error>`. |
-| `samples/js/` | Node.js, and Web | One `<page>.test.mjs` per guide, using `node:test` and importing only from `@polyjose/node`. |
+| `samples/js/` | Node.js, and Web | One `<page>.test.mjs` per guide, using `node:test` and importing only from `@polyjose/node`. The migration guides' tests also import the library they migrate from (see [Migration guides](#migration-guides)). |
 | `samples/web/` | Web only | Browser and Worker entry points (`.ts`) that only make sense on the web. They are type-checked. |
 | `samples/kotlin/` | Kotlin | A Gradle project. One `src/test/kotlin/<Page>Test.kt` per guide, with JUnit 5. |
 | `samples/swift/` | Swift | A Swift package. One `Tests/SamplesTests/<Page>Tests.swift` per guide. |
@@ -83,7 +83,20 @@ import Sample from '../../../components/samples/Sample.astro';
 <Sample platform="rust" id="start/rust-first-sign" />
 ```
 
-`<Sample>` is allowed only on pages under `start/`. Everywhere else, use `<Samples>` so readers of every platform are served.
+`<Sample>` is allowed only on pages under `start/` and under `guides/migrate/`. Everywhere else, use `<Samples>` so readers of every platform are served.
+
+### Migration guides
+
+A migration guide shows another library's code next to the polyjose code that replaces it. Both are regions of the same test, so the "before" code runs too. The polyjose region's id is `migrate-<guide>/<task>` and the other library's is `migrate-<guide>/<task>-before`, and the page shows them one after the other, each captioned with its library:
+
+```mdx
+import Sample from '../../../components/samples/Sample.astro';
+
+<Sample platform="node" id="migrate-jsonwebtoken/sign-before" title="jsonwebtoken" />
+<Sample platform="node" id="migrate-jsonwebtoken/sign" title="polyjose" />
+```
+
+The other library is a test dependency of that platform's sample project only, pinned to an exact version with a committed lockfile. In `samples/js` they are `devDependencies` in `package.json`, recorded in `package-lock.json`, and the runner installs them with `npm ci --ignore-scripts`. Each guide's test file also has interop tests: a token made by the other library verifies in polyjose, and a polyjose token verifies in the other library.
 
 ### Install lines
 
@@ -121,7 +134,7 @@ scripts/samples/run.sh rust       # or js, kotlin, swift
 scripts/samples/run.sh all
 ```
 
-**`samples:coverage`** needs no toolchains. It fails when a page uses an id that no platform defines, when a `<Samples>` block lacks a platform without an `unavailable` entry, when an `unavailable` key is missing from `src/data/unavailable.json`, when a region is never used on any page, or when `<Sample>` is used outside `start/`.
+**`samples:coverage`** needs no toolchains. It fails when a page uses an id that no platform defines, when a `<Samples>` block lacks a platform without an `unavailable` entry, when an `unavailable` key is missing from `src/data/unavailable.json`, when a region is never used on any page, or when `<Sample>` is used outside `start/` and `guides/migrate/`.
 
 **`run.sh`** prints one line per platform: `PASS`, `FAIL` or `SKIPPED`, with a reason. A platform is SKIPPED, never PASS, when its pin is `none`, when its runner isn't installed, when its toolchain is missing, or when the polyjose checkout doesn't match the pin. The exit status is 0 only when no platform failed.
 
