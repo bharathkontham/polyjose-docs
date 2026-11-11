@@ -1,10 +1,14 @@
+# Runs `npm run verify` on GitHub, by hand only (Actions > CI > Run workflow).
+#
+# Nothing triggers this on a pull request or a push: pull requests are verified
+# locally with `npm run verify` before they merge. The only workflow that runs
+# on its own is deploy.yml, which publishes the site when main changes.
 name: CI
 on:
-  pull_request:
-  merge_group:
+  workflow_dispatch:
 permissions: { contents: read }
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   verify:
