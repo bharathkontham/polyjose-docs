@@ -86,7 +86,7 @@ With Nimbus's low-level `JWSObject.verify`, the verifier class decides which alg
 
 ## Encrypt and decrypt a JWE
 
-`JWEObject` with an encrypter maps to `jweEncryptCompact` with one recipient, and a decrypter to `jweDecryptCompact`. Decrypting takes two allow-lists: `allowedAlgs` for the key management algorithm and `allowedEnc` for the content encryption.
+`JWEObject` with an encrypter maps to `jweEncryptCompact` with one recipient, and a decrypter to `jweDecryptCompact`. Decrypting takes two allow-lists: `allowedAlgs` for the key management algorithm and `allowedEnc` for the content encryption. With Nimbus's `JWEObject.decrypt`, the decrypter class decides what it accepts: an `RSADecrypter`, for example, accepts every RSA key management algorithm and every content encryption it supports, so nothing restricts `alg` or `enc` unless you check the header yourself. polyjose's `allowedAlgs` and `allowedEnc` take over that check: a token whose `alg` or `enc` isn't listed fails with `AlgorithmNotAllowed` before any cryptography runs.
 
 <Sample platform="kotlin" id="migrate-nimbus/jwe-rsa-before" title="Nimbus JOSE + JWT" />
 
