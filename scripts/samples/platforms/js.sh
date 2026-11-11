@@ -6,8 +6,10 @@
 #   1. bindings/node/scripts/pack.sh packs @polyjose/node, one package that carries the macOS
 #      arm64 and x64 addons (polyjose 0.1.2 and later), and bindings/wasm/scripts/build-package.sh
 #      packs @polyjose/wasm. Both only pack (they never publish); pack.sh runs on macOS only.
-#   2. The two tarballs are installed into samples/js/node_modules offline, with a fresh npm cache
-#      and no install scripts, as polyjose's own package test installs them.
+#   2. samples/js's own test dependencies (jose and jsonwebtoken, for the migration guides) are
+#      installed from its lockfile with `npm ci --ignore-scripts`. Then the two tarballs are added
+#      to samples/js/node_modules offline, with a fresh npm cache and no install scripts, as
+#      polyjose's own package test installs them.
 #   3. Node.js: `node --test` runs samples/js.
 #   4. Web: samples/js is copied to samples/.generated/web with every `@polyjose/node` import
 #      rewritten to `@polyjose/wasm` by the site's own rewrite (toWebImports in
@@ -54,21 +56,26 @@ node_dist="$POLYJOSE_EXPORT/bindings/node/dist/npm"
 node_tgz=$(one_file "$node_dist/polyjose-node-[0-9]*.tgz")
 wasm_tgz=$(one_file "$POLYJOSE_EXPORT/dist/npm/polyjose-wasm-[0-9]*.tgz")
 
+echo "==> js: install the samples' test dependencies (samples/js/package-lock.json, no scripts)"
+(cd "$SAMPLES_ROOT/samples/js" && npm ci --ignore-scripts --no-audit --no-fund --loglevel=error)
+
 echo "==> js: install the tarballs into samples/js (offline)"
 npm_home="$SAMPLES_WORK_DIR/npm"
-rm -rf "$npm_home" "$SAMPLES_ROOT/samples/js/node_modules"
+rm -rf "$npm_home"
 mkdir -p "$npm_home"
 : >"$npm_home/user.npmrc"
 : >"$npm_home/global.npmrc"
 (
-  # Hermetic npm: none of the caller's npm settings, a fresh cache, offline, no scripts, no lock.
+  # Hermetic npm: none of the caller's npm settings, a fresh cache, offline, no scripts. npm reads
+  # samples/js/package-lock.json, so the test dependencies npm ci just installed stay as they are
+  # without a fetch, and saves nothing: package.json and the lockfile are left unchanged.
   for var in $(env | sed -n 's/^\([Nn][Pp][Mm]_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$var"; done
   export npm_config_cache="$npm_home/cache" \
     npm_config_userconfig="$npm_home/user.npmrc" \
     npm_config_globalconfig="$npm_home/global.npmrc" \
     npm_config_offline=true npm_config_audit=false npm_config_fund=false \
     npm_config_update_notifier=false npm_config_ignore_scripts=true \
-    npm_config_package_lock=false npm_config_save=false
+    npm_config_save=false
   cd "$SAMPLES_ROOT/samples/js" || exit 1
   npm install --loglevel=error "$node_tgz" "$wasm_tgz"
 )

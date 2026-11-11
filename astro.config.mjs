@@ -31,6 +31,7 @@ const sidebar = [
         items: [
           { slug: 'guides/migrate', label: 'Overview' },
           { slug: 'guides/migrate/panva-jose', label: 'From panva/jose' },
+          { slug: 'guides/migrate/jsonwebtoken', label: 'From jsonwebtoken' },
           { slug: 'guides/migrate/nimbus', label: 'From Nimbus JOSE + JWT' },
           { slug: 'guides/migrate/joseswift', label: 'From JOSESwift' },
         ],

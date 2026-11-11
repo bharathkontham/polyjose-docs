@@ -1,6 +1,204 @@
 ---
 title: Migrate from JOSESwift
-description: Move a Swift project from JOSESwift to polyjose.
+description: Move an iOS or macOS app from JOSESwift to polyjose's Swift package, call by call, with JWT claim checks, explicit allow-lists and JWK keys.
 ---
 
-This guide is planned, with no date yet. It will map common JOSESwift tasks to polyjose in Swift, step by step.
+import Install from '../../../../components/samples/Install.astro';
+import Sample from '../../../../components/samples/Sample.astro';
+
+This page describes polyjose 0.2.0, compared with JOSESwift 3.0.0.
+
+[JOSESwift](https://github.com/airsidemobile/JOSESwift) signs, verifies, encrypts and decrypts JOSE objects with keys held as `SecKey` or `Data`. polyjose's Swift package does the same with keys held as JWK text, and adds a JWT layer, JWK Set selection and the JSON serializations. This page maps each JOSESwift call to its polyjose equivalent.
+
+Apart from the install lines, every code block on this page is a test. Each **JOSESwift** block runs against JOSESwift 3.0.0 and each **polyjose** block against polyjose, in the same test target, which also checks that tokens pass between the two libraries in both directions. The keys are the published RFC example keys or keys generated in the test, so never use them in an application.
+
+## Install and import
+
+Replace the JOSESwift package with polyjose in Swift Package Manager, and depend on the product `Polyjose`:
+
+<Install platform="swift" />
+
+Then replace `import JOSESwift` with `import Polyjose`. polyjose's calls are synchronous and throw `PolyjoseError`; make them off the main actor. Both packages can stay in one target while you move code over: their type names don't overlap.
+
+Check the platforms before you switch. polyjose needs iOS 16, macOS 13 or watchOS 9 and Swift 6 tools, and it has no tvOS or visionOS build. JOSESwift 3.0.0 also runs on older systems and on tvOS and visionOS. polyjose is a Swift package only, with no CocoaPods or Carthage release. See [Swift (iOS)](/start/swift/).
+
+## Concept map
+
+<table tabindex="0">
+	<caption>JOSESwift types and the polyjose calls that replace them</caption>
+	<thead>
+		<tr>
+			<th scope="col">JOSESwift 3.0.0</th>
+			<th scope="col">polyjose</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>JWS(header:payload:signer:)</code>, <code>compactSerializedString</code></th><td><code>jwsSignCompact(payload:key:options:)</code>, which returns the token</td></tr>
+		<tr><th scope="row"><code>JWS(compactSerialization:)</code> and <code>validate(using:)</code></th><td><code>jwsVerifyCompact(token:key:options:)</code> with <code>JwsVerifyOptions(allowedAlgs:)</code></td></tr>
+		<tr><th scope="row"><code>JWSHeader</code>, <code>JWEHeader</code></th><td>A JSON header in the options, such as <code>JwsSignOptions(protectedHeader:)</code>; results return headers as JSON text</td></tr>
+		<tr><th scope="row"><code>Payload</code></th><td><code>Data</code></td></tr>
+		<tr><th scope="row"><code>Signer</code>, <code>Verifier</code></th><td>No object: the key and the algorithm go into each call</td></tr>
+		<tr><th scope="row"><code>JWE(header:payload:encrypter:)</code> with <code>Encrypter</code></th><td><code>jweEncryptCompact(plaintext:options:)</code> with <code>JweEncryptOptions</code> and a <code>JweRecipient</code></td></tr>
+		<tr><th scope="row"><code>JWE(compactSerialization:)</code> and <code>decrypt(using:)</code> with <code>Decrypter</code></th><td><code>jweDecryptCompact(token:key:options:)</code> with <code>JweDecryptOptions(allowedAlgs:allowedEnc:)</code></td></tr>
+		<tr><th scope="row"><code>RSAPublicKey</code>, <code>RSAPrivateKey</code>, <code>ECPublicKey</code>, <code>ECPrivateKey</code>, <code>SymmetricKey</code></th><td>A JWK as JSON text (<code>String</code>); <code>jwkParse</code> checks one</td></tr>
+		<tr><th scope="row"><code>SecKey</code> and <code>Data</code> keys, <code>converted(to: SecKey.self)</code></th><td>JWK text; <code>jwkFromDer</code> and <code>jwkFromPem</code> import a <code>SecKey</code>'s exported bytes</td></tr>
+		<tr><th scope="row"><code>JWKSet</code></th><td>JWK Set text, with <code>jwksSelect</code> and <code>jwtVerifyWithJwks</code></td></tr>
+		<tr><th scope="row"><code>thumbprint(algorithm:)</code></th><td><code>jwkThumbprint(jwk:hash:)</code> and <code>jwkThumbprintUri</code></td></tr>
+		<tr><th scope="row">No JWT type</th><td><code>jwtSign</code>, <code>jwtVerify</code> with <code>JwtVerifyOptions</code></td></tr>
+		<tr><th scope="row"><code>JOSESwiftError</code></th><td><code>PolyjoseError</code>, read with <code>error.code()</code></td></tr>
+	</tbody>
+</table>
+
+## Sign and verify a JWS
+
+JOSESwift builds a header object and a `Signer` around a `SecKey`. polyjose takes the header as JSON and the key as a JWK:
+
+<Sample platform="swift" id="migrate-joseswift/sign-jws-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/sign-jws" title="polyjose" />
+
+To verify, JOSESwift's `Verifier` names one algorithm and fails when the token's `alg` is a different one. polyjose's `allowedAlgs` plays that role, and it can list several algorithms ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)):
+
+<Sample platform="swift" id="migrate-joseswift/verify-jws-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/verify-jws" title="polyjose" />
+
+The other signature algorithms, the JSON serialization and detached payloads are on [Sign and verify](/guides/sign-and-verify/).
+
+## Issue and validate a JWT
+
+JOSESwift has no JWT layer. A JWT made with JOSESwift is a JWS whose payload you encode yourself, and validating one means checking the signature, then decoding and checking each claim in your own code. polyjose does both steps for you, so this is where you can delete the most code.
+
+<Sample platform="swift" id="migrate-joseswift/issue-jwt-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/issue-jwt" title="polyjose" />
+
+The checks a JOSESwift app has to write by hand:
+
+<Sample platform="swift" id="migrate-joseswift/verify-jwt-before" title="JOSESwift" />
+
+`jwtVerify` checks the signature against the allow-list, then `typ`, `exp` (which it requires) and `nbf` with 60 seconds of leeway, `iss`, and `aud` as a string or an array ([RFC 7519 §4.1](https://www.rfc-editor.org/rfc/rfc7519#section-4.1), [RFC 8725 §3.8–§3.11](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)):
+
+<Sample platform="swift" id="migrate-joseswift/verify-jwt" title="polyjose" />
+
+Tokens your JOSESwift code already issues keep working: the tests verify a JOSESwift-signed JWT with `jwtVerify`, and a `jwtSign` token with JOSESwift's `Verifier`. A token without `typ` is accepted, and one whose `typ` is something other than `JWT` is not. Leeway, required claims, maximum age and access tokens are on [Validate a JWT](/guides/validate-jwt/).
+
+## Encrypt and decrypt a JWE
+
+For ECDH-ES, JOSESwift's `Encrypter` and `Decrypter` take its own `ECPublicKey` and `ECPrivateKey` JWK types. For RSA they take a `SecKey`, and for AES key wrap and `dir` a `Data` key. In polyjose every recipient key is a JWK, and decrypting takes allow-lists for both `alg` and `enc`:
+
+<Sample platform="swift" id="migrate-joseswift/encrypt-jwe-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/encrypt-jwe" title="polyjose" />
+
+<Sample platform="swift" id="migrate-joseswift/decrypt-jwe-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/decrypt-jwe" title="polyjose" />
+
+The tests pass `ECDH-ES+A256KW` and `RSA-OAEP-256` tokens from JOSESwift to polyjose and back. Other algorithms, several recipients and the JSON serialization are on [Encrypt and decrypt](/guides/encrypt-and-decrypt/).
+
+## Import and export a JWK
+
+JOSESwift converts between its JWK types, JSON and `SecKey`. In polyjose the JWK text is the key, so there is nothing to convert:
+
+<Sample platform="swift" id="migrate-joseswift/jwk-before" title="JOSESwift" />
+
+<Sample platform="swift" id="migrate-joseswift/jwk" title="polyjose" />
+
+Both libraries compute the same RFC 7638 thumbprint for a key. More on keys, PEM and DER is on [Manage keys](/guides/manage-keys/).
+
+### Keys you hold as `SecKey`
+
+If your app created its keys with the Security framework, export each one once and import it as a JWK. JOSESwift writes a JWK from a public `SecKey`, or from an EC private one:
+
+<Sample platform="swift" id="migrate-joseswift/seckey-before" title="JOSESwift" />
+
+Without JOSESwift, export the key's bytes with `SecKeyCopyExternalRepresentation`. polyjose imports an RSA key's PKCS #1 bytes directly, and CryptoKit turns an EC key's X9.63 bytes into a PEM that polyjose reads:
+
+<Sample platform="swift" id="migrate-joseswift/seckey" title="polyjose" />
+
+The RSA private JWK this produces has all of `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi`, and the tests sign with it and verify with the original `SecKey` through JOSESwift. Once your keys are JWKs, keep them in the Keychain as [Store keys securely › iOS](/guides/secure-key-storage/#ios) shows, not as `SecKey` items.
+
+A key that can't leave the Secure Enclave can't be exported, so polyjose can't sign or decrypt with it. You can still verify its signatures and encrypt to it with its public key. See [Store keys securely](/guides/secure-key-storage/).
+
+## Select a key from a JWK Set
+
+JOSESwift's `JWKSet` is a list of keys, and picking one is up to you. A set that contains a key JOSESwift doesn't read, such as an Ed25519 key, fails as a whole:
+
+<Sample platform="swift" id="migrate-joseswift/jwks-before" title="JOSESwift" />
+
+polyjose picks the key, or lets the verify call pick it from the token's protected header:
+
+<Sample platform="swift" id="migrate-joseswift/jwks" title="polyjose" />
+
+How a key is chosen, and how to bind a set to its issuer, is on [Work with JWK Sets](/guides/jwk-sets/).
+
+## Handle errors
+
+JOSESwift throws `JOSESwiftError` cases, and some wrap a description. Its `Signer`, `Verifier`, `Encrypter` and `Decrypter` initializers return `nil` when the key has the wrong type:
+
+<Sample platform="swift" id="migrate-joseswift/errors-before" title="JOSESwift" />
+
+polyjose throws a `PolyjoseError` whose `code()` is one of a fixed set of strings, the same on every platform. Branch on the code, never on the message:
+
+<Sample platform="swift" id="migrate-joseswift/errors" title="polyjose" />
+
+Where JOSESwift's errors end up:
+
+<table tabindex="0">
+	<caption>JOSESwift errors and the polyjose codes for the same failure</caption>
+	<thead>
+		<tr>
+			<th scope="col">JOSESwift</th>
+			<th scope="col">polyjose code</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>signingAlgorithmMismatch</code>, <code>keyManagementAlgorithmMismatch</code>, <code>contentEncryptionAlgorithmMismatch</code></th><td><code>AlgorithmNotAllowed</code>: the token's <code>alg</code> or <code>enc</code> is not in the allow-list</td></tr>
+		<tr><th scope="row"><code>signatureInvalid</code>, <code>verifyingFailed</code></th><td><code>InvalidSignature</code></td></tr>
+		<tr><th scope="row"><code>decryptingFailed</code></th><td><code>DecryptionFailed</code>, one code for every decryption failure</td></tr>
+		<tr><th scope="row"><code>invalidCompactSerializationComponentCount</code></th><td><code>InvalidFormat</code></td></tr>
+		<tr><th scope="row"><code>componentNotValidBase64URL</code>, and the <code>…NotBase64URLUIntEncoded</code> key errors</th><td><code>InvalidBase64</code></td></tr>
+		<tr><th scope="row"><code>couldNotConstructJWK</code></th><td><code>InvalidKey</code></td></tr>
+		<tr><th scope="row">An initializer that returns <code>nil</code> for the wrong key type</th><td><code>KeyAlgorithmMismatch</code>, thrown by the call</td></tr>
+		<tr><th scope="row"><code>compressionAlgorithmNotSupported</code>, <code>decompressionFailed</code></th><td><code>UnsupportedAlgorithm</code>: the Swift package has no compression</td></tr>
+		<tr><th scope="row"><code>localAuthenticationFailed</code></th><td>No equivalent: polyjose never touches the Keychain</td></tr>
+		<tr><th scope="row">No equivalent</th><td><code>TokenExpired</code>, <code>TokenNotYetValid</code>, <code>InvalidClaim</code>, <code>NoMatchingKey</code>, <code>MultipleMatchingKeys</code></td></tr>
+	</tbody>
+</table>
+
+[Errors](/concepts/errors/) lists every code and its causes.
+
+## Behaviour differences
+
+[What changes in every migration](/guides/migrate/#what-changes-in-every-migration) states the rules that apply whichever library you leave. Here is what changes against JOSESwift:
+
+- **The allow-list is required.** JOSESwift's `Verifier` and `Decrypter` each name one algorithm. polyjose's verify and decrypt calls take a list, with no default, and the token's own `alg` is never trusted alone ([RFC 8725 §3.1](https://www.rfc-editor.org/rfc/rfc8725#section-3.1)).
+- **`none` is never accepted.** Neither library verifies an unsigned token. polyjose fails with `AlgorithmNotAllowed`, even when the allow-list names `none` ([RFC 8725 §3.2](https://www.rfc-editor.org/rfc/rfc8725#section-3.2)).
+- **Keys are bound to their algorithm family.** An RSA key can't be used for ES256, an EC key can't be used as an HMAC secret, and a JWK's `alg`, `use` and `key_ops`, when present, limit what it can do. A mismatch fails with `KeyAlgorithmMismatch` ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1)).
+- **Error codes, not error cases.** See [Handle errors](#handle-errors).
+- **No payload before verification.** JOSESwift's `JWS(compactSerialization:)` exposes `payload` before `validate(using:)` runs. polyjose returns the payload only from a successful verify ([Not supported › Decode without verify](/security/not-supported/#decode-without-verify)).
+- **More in polyjose.** JWT validation, the JSON serializations ([RFC 7515 §7.2](https://www.rfc-editor.org/rfc/rfc7515#section-7.2), [RFC 7516 §7.2](https://www.rfc-editor.org/rfc/rfc7516#section-7.2)), Ed25519 and X25519 keys, JWK Set selection and nested JWTs. [Algorithms](/concepts/algorithms/) lists every algorithm.
+
+## Not supported, or different
+
+What JOSESwift 3.0.0 does that polyjose doesn't, and what to do instead. For `RSA1_5` and `RSA-OAEP`, compression, RSA private JWKs without the CRT members and short RSA keys, the tests check polyjose's behaviour against JOSESwift's output.
+
+- **`RSA1_5` and `RSA-OAEP`.** polyjose neither decrypts nor encrypts them, even when the allow-list names them: both fail with `UnsupportedAlgorithm`. Move your senders and recipients to `RSA-OAEP-256` or ECDH-ES first. See [Not supported › `RSA1_5`](/security/not-supported/#rsa1_5) and [SHA-1](/security/not-supported/#sha-1).
+- **Compression.** A JWE that JOSESwift compressed (`"zip": "DEF"`) fails with `UnsupportedAlgorithm`, because the Swift package is built without compression. Send content uncompressed. See [Not supported › `zip` in bindings](/security/not-supported/#zip-in-bindings).
+- **RSA private JWKs with only `d`.** JOSESwift's `RSAPrivateKey` writes `n`, `e` and `d` only. polyjose needs the CRT members as well (`p`, `q`, `dp`, `dq`, `qi`, [RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)) and fails with `InvalidKey`. Export the `SecKey` as PKCS #1 instead, as shown in [Keys you hold as `SecKey`](#keys-you-hold-as-seckey).
+- **RSA keys under 2048 bits.** The Security framework still creates 1024-bit keys, and JOSESwift signs and verifies with them. polyjose refuses them with `InvalidKey` ([RFC 7518 §3.3](https://www.rfc-editor.org/rfc/rfc7518#section-3.3)).
+- **RSA key generation.** polyjose doesn't generate RSA keys. Create them with `SecKeyCreateRandomKey`, as before, and import them; or use ES256 or Ed25519 for new keys.
+- **Secure Enclave and other non-extractable keys.** JOSESwift signs and decrypts through the Security framework, so it can use a `SecKey` whose private part never leaves the device's hardware. polyjose takes every key as a JWK, so it can only use such a key's public half.
+- **Custom signers and encrypters.** JOSESwift accepts your own `SignerProtocol`, `VerifierProtocol` and key management implementations. polyjose has no such hook: the algorithms are the ones it implements.
+- **Platforms and package managers.** No tvOS, visionOS or CocoaPods, and newer OS minimums; see [Install and import](#install-and-import).
+
+## Checklist
+
+1. Replace the JOSESwift dependency with polyjose and check the OS minimums.
+2. Convert each key to a JWK once: `SecKey` exports through PKCS #1 or CryptoKit, `Data` secrets as `oct` JWKs. Store the JWKs in the Keychain.
+3. Give every verify and decrypt call an allow-list with exactly the algorithms you use.
+4. Replace hand-written claim checks with `jwtVerify` and its `issuers` and `audiences`.
+5. Move `RSA1_5`, `RSA-OAEP` and compressed JWEs to `RSA-OAEP-256` or ECDH-ES, uncompressed, before switching.
+6. Replace `JOSESwiftError` handling with a switch on `PolyjoseError.code()`.
+7. Remove the JOSESwift package once no code imports it.
