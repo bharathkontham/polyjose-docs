@@ -1,9 +1,13 @@
 {
   "name": "polyjose-docs-samples-js",
   "private": true,
-  "description": "The Node.js and Web code samples of the polyjose docs. scripts/samples/platforms/js.sh installs the polyjose packages for the pin.",
+  "description": "The Node.js and Web code samples of the polyjose docs. scripts/samples/platforms/js.sh installs the polyjose packages for the pin. jose and jsonwebtoken are here only for the migration guides' before-and-after samples and interop tests.",
   "type": "module",
   "engines": {
     "node": ">=22.12"
+  },
+  "devDependencies": {
+    "jose": "6.2.13",
+    "jsonwebtoken": "9.0.3"
   }
 }

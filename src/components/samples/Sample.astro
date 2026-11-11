@@ -1,8 +1,13 @@
 ---
 // <Sample platform="rust" id="start/rust-first-sign" /> shows one platform's
 // region, without tabs. It exists for the get-started pages, each of which is
-// about a single platform; everywhere else use <Samples>, so every platform
-// is shown. The sample coverage check rejects <Sample> outside start/.
+// about a single platform, and for the migration guides, which show another
+// library's code next to polyjose's: the "before" code is a marked region in
+// the same test file, such as
+//   <Sample platform="node" id="migrate-jsonwebtoken/sign-before" title="jsonwebtoken" />
+//   <Sample platform="node" id="migrate-jsonwebtoken/sign" title="polyjose" />
+// Everywhere else use <Samples>, so every platform is shown. The sample
+// coverage check rejects <Sample> outside start/ and guides/migrate/.
 import SampleView from './SampleView.astro';
 import { regions } from './sources';
 
