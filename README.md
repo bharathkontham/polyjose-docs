@@ -10,10 +10,10 @@ Use Node 24.
 npm ci
 npm run dev      # http://localhost:4321
 npm run build    # static output in dist/
-npm run verify   # everything CI checks, in order
+npm run verify   # every check, in order
 ```
 
-`npm run verify` runs these steps and stops at the first failure. CI runs the same command on every pull request.
+`npm run verify` runs these steps and stops at the first failure. Pull requests are verified locally with this command before they merge; no GitHub Actions workflow runs on a pull request. The only workflow that runs on its own is the GitHub Pages deploy, on every push to `main`. The `CI` and `External links` workflows run only when started by hand.
 
 | Step | What it checks |
 |---|---|

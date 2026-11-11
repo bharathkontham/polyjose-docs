@@ -7,6 +7,10 @@
 # $SAMPLES_WORK_DIR/export/polyjose with `git archive`, and every build runs in that copy, so the
 # polyjose checkout stays exactly as run.sh found it. The copy is reused while it holds the pinned
 # commit (its build output with it); delete samples/.polyjose/export to start from scratch.
+#
+# Registry mode never needs a polyjose checkout: each runner installs the published
+# $SAMPLES_PIN_VERSION from its platform's registry (crates.io, npm, Maven Central, or the GitHub
+# release that the Swift package's tag points at) and runs the same samples against it.
 
 # samples_need <tool>...: skip the platform unless every tool is on PATH.
 samples_need() {
@@ -15,10 +19,20 @@ samples_need() {
   done
 }
 
-# samples_git_only: registry mode installs a published release; the platform runners do not implement it yet.
-samples_git_only() {
-  [ "$SAMPLES_PIN_SOURCE" = git ] \
-    || samples_skip "registry mode is not implemented until polyjose $SAMPLES_PIN_VERSION is published"
+# samples_registry_project <platform>: registry mode. Sets REGISTRY_PROJECT to a fresh copy of
+# samples/<platform> in samples/.polyjose/registry, where the runner may point the manifest at the
+# published package and let the package manager rewrite the lockfile, so the committed project is
+# left as it is. The samples find samples/fixtures by relative path, so it is linked next to the copy.
+samples_registry_project() {
+  local base="$SAMPLES_WORK_DIR/registry"
+  mkdir -p "$base"
+  base=$(cd "$base" && pwd -P)
+  rm -rf "${base:?}/$1" "$base/fixtures"
+  cp -R "$SAMPLES_ROOT/samples/$1" "$base/$1"
+  ln -s "$SAMPLES_ROOT/samples/fixtures" "$base/fixtures"
+  # Read by the runner that sources this file.
+  # shellcheck disable=SC2034
+  REGISTRY_PROJECT=$base/$1
 }
 
 # samples_export_polyjose: sets POLYJOSE_EXPORT to a copy of polyjose at $SAMPLES_PIN_REV.

@@ -1,4 +1,5 @@
-# Weekly report of broken external links in the built site.
+# Report of broken external links in the built site. Run by hand only
+# (Actions > External links > Run workflow); it has no schedule.
 #
 # Internal links and #hashes are checked on every build by the links validator,
 # so this job looks only at http(s) links to other sites. It never blocks
@@ -10,8 +11,6 @@
 # digest must agree), and change both values below together.
 name: External links
 on:
-  schedule:
-    - cron: '17 6 * * 1' # Mondays, 06:17 UTC
   workflow_dispatch:
 permissions: { contents: read }
 concurrency:

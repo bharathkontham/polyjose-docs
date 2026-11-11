@@ -10,16 +10,20 @@ test('pin files exist for rust, js, kotlin and swift', () => {
   assert.deepEqual([...PIN_PLATFORMS], ['rust', 'js', 'kotlin', 'swift']);
 });
 
-test('the committed pins name one polyjose commit, with 0.2.0 upcoming', () => {
-  const revs = new Set();
-  for (const platform of PIN_PLATFORMS) {
+// No version or commit is written here, so a release changes only the pin files. What must hold
+// at every commit: the four files are valid pins and all name the same polyjose build, so the
+// site never shows one release on one platform's pages and another release elsewhere.
+test('the committed pins all name the same polyjose build', () => {
+  const pins = PIN_PLATFORMS.map((platform) => {
     const raw = JSON.parse(readFileSync(new URL(`../../../samples/pins/${platform}.json`, import.meta.url), 'utf8'));
-    const pin = parsePin(raw, platform);
-    assert.equal(pin.source, 'git', platform);
-    assert.equal(pin.upcoming, '0.2.0', platform);
-    revs.add(pin.rev);
+    return parsePin(raw, platform);
+  });
+  const [first] = pins;
+  assert.notEqual(first.source, 'none', 'polyjose is released; every platform has a build to test against');
+  for (const [i, pin] of pins.entries()) {
+    assert.deepEqual(pin, first, `samples/pins/${PIN_PLATFORMS[i]}.json differs from samples/pins/${PIN_PLATFORMS[0]}.json`);
+    assert.equal(pinRelease(pin).published, pin.source === 'registry', PIN_PLATFORMS[i]);
   }
-  assert.equal(revs.size, 1, 'every platform is tested against the same commit');
 });
 
 test('none mode', () => {

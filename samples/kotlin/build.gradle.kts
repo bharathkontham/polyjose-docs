@@ -1,5 +1,6 @@
 // See settings.gradle.kts. kotlin.sh passes:
-//   -Ppolyjose.jvmJar=<path>     the polyjose-jvm jar it built from the pinned commit
+//   -Ppolyjose.jvmJar=<path>     git pin: the polyjose-jvm jar it built from the pinned commit
+//   -Ppolyjose.version=<version> registry pin: dev.polyjose:polyjose-jvm at that version, from Maven Central
 //   -Psamples.buildDir=<path>    build output, kept under samples/.polyjose
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -12,13 +13,19 @@ kotlin {
     jvmToolchain(21)
 }
 
+val polyjoseVersion = providers.gradleProperty("polyjose.version")
 val polyjoseJar = providers.gradleProperty("polyjose.jvmJar")
-    .orElse(provider { throw GradleException("pass -Ppolyjose.jvmJar=<jar>; scripts/samples/run.sh kotlin does") })
+    .orElse(provider { throw GradleException("pass -Ppolyjose.jvmJar=<jar> or -Ppolyjose.version=<version>; scripts/samples/run.sh kotlin does") })
 
 dependencies {
-    // dev.polyjose:polyjose-jvm, as a file so the samples run against the pinned commit. JNA is what its POM declares.
-    testImplementation(files(polyjoseJar))
-    testImplementation(libs.jna)
+    if (polyjoseVersion.isPresent) {
+        // The published artifact, with the dependencies its own POM declares (JNA).
+        testImplementation("dev.polyjose:polyjose-jvm:${polyjoseVersion.get()}")
+    } else {
+        // dev.polyjose:polyjose-jvm, as a file so the samples run against the pinned commit. JNA is what its POM declares.
+        testImplementation(files(polyjoseJar))
+        testImplementation(libs.jna)
+    }
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

@@ -8,7 +8,18 @@
 //
 // JOSESwift is a test-only dependency, pinned to one exact version (Package.resolved is committed),
 // for the "before" side and the interop tests of Guides > Migrate from JOSESwift.
+//
+// With a registry pin, swift.sh runs a copy of this package with POLYJOSE_SAMPLES_VERSION set to
+// the published version, and polyjose comes from its GitHub repository at exactly that version.
+import Foundation
 import PackageDescription
+
+let polyjose: Package.Dependency =
+    if let version = ProcessInfo.processInfo.environment["POLYJOSE_SAMPLES_VERSION"] {
+        .package(url: "https://github.com/bharathkontham/polyjose.git", exact: Version(stringLiteral: version))
+    } else {
+        .package(path: "../.polyjose/export/polyjose")
+    }
 
 let package = Package(
     name: "polyjose-samples",
@@ -16,7 +27,7 @@ let package = Package(
         .macOS(.v13)
     ],
     dependencies: [
-        .package(path: "../.polyjose/export/polyjose"),
+        polyjose,
         .package(url: "https://github.com/airsidemobile/JOSESwift.git", exact: "3.0.0"),
     ],
     targets: [
