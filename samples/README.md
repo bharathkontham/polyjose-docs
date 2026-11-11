@@ -122,9 +122,13 @@ Samples that generate keys check the shape of the result (`kty`, `crv`), not its
 |---|---|---|
 | `none` | `{ "source": "none", "upcoming": "0.1.2" }` | There is no build to test yet. The platform's samples are reported as SKIPPED. |
 | `git` | `{ "source": "git", "rev": "<40-character commit>", "upcoming": "0.1.2" }` | Before a release: polyjose is built from that commit with its own packaging scripts, which never publish anything. |
-| `registry` | `{ "source": "registry", "version": "0.1.2" }` | After a release: the exact published version is installed. |
+| `registry` | `{ "source": "registry", "version": "0.1.2" }` | After a release: the exact published version is installed from the platform's registry (crates.io, npm, Maven Central, or the GitHub release behind the Swift package), and no polyjose checkout is needed. |
 
-`upcoming` is the version the install lines show before it is published. Unknown fields are rejected, so a misspelt key fails rather than being ignored. Changing a pin is a reviewed change that runs that platform's samples again.
+`upcoming` is the version the install lines show before it is published. Unknown fields are rejected, so a misspelt key fails rather than being ignored. Changing a pin is a reviewed change that runs that platform's samples again. The four pins always name the same build; a test checks that.
+
+After a release is published everywhere, switch all four pins to `registry` with the new version and run `scripts/samples/run.sh all`. To test unreleased polyjose, switch them back to `git` with the commit and the upcoming version.
+
+In `registry` mode the Rust and Swift runners work in a copy of the sample project under `samples/.polyjose/registry/`, where the manifest names the published version and the package manager can rewrite the lockfile. The committed `Cargo.toml`, `Cargo.lock`, `Package.swift` and `Package.resolved` stay as they are, in the form `git` mode uses. The Kotlin runner fetches polyjose's sources at the release tag only for its Gradle wrapper and version catalog; the library itself comes from Maven Central.
 
 ## Running the samples
 

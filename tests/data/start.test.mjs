@@ -14,6 +14,13 @@ import { fileURLToPath } from 'node:url';
 
 const dist = fileURLToPath(new URL('../../dist/', import.meta.url));
 
+/** What an <Install> block says for a platform's committed pin: published only for a registry pin. */
+function installStatus(platform) {
+	const file = platform === 'node' || platform === 'web' ? 'js' : platform;
+	const pin = JSON.parse(readFileSync(new URL(`../../samples/pins/${file}.json`, import.meta.url), 'utf8'));
+	return pin.source === 'registry' ? 'published' : 'unpublished';
+}
+
 const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 
 /** Decodes the character references of HTML text. */
@@ -58,9 +65,11 @@ describe('every Get started page', () => {
 		test(`${route} installs ${platform} and shows sign, verify and error samples`, () => {
 			const { body, text } = page(route);
 			assert.doesNotMatch(text, /arrives with the 0\.1\.0 release/, 'the stub text is gone');
-			assert.match(body, /data-install-status="unpublished"/, 'an <Install> block for the unpublished pin');
+			const statuses = [...body.matchAll(/data-install-status="([a-z]+)"/g)].map((m) => m[1]);
+			assert.ok(statuses.length > 0, 'an <Install> block');
+			assert.deepEqual([...new Set(statuses)], [installStatus(platform)], 'the install block matches the pin in samples/pins');
 			assert.doesNotMatch(text, /not (yet )?published|will become 0\.1\.0/i);
-			assert.match(text, /run as tests against the polyjose source/);
+			assert.match(text, /run as tests against polyjose\b/);
 			const code = codeBlocks(body).join('\n');
 			assert.match(code, /SignCompact|sign_compact/, 'a first sign');
 			assert.match(code, /VerifyCompact|verify_compact/, 'a first verify');
