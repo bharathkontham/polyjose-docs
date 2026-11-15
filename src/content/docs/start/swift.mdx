@@ -56,7 +56,7 @@ Every call runs on the thread that makes it, until it returns. Most calls are qu
 
 ## Keys the platform holds
 
-To sign and decrypt with a key that the Secure Enclave or the Keychain holds, use `AppleKey`: see [Hardware-backed keys](/guides/hardware-backed-keys/).
+To sign and decrypt with a key that the Secure Enclave or the Keychain holds, use `AppleKey`: see [Hardware-backed keys](/guides/hardware-backed-keys/). A Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key.
 
 ## Example app
 

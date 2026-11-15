@@ -48,7 +48,7 @@ Compressing data before encrypting it can leak information about the plaintext (
 
 ## Platform keys
 
-In Kotlin and Swift, a key held by the Secure Enclave, the Keychain, the Android Keystore or StrongBox can serve these algorithms, when its key store supports them:
+In Kotlin and Swift, a key held by the Secure Enclave, the Keychain (a Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key), the Android Keystore or StrongBox can serve these algorithms, when its key store supports them:
 
 - **Signing:** `ES256`, `ES384`, `ES512`, `RS256`, `RS384`, `RS512`, `PS256`, `PS384` and `PS512`.
 - **Decryption:** `ECDH-ES`, `ECDH-ES+A128KW`, `ECDH-ES+A192KW` and `ECDH-ES+A256KW` on P-256, P-384 and P-521, and `RSA-OAEP-256`.
