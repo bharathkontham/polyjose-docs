@@ -64,3 +64,7 @@ A failed call rejects with a `PolyjoseError`. Its `code` is one of a fixed set o
 <Sample platform="node" id="start/js-error-code" />
 
 Branch on `code`, never on the message. [Errors](/concepts/errors/) lists every code and when it happens.
+
+## Example app
+
+The [Node.js example app](https://github.com/bharathkontham/polyjose-examples/tree/main/node) has one example file per task, which you can copy into your project on its own: sign and verify a JWS, issue and validate a JWT, encrypt and decrypt a JWE, and create keys and use a JWK Set. To run every example as a check, run `npm ci --ignore-scripts && npm run verify` in its folder.
