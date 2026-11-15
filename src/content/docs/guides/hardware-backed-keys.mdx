@@ -13,7 +13,7 @@ In Swift and Kotlin, polyjose can sign and decrypt with a private key that the o
 Node.js and the web have no platform keys. Rust has the same `PlatformKey` trait and `…_with_platform_key` functions, with no key class of its own: you implement the trait. On Node.js and the web, keep a JWK encrypted at rest as [Store keys securely](/guides/secure-key-storage/) shows.
 
 <Aside type="caution" title="About the code on this page">
-The Swift code on this page comes from this site's sample tests, which run against polyjose on macOS. The samples that store a key under a tag are compiled there but not run, because macOS lets only a signed app with a keychain entitlement store a key. The Kotlin code is compiled and run in the Android test suite of the polyjose library, not in this site's samples, because Android Keystore code needs Android.
+The Swift code on this page comes from this site's sample tests, which run against polyjose on macOS. The samples that store a key under a tag are compiled there but not run, because macOS lets only a signed app with a keychain entitlement store a key. The Kotlin code isn't in this site's samples, because Android Keystore code needs Android. The Kotlin snippets that create, find and delete a key, sign, decrypt, choose StrongBox and set user authentication make the same calls as the polyjose library's Android instrumented tests; the error-handling and `JcaEs256Key` code are examples to adapt.
 </Aside>
 
 ## Start with ES256 and ECDH-ES on P-256
@@ -59,8 +59,8 @@ Before polyjose asks the platform for anything, it runs the same checks as with 
 		</tr>
 	</thead>
 	<tbody>
-		<tr><th scope="row">Secure Enclave (<code>AppleKey</code>, <code>.secureEnclave</code>)</th><td><code>ES256</code></td><td>ECDH-ES family on P-256</td><td>iOS 16, macOS 13</td></tr>
-		<tr><th scope="row">Keychain (<code>AppleKey</code>, <code>.keychain</code>)</th><td><code>ES256</code>, <code>ES384</code>, <code>ES512</code>; <code>RS256</code> to <code>RS512</code> and <code>PS256</code> to <code>PS512</code> with 2048, 3072 or 4096-bit keys</td><td>ECDH-ES family on P-256, P-384 and P-521; <code>RSA-OAEP-256</code> with 2048, 3072 or 4096-bit keys</td><td>iOS 16, macOS 13</td></tr>
+		<tr><th scope="row">Secure Enclave (<code>AppleKey</code>, <code>.secureEnclave</code>)</th><td><code>ES256</code></td><td>ECDH-ES family on P-256</td><td>iOS 16, macOS 13, watchOS 9</td></tr>
+		<tr><th scope="row">Keychain (<code>AppleKey</code>, <code>.keychain</code>)</th><td><code>ES256</code>, <code>ES384</code>, <code>ES512</code>; <code>RS256</code> to <code>RS512</code> and <code>PS256</code> to <code>PS512</code> with 2048, 3072 or 4096-bit keys</td><td>ECDH-ES family on P-256, P-384 and P-521; <code>RSA-OAEP-256</code> with 2048, 3072 or 4096-bit keys</td><td>iOS 16, macOS 13, watchOS 9</td></tr>
 		<tr><th scope="row">Android Keystore (<code>AndroidKeystoreKey</code>)</th><td><code>ES256</code>, <code>ES384</code>, <code>ES512</code>; <code>RS256</code> to <code>RS512</code> and <code>PS256</code> to <code>PS512</code> with 2048, 3072 or 4096-bit keys</td><td>ECDH-ES family on P-256, P-384 and P-521; <code>RSA-OAEP-256</code> with 2048, 3072 or 4096-bit keys</td><td>Android 6 (API 23); per algorithm in the next table</td></tr>
 		<tr><th scope="row">StrongBox (<code>AndroidKeystoreKey</code>)</th><td><code>ES256</code>; <code>RS256</code> and <code>PS256</code> with 2048-bit keys</td><td>ECDH-ES family on P-256; <code>RSA-OAEP-256</code> with 2048-bit keys</td><td>Android 9 (API 28); per algorithm in the next table</td></tr>
 	</tbody>
@@ -230,7 +230,7 @@ On Apple platforms, set `access` flags when you create the key, as above. The sy
 On Android, pass `userAuthentication` when you create the key. The device needs a secure lock screen. There are two modes:
 
 - **Time-bound**, `UserAuthentication(validitySeconds > 0, allowDeviceCredential)`. Your app shows its own `BiometricPrompt` or the device credential screen, and after the user authenticates, the key works for that many seconds. Outside that window, calls fail with `UserAuthenticationRequired`. Every key kind can be time-bound.
-- **Per use**, `UserAuthentication(0, allowDeviceCredential)`, for signing and `RSA-OAEP-256` keys on API 28 and later. Each operation is handed, initialised, to the `PlatformKeyAuthorizer` you pass to `generate` or `open`, which returns once the user has authenticated it. polyjose ships `BiometricPromptAuthorizer`, built on the framework's `android.hardware.biometrics.BiometricPrompt`; your app declares `android.permission.USE_BIOMETRIC`. It throws `IllegalStateException` on the main thread, before showing anything, because waiting for the prompt there would deadlock.
+- **Per use**, `UserAuthentication(0, allowDeviceCredential)`, for signing and `RSA-OAEP-256` keys on API 28 and later. Each operation is handed, initialised, to the `PlatformKeyAuthorizer` you pass to `generate` or `open`, which returns once the user has authenticated it. polyjose ships `BiometricPromptAuthorizer`, built on the framework's `android.hardware.biometrics.BiometricPrompt`; your app declares `android.permission.USE_BIOMETRIC`. On the main thread it refuses before showing anything, because waiting for the prompt there would deadlock, and the call fails with `PlatformKeyFailed` when signing or `DecryptionFailed` when decrypting.
 
 ```kotlin
 // Time-bound: the key works for 30 seconds after your app's own prompt.

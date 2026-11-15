@@ -23,4 +23,4 @@ This page has the details of the polyjose Swift package that you don't need to g
 
 ## Platform keys
 
-`AppleKey` signs and decrypts with a Secure Enclave or Keychain key, and the `PlatformKey` protocol lets you bring any other key holder. Printing an `AppleKey` shows its type and `protection` only, never its tag or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the algorithms each key store supports, and the error codes.
+`AppleKey` signs and decrypts with a Secure Enclave or Keychain key, and the `PlatformKey` protocol lets you bring any other key holder. A Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. Printing an `AppleKey` shows its type and `protection` only, never its tag or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the algorithms each key store supports, and the error codes.
