@@ -48,7 +48,7 @@ UniFFI 0.32.2 copies values in and out of a `RustBuffer` and frees it without wi
 
 For byte outputs UniFFI writes into a buffer that grows by doubling. Each move of that buffer after the secret is fully written adds a full copy, and each move while it is being written adds a partial copy that holds a prefix of the secret. There are at most log2(C/8) growth steps, where C is the next power of two at or above the lowered length. Whether a step moves the buffer depends on the allocator. On macOS arm64 the measurement found 2 to 5 full copies, depending on the output and its size. Android's scudo allocator and glibc were not measured, so their counts may differ within that rule. polyjose does not rely on the allocator scrubbing freed memory.
 
-These copies are freed memory that the process reuses. Reading them takes a memory disclosure in the host process, such as a core dump, a heap read or swap. The planned fix is opaque key handles and caller-provided output buffers in 0.2.0. A zeroizing global allocator is under consideration, not planned.
+These copies are freed memory that the process reuses. Reading them takes a memory disclosure in the host process, such as a core dump, a heap read or swap. A zeroizing global allocator is under consideration, not planned.
 
 ## Which native library the desktop JVM loads
 

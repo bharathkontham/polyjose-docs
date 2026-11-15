@@ -18,7 +18,7 @@ The package's `exports` picks the right entry for your runtime:
 Every entry then instantiates the module with the glue's asynchronous `init`, awaited inside the first call, never `initSync` and never at import time. The package never uses top-level await.
 
 - **Cloudflare Workers** use the `workerd` entry. Wrangler's condition set lists `workerd` first.
-- **Browser Web Workers** use the browser entry, `browser.mjs`, like a page does. The package has no `worker` condition, so any condition set without `workerd` or `node` resolves `browser.mjs`. That includes the sets webpack 5 uses for `target: "webworker"` and for `new Worker(new URL(..., import.meta.url))`.
+- **Browser Web Workers** use the browser entry, `browser.mjs`, like a page does. The package has no `worker` condition, so any condition set without `workerd` or `node` resolves `browser.mjs`.
 - **Node.js** always adds the `node` condition, so it resolves `node.mjs`, also when run with `-C worker`. CommonJS code on Node.js 22.12 or later can `require("@polyjose/wasm")` through `require(esm)`.
 
 Where it has been run:
