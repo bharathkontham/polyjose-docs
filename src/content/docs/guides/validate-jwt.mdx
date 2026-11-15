@@ -114,13 +114,13 @@ Nesting gives confidentiality. It doesn't prove who encrypted the token: anyone 
 
 ## Read a token without verifying it
 
-`decodeJwtUnverified` returns a JWT's header and claims without checking the signature or any claim. It takes only the token: no key, no options and no allow-list. In Rust it is `util::decode_jwt_unverified`. This doesn't check the signature; don't trust these values until you verify the token.
+`decodeJwtUnverified` returns a JWT's header and claims. It takes only the token: no key, no options and no allow-list. In Rust it is `util::decode_jwt_unverified`. This doesn't check the signature: anyone can write these values, so don't use them for authorization or trust decisions until you verify the token.
 
 Its main use is showing what a token says, such as the signed-in user, in an application that holds no verification key:
 
 <Samples id="validate-jwt/read-unverified" />
 
-The result is a `JwtUnverified` (in Rust, `util::UnverifiedJwt`), a different type from the `JwtVerified` that `jwtVerify` returns, with no `alg` member. The `alg` is in the header, unchecked, and may be `none`. No claim is checked, so the token may be expired or meant for another audience. The token is parsed by the same code that verification uses, with the same 1 MiB limit, so a malformed token fails with the same error code in both.
+The result is a `JwtUnverified` (in Rust, `util::UnverifiedJwt`), a different type from the `JwtVerified` that `jwtVerify` returns, with no `alg` member. The `alg` is in the header, unchecked, and may be `none`. No claim is checked, so the token may be expired or meant for another audience. The token is parsed by the same code that verification uses, with the same 1 MiB limit, so a token that fails parsing fails with the same error code in both. Treat the decoded objects as untrusted JSON; don't merge them into other objects.
 
 Two more operations read a token the same way:
 

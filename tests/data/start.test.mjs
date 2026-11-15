@@ -3,9 +3,10 @@
 //
 // Each page installs one platform and shows that platform's samples, which scripts/samples/run.sh
 // runs against polyjose. The facts below are the ones a reader acts on and that owner decisions
-// fixed on 2026-11-08: the Apple platforms are iOS and macOS only, the Kotlin jar
-// needs a Kotlin 2.4 compiler, Deno and Bun are untested. Importing helpers from another test
-// file would run its tests a second time, so this file keeps its own small copies.
+// fixed on 2026-11-08 and 2026-11-15: the Apple platforms are iOS and macOS only, the Kotlin jar
+// needs a Kotlin 2.4 compiler, and the Web page names only the runtimes it is tested in.
+// Importing helpers from another test file would run its tests a second time, so this file keeps
+// its own small copies.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -96,10 +97,11 @@ describe('platform facts', () => {
 		assert.doesNotMatch(text, /macOS: x64/, 'no macOS x64 addon');
 	});
 
-	test('Web: CSP, untested runtimes, and the @polyjose/wasm import', () => {
+	test('Web: CSP, tested runtimes, and the @polyjose/wasm import', () => {
 		const { body, text } = page(PAGES.web);
 		assert.match(text, /'wasm-unsafe-eval'/);
-		assert.match(text, /Deno and Bun are not tested/);
+		assert.match(text, /own tests run the package in Node\.js 22\.12 or later, in headless Chrome and in Cloudflare Workers \(workerd\)/);
+		assert.doesNotMatch(text, /Deno|Bun/, 'only verified runtimes are named');
 		const code = codeBlocks(body).join('\n');
 		assert.match(code, /from '@polyjose\/wasm'/);
 		assert.doesNotMatch(code, /@polyjose\/node/, 'the Web page never shows the Node package');
