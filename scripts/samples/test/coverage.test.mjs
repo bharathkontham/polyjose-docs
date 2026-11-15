@@ -121,8 +121,19 @@ test('fails on <Sample> outside start/ and guides/migrate/', () => {
   });
   assert.match(
     errorsOf(root),
-    /guides\/guide\.mdx:3: <Sample> is only for get-started pages \(start\/\) and migration guides \(guides\/migrate\/\); use <Samples> here/,
+    /guides\/guide\.mdx:3: <Sample> is only for get-started pages \(start\/\), migration guides \(guides\/migrate\/\) and guides\/hardware-backed-keys\.mdx; use <Samples> here/,
   );
+});
+
+test('<Sample> passes on the hardware-backed keys guide, and only on that page of guides/', () => {
+  const root = tree({
+    'samples/swift/Tests/SamplesTests/HardwareBackedKeysTests.swift': region('hardware-backed-keys/one'),
+    'src/content/docs/guides/hardware-backed-keys.mdx': '<Sample platform="swift" id="hardware-backed-keys/one" />\n',
+    'src/content/docs/guides/hardware-backed-keys-other.mdx': '<Sample platform="swift" id="hardware-backed-keys/one" />\n',
+  });
+  const errors = checkCoverage(root).errors;
+  assert.equal(errors.length, 1, errors.join('\n'));
+  assert.match(errors[0], /guides\/hardware-backed-keys-other\.mdx:1: <Sample> is only for/);
 });
 
 test('<Sample> on a page whose path only starts like guides/migrate/ fails', () => {

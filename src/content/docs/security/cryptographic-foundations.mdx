@@ -7,7 +7,7 @@ import PrimitivesTable from '../../../components/PrimitivesTable.astro';
 
 This page describes polyjose 0.2.0.
 
-polyjose implements the JOSE standards (JWS, JWE, JWK and JWT) without implementing any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
+polyjose implements the JOSE standards (JWS, JWE, JWK and JWT) without implementing any cryptographic primitive itself. Signing and verification, encryption and decryption, hashing and MACs, and random number generation all come from established pure-Rust libraries. The one exception is a platform key in Kotlin or Swift, whose private-key step the operating system performs ([Platform key services](#platform-key-services)). This page credits those libraries, says what polyjose uses each one for, and states what independent review each one has had.
 
 Thank you to the maintainers and contributors of [RustCrypto](https://github.com/RustCrypto), [dalek-cryptography](https://github.com/dalek-cryptography) and [rust-random](https://github.com/rust-random). polyjose is built on their work.
 
@@ -54,6 +54,19 @@ polyjose calls only the crate's blinded private-key operations. [Security model 
 polyjose has no SHA-1 anywhere. So there is no `RSA-OAEP`, which RFC 7518 defines with SHA-1: use `RSA-OAEP-256` or `ECDH-ES` instead. The `sha1` crate is not a dependency, which is why it has no row in the table above. There is also no `RSA1_5`. See [SHA-1](/security/not-supported/#sha-1) and [`RSA1_5`](/security/not-supported/#rsa1_5) for the reasons.
 
 [What polyjose does not support](/security/not-supported/) lists everything that is left out and why.
+
+## Platform key services
+
+For a platform-held key, the private-key operation is performed by the operating system's key service (Apple Security framework and Secure Enclave; Android Keystore, including StrongBox). polyjose neither implements that operation nor links a C cryptography library for it. Every other step, and every public-key operation, stays pure Rust.
+
+These services are part of Apple's and Android's operating systems, not libraries in polyjose's dependency tree, so they have no row in the table above, and polyjose hasn't reviewed them. Apple describes the Secure Enclave and the Keychain in [Apple Platform Security](https://support.apple.com/guide/security/welcome/web), and Android describes the Keystore and StrongBox in [Android Keystore system](https://developer.android.com/privacy-and-security/keystore). How a platform operation resists timing and other side channels is the platform's.
+
+The selection rules above are written for libraries and can't be applied to an operating system's key service. polyjose relies instead on checks it makes in pure Rust:
+
+- Every signature a platform key returns is verified against the key's public JWK before polyjose returns the token, so a faulty or wrong key gives an error, never a bad token.
+- A wrong shared secret or content encryption key can't produce a plaintext: AES key unwrap's integrity check and the content's authentication tag reject it.
+
+[Security model › Platform keys](/security/model/#platform-keys) says what moves to the platform and which copies of secrets remain.
 
 ## subtle and zeroize
 

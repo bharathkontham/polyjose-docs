@@ -9,7 +9,7 @@ It covers how polyjose builds on its cryptography and the safe defaults it appli
 
 ## Cryptography
 
-polyjose uses pure-Rust cryptographic primitives from the [RustCrypto](https://github.com/RustCrypto) and [dalek-cryptography](https://github.com/dalek-cryptography) projects only. It does not use OpenSSL, `ring`, `aws-lc` or any other C-based cryptography library. polyjose composes these primitives into JOSE and never implements a primitive itself: there is no hand-written AES, big-number arithmetic or elliptic-curve arithmetic in polyjose.
+polyjose uses pure-Rust cryptographic primitives from the [RustCrypto](https://github.com/RustCrypto) and [dalek-cryptography](https://github.com/dalek-cryptography) projects only. It does not use OpenSSL, `ring`, `aws-lc` or any other C-based cryptography library. polyjose composes these primitives into JOSE and never implements a primitive itself: there is no hand-written AES, big-number arithmetic or elliptic-curve arithmetic in polyjose. The one exception is a platform key in Kotlin or Swift, whose private-key step the operating system performs ([Platform keys](#platform-keys)).
 
 Pure Rust gives memory safety, not freedom from side channels. How well each primitive resists timing attacks depends on the crate that provides it. [Cryptographic foundations](/security/cryptographic-foundations/) lists every primitive crate and what its maintainers say about it.
 
@@ -29,6 +29,15 @@ Two known deviations of `rsa`:
 
 - **The first octet of an OAEP message isn't checked.** RSA-OAEP decryption doesn't check that the first octet of the encoded message is zero (RFC 8017 §7.1.2 step 3.g). In JWE this can't help an attacker: anyone with the public key can already encrypt any content key, the content key is authenticated by the tag, and a failed decryption never says which step failed (RFC 7516 §11.5, [below](#jwe)).
 - **Unbalanced primes are refused.** An RSA private key whose two primes differ in size by more than the half-modulus width fails to import with `InvalidKey`.
+
+### Platform keys
+
+In Kotlin and Swift, polyjose can sign and decrypt with a key that the operating system holds ([Hardware-backed keys](/guides/hardware-backed-keys/)). For a platform-held key, the private-key operation is performed by the operating system's key service (Apple Security framework and Secure Enclave; Android Keystore, including StrongBox). polyjose neither implements that operation nor links a C cryptography library for it. Every other step, and every public-key operation, stays pure Rust.
+
+- **Signing:** the platform computes the signature. polyjose builds the signing input, checks that the key is bound to the algorithm, and verifies the signature against the key's public JWK, in pure Rust, before it returns the token. A wrong key behind a name or a faulty platform gives `PlatformKeyFailed`, never a token that doesn't verify. There is no option to skip the check.
+- **Decryption:** the platform computes the ECDH shared secret Z, or decrypts an `RSA-OAEP-256` encrypted key into the content encryption key (CEK). The allow-lists, the validation of the ephemeral public key, the Concat KDF, key unwrap and content decryption stay in polyjose. A wrong Z or CEK can't produce a plaintext: the key unwrap integrity check or the content's authentication tag rejects it, and the failure is `DecryptionFailed`.
+- **What polyjose doesn't vouch for.** polyjose hasn't reviewed the operating systems' key services. How a platform operation resists timing and other side channels is the platform's. polyjose reports where a key lives (Secure Enclave, Keychain, TEE, StrongBox) only as the platform reports it, and calls a Keychain key "stored and protected by the OS", never hardware-bound.
+- **Copies it can't wipe.** polyjose never asks for the private key. Three values do cross between Swift or Kotlin and Rust, through the same generated interface layer as described under [Secrets in memory](#secrets-in-memory), which frees its buffers without overwriting them. The JWS signing input, which contains the payload, goes to the platform and leaves 2 full copies on the Rust heap, plus up to log2(C/8) partial ones, prefixes left behind as the buffer grows to its final capacity of C bytes. The shared secret Z and the CEK come back and leave 1 full copy each. polyjose wipes its own copy of Z and of the CEK as soon as the call returns; the `Data` or `ByteArray` your own code holds is yours to wipe. The same call returns the plaintext, which leaves copies of the same kind as any other decryption.
 
 ## Dependencies
 

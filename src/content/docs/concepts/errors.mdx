@@ -44,6 +44,8 @@ Loading `@polyjose/node` can fail too, before any operation runs: the package lo
 
 `DecryptionFailed` is deliberately one code for every failure after key management, whatever the internal cause. Reporting which step failed would give an attacker an oracle to probe ciphertexts with.
 
+`KeyNotFound`, `UserAuthenticationRequired` and `PlatformKeyFailed` come from platform keys, which Kotlin, Swift and Rust have. They are on every platform's list, and Node.js and the Web never report them. During a decryption, only `KeyNotFound` and `UserAuthenticationRequired` are reported as themselves, because neither depends on the token; every other platform failure is `DecryptionFailed`. [Hardware-backed keys › Errors](/guides/hardware-backed-keys/#errors) says what an app does for each.
+
 ## The order of JWT checks
 
 A JWT can be wrong in several ways at once. polyjose runs its checks in a fixed order, and **the first failing check decides the error**, so the same token gives the same code on every platform.

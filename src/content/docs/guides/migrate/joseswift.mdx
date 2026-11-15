@@ -109,7 +109,7 @@ Both libraries compute the same RFC 7638 thumbprint for a key. More on keys, PEM
 
 ### Keys you hold as `SecKey`
 
-If your app created its keys with the Security framework, export each one once and import it as a JWK. JOSESwift writes a JWK from a public `SecKey`, or from an EC private one:
+If your app created its keys with the Security framework, you can keep them there: wrap a private `SecKey` with `AppleKey(secKey:algorithm:)`, or create and find keys by tag with `AppleKey.generate` and `AppleKey.open`, and pass the key to the `…WithPlatformKey` calls ([Hardware-backed keys](/guides/hardware-backed-keys/)). Or export each key once and import it as a JWK. JOSESwift writes a JWK from a public `SecKey`, or from an EC private one:
 
 <Sample platform="swift" id="migrate-joseswift/seckey-before" title="JOSESwift" />
 
@@ -117,9 +117,9 @@ Without JOSESwift, export the key's bytes with `SecKeyCopyExternalRepresentation
 
 <Sample platform="swift" id="migrate-joseswift/seckey" title="polyjose" />
 
-The RSA private JWK this produces has all of `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi`, and the tests sign with it and verify with the original `SecKey` through JOSESwift. Once your keys are JWKs, keep them in the Keychain as [Store keys securely › iOS](/guides/secure-key-storage/#ios) shows, not as `SecKey` items.
+The RSA private JWK this produces has all of `n`, `e`, `d`, `p`, `q`, `dp`, `dq` and `qi`, and the tests sign with it and verify with the original `SecKey` through JOSESwift. Once your keys are JWKs, keep them in the Keychain as [Store keys securely › iOS](/guides/secure-key-storage/#ios) shows.
 
-A key that can't leave the Secure Enclave can't be exported, so polyjose can't sign or decrypt with it. You can still verify its signatures and encrypt to it with its public key. See [Store keys securely](/guides/secure-key-storage/).
+A Secure Enclave key can't be exported. Open it with `AppleKey.open`, or wrap its `SecKey` with `AppleKey(secKey:algorithm:)`, and polyjose signs and decrypts with it in place: see [Hardware-backed keys](/guides/hardware-backed-keys/).
 
 ## Select a key from a JWK Set
 
@@ -189,8 +189,8 @@ What JOSESwift 3.0.0 does that polyjose doesn't, and what to do instead. For `RS
 - **RSA private JWKs with only `d`.** JOSESwift's `RSAPrivateKey` writes `n`, `e` and `d` only. polyjose needs the CRT members as well (`p`, `q`, `dp`, `dq`, `qi`, [RFC 7518 §6.3.2](https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2)) and fails with `InvalidKey`. Export the `SecKey` as PKCS #1 instead, as shown in [Keys you hold as `SecKey`](#keys-you-hold-as-seckey).
 - **RSA keys under 2048 bits.** The Security framework still creates 1024-bit keys, and JOSESwift signs and verifies with them. polyjose refuses them with `InvalidKey` ([RFC 7518 §3.3](https://www.rfc-editor.org/rfc/rfc7518#section-3.3)).
 - **RSA key generation.** polyjose doesn't generate RSA keys. Create them with `SecKeyCreateRandomKey`, as before, and import them; or use ES256 or Ed25519 for new keys.
-- **Secure Enclave and other non-extractable keys.** JOSESwift signs and decrypts through the Security framework, so it can use a `SecKey` whose private part never leaves the device's hardware. polyjose takes every key as a JWK, so it can only use such a key's public half.
-- **Custom signers and encrypters.** JOSESwift accepts your own `SignerProtocol`, `VerifierProtocol` and key management implementations. polyjose has no such hook: the algorithms are the ones it implements.
+- **Secure Enclave and other non-extractable keys.** JOSESwift signs and decrypts with a `SecKey` through the Security framework. In polyjose, wrap a private `SecKey` with `AppleKey(secKey:algorithm:)`, or create and find keys by tag with `AppleKey.generate` and `AppleKey.open`, and pass the key to the `…WithPlatformKey` calls. The Secure Enclave holds P-256 keys only; see [Hardware-backed keys](/guides/hardware-backed-keys/) for the algorithms each key store supports.
+- **Custom signers and encrypters.** JOSESwift accepts your own `SignerProtocol`, `VerifierProtocol` and key management implementations. polyjose accepts your own `PlatformKey` for the private-key step of signing and decryption (see [Implement `PlatformKey` yourself](/guides/hardware-backed-keys/#implement-platformkey-yourself)). Verification, encryption and the algorithms themselves are always polyjose's own.
 - **Platforms and package managers.** No tvOS, visionOS or CocoaPods, and newer OS minimums; see [Install and import](#install-and-import).
 
 ## Checklist

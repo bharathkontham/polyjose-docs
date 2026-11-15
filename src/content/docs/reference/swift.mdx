@@ -20,3 +20,7 @@ This page has the details of the polyjose Swift package that you don't need to g
 - **Wiping returned `Data` doesn't remove every copy.** The generated `Polyjose.swift` copies secret inputs (keys, payloads, plaintexts, `aad`, `detachedPayload`) and secret outputs (`payload`, `plaintext`, `aad`) through temporary Swift arrays, and frees them without wiping them. The Rust side of the call leaves unwiped copies on its own heap too, as the [Kotlin library](/reference/android/#copies-left-on-the-rust-heap) does, through the same generated interface layer. Your wipe reaches only the `Data` you hold. Reading the freed memory needs access to your app's process (a debugger, a core dump or a jailbroken device).
 
 [Secrets in memory](/security/model/#secrets-in-memory) covers what every platform does with secrets.
+
+## Platform keys
+
+`AppleKey` signs and decrypts with a Secure Enclave or Keychain key, and the `PlatformKey` protocol lets you bring any other key holder. Printing an `AppleKey` shows its type and `protection` only, never its tag or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the algorithms each key store supports, and the error codes.

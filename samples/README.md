@@ -83,7 +83,7 @@ import Sample from '../../../components/samples/Sample.astro';
 <Sample platform="rust" id="start/rust-first-sign" />
 ```
 
-`<Sample>` is allowed only on pages under `start/` and under `guides/migrate/`. Everywhere else, use `<Samples>` so readers of every platform are served.
+`<Sample>` is allowed only on pages under `start/` and under `guides/migrate/`, and on `guides/hardware-backed-keys.mdx`, which covers Kotlin and Swift only: its tabs show the Swift region next to inline Kotlin, because Android Keystore code can't run in `samples/kotlin` on the JVM. Everywhere else, use `<Samples>` so readers of every platform are served.
 
 ### Migration guides
 

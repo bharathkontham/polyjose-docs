@@ -50,6 +50,10 @@ For byte outputs UniFFI writes into a buffer that grows by doubling. Each move o
 
 These copies are freed memory that the process reuses. Reading them takes a memory disclosure in the host process, such as a core dump, a heap read or swap. The planned fix is opaque key handles and caller-provided output buffers in 0.2.0. A zeroizing global allocator is under consideration, not planned.
 
+## Platform keys
+
+`AndroidKeystoreKey` signs and decrypts with an Android Keystore or StrongBox key. It is in the Android library only: the desktop JVM has no Android Keystore, so `polyjose-jvm` has the `PlatformKey` interface and no key class. Printing an `AndroidKeystoreKey` shows its type and `securityLevel` only, never its alias or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the API level each algorithm needs, StrongBox and user authentication.
+
 ## Which native library the desktop JVM loads
 
 The library's build patches the generated Kotlin so that UniFFI's library lookup calls polyjose's own native loader. The patch fails the build when UniFFI's generated text is not exactly what it was written against, so a UniFFI upgrade can't silently drop it.

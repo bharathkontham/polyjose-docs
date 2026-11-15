@@ -9,7 +9,7 @@ This page describes polyjose 0.2.0.
 
 A JSON Web Signature (JWS, [RFC 7515](https://www.rfc-editor.org/rfc/rfc7515)) protects a payload with a digital signature or a MAC. Every sample on this page is a test that runs against polyjose on each platform; pick your platform in any tab and the others follow. The keys are the published RFC example keys, so never use them in an application.
 
-The same operations exist everywhere under the same names (see [One API](/concepts/one-api/)): `jwsSignCompact`, `jwsVerifyCompact`, `jwsSignFlattened`, `jwsSignGeneral` and `jwsVerifyJson` in JavaScript, Kotlin and Swift, and `jws::sign_compact`, `jws::verify_compact`, `jws::sign_flattened`, `jws::sign_general` and `jws::verify_json` in Rust.
+The same operations exist everywhere under the same names (see [One API](/concepts/one-api/)): `jwsSignCompact`, `jwsVerifyCompact`, `jwsSignFlattened`, `jwsSignGeneral` and `jwsVerifyJson` in JavaScript, Kotlin and Swift, and `jws::sign_compact`, `jws::verify_compact`, `jws::sign_flattened`, `jws::sign_general` and `jws::verify_json` in Rust. To sign in Kotlin or Swift with a key that the platform holds and never exports, see [Hardware-backed keys](/guides/hardware-backed-keys/).
 
 ## Sign in the compact serialization
 

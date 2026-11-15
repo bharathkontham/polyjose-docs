@@ -99,12 +99,13 @@ const STATUSES = ['yes', 'verify-only', 'encrypt-only', 'no'];
 // Fixed heading ids on Security › Not supported.
 const NOT_SUPPORTED_IDS = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
 
-// polyjose's Error::CODES (crates/polyjose/src/error.rs) at commit 30a4a72, in its order.
+// polyjose's Error::CODES (crates/polyjose/src/error.rs) at commit 30a4a72, in its order, plus
+// the three platform key codes appended after MultipleMatchingKeys.
 const ERROR_CODES = [
 	'InvalidBase64', 'InvalidJson', 'InvalidHeader', 'UnsupportedAlgorithm', 'AlgorithmNotAllowed',
 	'InvalidKey', 'KeyAlgorithmMismatch', 'InvalidSignature', 'DecryptionFailed', 'UnknownCritical',
 	'TokenExpired', 'TokenNotYetValid', 'InvalidClaim', 'RandomnessUnavailable', 'InvalidFormat',
-	'NoMatchingKey', 'MultipleMatchingKeys',
+	'NoMatchingKey', 'MultipleMatchingKeys', 'KeyNotFound', 'UserAuthenticationRequired', 'PlatformKeyFailed',
 ];
 
 const RFC_TITLES = {
@@ -135,6 +136,10 @@ const OPERATIONS = {
 	JWS: ['jwsSignCompact', 'jwsSignFlattened', 'jwsSignGeneral', 'jwsVerifyCompact', 'jwsVerifyJson'],
 	JWE: ['jweEncryptCompact', 'jweEncryptJson', 'jweDecryptCompact', 'jweDecryptJson'],
 	JWT: ['jwtSign', 'jwtVerify', 'jwtVerifyWithJwks', 'jwtEncryptNested', 'jwtDecryptNested', 'jwtDecryptNestedWithJwks'],
+	'Platform keys (Kotlin and Swift)': [
+		'jwsSignCompactWithPlatformKey', 'jwtSignWithPlatformKey', 'jweDecryptCompactWithPlatformKey',
+		'jweDecryptJsonWithPlatformKey', 'jwtDecryptNestedWithPlatformKey', 'jwtDecryptNestedWithPlatformKeyAndJwks',
+	],
 };
 
 // The conformance statement, as its text content renders (code spans become
