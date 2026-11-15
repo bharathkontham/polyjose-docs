@@ -140,7 +140,7 @@ polyjose makes no network requests: fetching the set from the issuer's `jwks_uri
 
 ## Reading a token without verifying it
 
-`jwt.decode` becomes `decodeJwtUnverified`, which returns a Promise of `{ header, claims }`, as `jwt.decode` with `complete: true` returns `{ header, payload }`. This doesn't check the signature; don't trust these values until you verify the token.
+`jwt.decode` becomes `decodeJwtUnverified`, which returns a Promise of `{ header, claims }`, as `jwt.decode` with `complete: true` returns `{ header, payload }`. This doesn't check the signature: anyone can write these values, so don't use them for authorization or trust decisions until you verify the token.
 
 <Sample platform="node" id="migrate-jsonwebtoken/decode-before" title="jsonwebtoken" />
 <Sample platform="node" id="migrate-jsonwebtoken/decode" title="polyjose" />

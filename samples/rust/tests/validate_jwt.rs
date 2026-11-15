@@ -446,8 +446,31 @@ fn read_unverified() -> Result<(), Error> {
     Ok(())
 }
 
+/// The error type of the application in `choose_issuer`: polyjose's errors, plus the application's
+/// own refusal of an issuer it doesn't accept (RFC 8725 §3.8).
+#[derive(Debug)]
+enum AppError {
+    UnknownIssuer,
+    Jose(Error),
+}
+
+impl From<Error> for AppError {
+    fn from(err: Error) -> Self {
+        AppError::Jose(err)
+    }
+}
+
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AppError::UnknownIssuer => f.write_str("unknown issuer"),
+            AppError::Jose(err) => write!(f, "polyjose: {}", err.code()),
+        }
+    }
+}
+
 #[test]
-fn choose_issuer() -> Result<(), Error> {
+fn choose_issuer() -> Result<(), AppError> {
     let token = jwt::sign(
         &claims(now() + 300),
         &IssueOptions::new(SigningAlg::ES256),
@@ -457,9 +480,10 @@ fn choose_issuer() -> Result<(), Error> {
     let trusted_issuers = HashMap::from([(ISSUER, JwkSet::from_json(JWKS_JSON.as_bytes())?)]);
     // docs:start validate-jwt/choose-issuer
     // `trusted_issuers` maps each issuer you accept to its JWK Set, from your configuration.
+    // `AppError` is your application's error type, with a `From<polyjose::Error>`.
     let unverified = util::decode_jwt_unverified(&token)?;
     let iss = unverified.claims.iss.as_deref().unwrap_or_default();
-    let jwks = trusted_issuers.get(iss).ok_or(Error::InvalidClaim("iss"))?;
+    let jwks = trusted_issuers.get(iss).ok_or(AppError::UnknownIssuer)?;
 
     let algs = [SigningAlg::ES256, SigningAlg::Ed25519];
     let policy = Policy::new(&SystemClock, &algs)?
