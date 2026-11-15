@@ -207,6 +207,7 @@ test('Security model: each fact is stated', async (t) => {
     assertPhrases(text, 'UniFFI residuals, byte results', [/returned secret byte array[^.]*at least two/i]);
     assertPhrases(text, 'UniFFI residuals, both JWS payloads', [/JwsVerified\.payload and JwsUnverified\.payload/]);
     assertPhrases(text, 'records redact their secrets', ['JwsSigner', 'JweRecipient', 'toString', 'description', '<redacted, ', /never log/i]);
+    assertPhrases(text, 'JWS payloads are redacted when printed', [/JwsVerified and JwsUnverified with their payload/]);
     assert.doesNotMatch(text, /print every field, including the key/i, 'the Kotlin and Swift records redact their keys');
   });
 

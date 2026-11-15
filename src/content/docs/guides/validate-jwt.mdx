@@ -124,7 +124,7 @@ The result is a `JwtUnverified` (in Rust, `util::UnverifiedJwt`), a different ty
 
 Two more operations read a token the same way:
 
-- `decodeJwsUnverified` (`util::decode_jws_unverified`) returns a compact JWS's protected header and payload, as a `JwsUnverified`. The payload is treated as secret, like the payload of a verified JWS.
+- `decodeJwsUnverified` (`util::decode_jws_unverified`) returns a compact JWS's protected header and payload, as a `JwsUnverified`. The payload is treated as secret, like the payload of a verified JWS: printing a `JwsUnverified` in Kotlin or Swift shows only the payload's length.
 - `decodeProtectedHeaderUnverified` (`util::decode_protected_header_unverified`) returns the protected header of a compact JWS or JWE. It is the only one of the three that accepts a JWE. A JWE's payload can't be read without the key.
 
 ### Choose the issuer, then verify

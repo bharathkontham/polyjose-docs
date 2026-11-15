@@ -323,6 +323,11 @@ final class ValidateJwtTests: XCTestCase {
         XCTAssertEqual((try jsonObject(try decodeJwtUnverified(token: expired).claims)["exp"] as? NSNumber)?.int64Value, fixedNow)
         // A malformed token fails with the code verification gives it.
         XCTAssertEqual(codeOf { _ = try decodeJwtUnverified(token: "not-a-token") }, "InvalidFormat")
+        // decodeJwsUnverified returns the payload, and printing the record shows only its length.
+        let jws = try decodeJwsUnverified(jws: token)
+        XCTAssertEqual(try jsonObject(String(decoding: jws.payload, as: UTF8.self))["sub"] as? String, subject)
+        XCTAssertTrue(String(describing: jws).contains("<redacted, \(jws.payload.count) bytes>"), String(describing: jws))
+        XCTAssertFalse(String(describing: jws).contains(subject))
     }
 
     func testChooseIssuer() throws {

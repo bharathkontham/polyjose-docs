@@ -301,6 +301,11 @@ class ValidateJwtTest {
         assertEquals(NOW, JSONObject(decodeJwtUnverified(expired).claims).getLong("exp"))
         // A malformed token fails with the code verification gives it.
         assertEquals("InvalidFormat", codeOf { decodeJwtUnverified("not-a-token") })
+        // decodeJwsUnverified returns the payload, and printing the record shows only its length.
+        val jws = decodeJwsUnverified(token)
+        assertEquals(SUBJECT, JSONObject(jws.payload.decodeToString()).getString("sub"))
+        assertEquals(true, jws.toString().contains("payload=<redacted, ${jws.payload.size} bytes>"), jws.toString())
+        assertEquals(false, jws.toString().contains(SUBJECT))
     }
 
     @Test
