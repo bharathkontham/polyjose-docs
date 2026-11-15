@@ -42,6 +42,14 @@ test('Node.js package: the glibc floor, the distributions it covers, and Amazon 
 	assert.ok(text.includes('manylinux_2_28'), 'and how the floor is reached');
 });
 
+test('Node.js package: seven addons, macOS on Apple silicon only, and the Intel Mac way forward', () => {
+	const text = pageText('reference/node/');
+	assert.match(text, /all seven supported platforms/);
+	assert.match(text, /macOS on Apple silicon: arm64 \( ?darwin-arm64 ?\)/);
+	assert.doesNotMatch(text, /\beight\b/, 'no eighth addon');
+	assert.match(text, /Intel Mac, and with an x64 build of Node\.js running under Rosetta 2 .* the import throws ERR_POLYJOSE_ADDON_REFUSED ?\. Use @polyjose\/wasm there/);
+});
+
 test('Node.js package: the load refusal code and every environment variable the loader reads', () => {
 	const text = pageText('reference/node/');
 	assert.ok(text.includes('ERR_POLYJOSE_ADDON_REFUSED'));

@@ -20,7 +20,7 @@ Replace the JOSESwift package with polyjose in Swift Package Manager, and depend
 
 Then replace `import JOSESwift` with `import Polyjose`. polyjose's calls are synchronous and throw `PolyjoseError`; make them off the main actor. Both packages can stay in one target while you move code over: their type names don't overlap.
 
-Check the platforms before you switch. polyjose needs iOS 16, macOS 13 or watchOS 9 and Swift 6 tools, and it has no tvOS or visionOS build. JOSESwift 3.0.0 also runs on older systems and on tvOS and visionOS. polyjose is a Swift package only, with no CocoaPods or Carthage release. See [Swift (iOS)](/start/swift/).
+Check the platforms before you switch. polyjose needs iOS 16, macOS 13 or watchOS 9 and Swift 6 tools, its macOS and iOS Simulator code is for Apple silicon (arm64) only, and it has no tvOS or visionOS build. JOSESwift 3.0.0 also runs on older systems and on tvOS and visionOS. polyjose is a Swift package only, with no CocoaPods or Carthage release. See [Swift (iOS)](/start/swift/).
 
 ## Concept map
 
