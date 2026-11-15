@@ -3,9 +3,10 @@
 //
 // Each page installs one platform and shows that platform's samples, which scripts/samples/run.sh
 // runs against polyjose. The facts below are the ones a reader acts on and that owner decisions
-// fixed on 2026-11-08: the Apple platforms are iOS and macOS only, the Kotlin jar
-// needs a Kotlin 2.4 compiler, Deno and Bun are untested. Importing helpers from another test
-// file would run its tests a second time, so this file keeps its own small copies.
+// fixed on 2026-11-08 and 2026-11-15: the Apple platforms are iOS and macOS only, the Kotlin jar
+// needs a Kotlin 2.4 compiler, and the Web page names only the runtimes it is tested in.
+// Importing helpers from another test file would run its tests a second time, so this file keeps
+// its own small copies.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -91,12 +92,16 @@ describe('platform facts', () => {
 		assert.match(text, /Node\.js 22\.12 or later/);
 		assert.match(text, /glibc 2\.28 or later/);
 		assert.match(text, /ESM only/);
+		assert.match(text, /macOS on Apple silicon: arm64/);
+		assert.match(text, /all seven addons/);
+		assert.doesNotMatch(text, /macOS: x64/, 'no macOS x64 addon');
 	});
 
-	test('Web: CSP, untested runtimes, and the @polyjose/wasm import', () => {
+	test('Web: CSP, tested runtimes, and the @polyjose/wasm import', () => {
 		const { body, text } = page(PAGES.web);
 		assert.match(text, /'wasm-unsafe-eval'/);
-		assert.match(text, /Deno and Bun are not tested/);
+		assert.match(text, /own tests run the package in Node\.js 22\.12 or later, in headless Chrome and in Cloudflare Workers \(workerd\)/);
+		assert.doesNotMatch(text, /Deno|Bun/, 'only verified runtimes are named');
 		const code = codeBlocks(body).join('\n');
 		assert.match(code, /from '@polyjose\/wasm'/);
 		assert.doesNotMatch(code, /@polyjose\/node/, 'the Web page never shows the Node package');
@@ -108,15 +113,34 @@ describe('platform facts', () => {
 		assert.match(text, /minSdk 23/);
 		assert.match(text, /dev\.polyjose:polyjose \(AAR\)/);
 		assert.match(text, /dev\.polyjose:polyjose-jvm \(jar\)/);
+		assert.match(text, /macOS \(arm64\), Linux \(arm64, x86-64\) and Windows \(x86-64\)/, 'the jar\'s four natives');
 	});
 
 	test('Swift: iOS and macOS only, with the minimums Package.swift declares', () => {
 		const { html, text } = page(PAGES.swift);
 		assert.match(text, /iOS 16 or later, and macOS 13 or later/);
+		assert.match(text, /macOS and iOS Simulator code is arm64 only/);
+		assert.match(text, /EXCLUDED_ARCHS\[sdk=iphonesimulator\*\] = x86_64/, 'the iOS Simulator setting, in the target\'s build settings');
 		const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? '';
 		for (const other of ['tvOS', 'watchOS', 'visionOS']) {
 			assert.ok(!text.includes(other), `the page names ${other}`);
 			assert.ok(!description.includes(other), `the description names ${other}`);
 		}
+	});
+});
+
+// Each binding's Get started page links its example app in the polyjose-examples repository
+// (owner, 2026-11-15). Rust has none yet.
+describe('example apps', () => {
+	const EXAMPLES = 'https://github.com/bharathkontham/polyjose-examples/tree/main/';
+	const FOLDERS = { node: 'node', web: 'web', kotlin: 'android', swift: 'ios' };
+	for (const [platform, folder] of Object.entries(FOLDERS)) {
+		test(`${PAGES[platform]} links the ${folder} example app`, () => {
+			const { body } = page(PAGES[platform]);
+			assert.ok(body.includes(`href="${EXAMPLES}${folder}"`), `links ${EXAMPLES}${folder}`);
+		});
+	}
+	test('the Rust page links no example app', () => {
+		assert.doesNotMatch(page(PAGES.rust).body, /polyjose-examples/);
 	});
 });

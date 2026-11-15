@@ -5,7 +5,7 @@ description: Validate JWTs against an issuer's JSON Web Key Set, understand how 
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.2.0.
+This page describes polyjose 0.3.0.
 
 An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC 7517 §5](https://www.rfc-editor.org/rfc/rfc7517#section-5)), a JSON object with a `keys` array, often at the `jwks_uri` of its OpenID Connect or OAuth metadata. A key usually carries a `kid`, so the issuer can rotate keys and a token can say which one signed it ([RFC 7515 §4.1.4](https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4)), but the `kid` is optional ([RFC 7517 §4.5](https://www.rfc-editor.org/rfc/rfc7517#section-4.5)).
 
@@ -17,7 +17,7 @@ An issuer that signs tokens usually publishes its public keys as a JWK Set ([RFC
 
 Fetching and caching the set is your application's job: polyjose never does any network I/O, and never follows a `jku` or `x5u` header. A typical service fetches the issuer's `jwks_uri` over HTTPS at start-up, keeps the set in memory, refreshes it on a schedule, and passes the cached text to every verify call. When a token names a `kid` that isn't in the cached set, it may refetch the set, rate-limited, so that an attacker can't make it fetch on every request. The sample's set is a local file that stands in for that response.
 
-Don't read the token's header yourself to pick a key before verifying. Pass the whole set and let polyjose choose candidates from the protected header, as described below. polyjose has no way to read a token without verifying it: see [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+You don't need to read the token's header yourself to pick a key. Pass the whole set and let polyjose choose candidates from the protected header, as described below. To read a token's header or claims before verifying it, for example to choose between issuers, see [Validate a JWT › Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it).
 
 ## How a key is chosen
 
@@ -35,7 +35,7 @@ Never allow an `HS*` algorithm when you verify with a set you fetched. A set can
 
 ## Bind the set to its issuer
 
-A key set says nothing about which issuer it belongs to. Pass each issuer's set together with that issuer in `issuers` ([RFC 8725 §3.8](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)). Otherwise a token from another issuer whose keys you also trust, or a token you issued for a different purpose, could be accepted. With several issuers, keep one set per issuer and choose the set by the configuration of the endpoint, not by the token.
+A key set says nothing about which issuer it belongs to. Pass each issuer's set together with that issuer in `issuers` ([RFC 8725 §3.8](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)). Otherwise a token from another issuer whose keys you also trust, or a token you issued for a different purpose, could be accepted. With several issuers, keep one set per issuer and choose the set by the configuration of the endpoint. If one endpoint accepts several issuers, you can read the token's unverified `iss` to choose among the sets you configured, then verify with that issuer in `issuers`, as [Validate a JWT › Choose the issuer, then verify](/guides/validate-jwt/#choose-the-issuer-then-verify) shows.
 
 <Samples id="jwk-sets/issuer" />
 

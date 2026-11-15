@@ -18,6 +18,8 @@ import * as jose from 'jose';
 import * as polyjose from '@polyjose/node';
 // docs:start migrate-panva-jose/import
 import {
+  decodeJwtUnverified,
+  decodeProtectedHeaderUnverified,
   jweDecryptCompact,
   jweEncryptCompact,
   jwkFromPem,
@@ -151,6 +153,37 @@ test('verify a JWT', async () => {
     // docs:end migrate-panva-jose/verify-jwt
     assert.deepEqual(claims, payload);
     assert.deepEqual(header, protectedHeader);
+  }
+});
+
+test('read a token without verifying it', async () => {
+  const keys = await joseKeys();
+  const token = await joseToken(keys.privateKey, { header: { kid: 'p256-2026' } });
+  // docs:start migrate-panva-jose/decode-before
+  const claims = jose.decodeJwt(token);
+  const header = jose.decodeProtectedHeader(token);
+  // docs:end migrate-panva-jose/decode-before
+  assert.equal(claims.sub, SUBJECT);
+  assert.equal(header.kid, 'p256-2026');
+
+  {
+    // docs:start migrate-panva-jose/decode
+    const { claims } = await decodeJwtUnverified(token);
+    const header = await decodeProtectedHeaderUnverified(token);
+    // docs:end migrate-panva-jose/decode
+    // Interop: both libraries read the same header and claims from a jose token (RFC 7515 §7.1).
+    assert.deepEqual(claims, jose.decodeJwt(token));
+    assert.deepEqual(header, jose.decodeProtectedHeader(token));
+    assert.deepEqual((await decodeJwtUnverified(token)).header, header);
+  }
+  // And from a polyjose token.
+  const fromPolyjose = await jwtSign({ iss: ISSUER, sub: SUBJECT, aud: AUDIENCE, exp: nowSeconds() + 300 }, privateJwk, { alg: 'ES256' });
+  assert.deepEqual((await decodeJwtUnverified(fromPolyjose)).claims, jose.decodeJwt(fromPolyjose));
+  assert.deepEqual(await decodeProtectedHeaderUnverified(fromPolyjose), jose.decodeProtectedHeader(fromPolyjose));
+  // jose's decoders are synchronous; polyjose's return Promises, as the guide says.
+  for (const pending of [decodeJwtUnverified(token), decodeProtectedHeaderUnverified(token)]) {
+    assert.ok(pending instanceof Promise);
+    await pending;
   }
 });
 
@@ -492,14 +525,15 @@ test('differences: keys are JWKs, bound to their algorithm', async () => {
   assert.equal(await codeOf(jwsSignCompact(payload, privateJwk, { protectedHeader: { alg: 'Ed25519' } })), 'KeyAlgorithmMismatch');
 });
 
-test('differences: nothing reads a token without verifying it, and no encrypt-only JWT', () => {
-  // jose has decodeJwt, decodeProtectedHeader and UnsecuredJWT.decode; polyjose exports no
-  // decode, peek or unsecured function, and the only decoder is base64url.
+test('differences: only the decode…Unverified utilities read a token unverified, and no encrypt-only JWT', () => {
+  // jose has decodeJwt, decodeProtectedHeader and UnsecuredJWT; polyjose's decoders are base64url
+  // and the three decode…Unverified utilities, and it has no peek, unsecured or remote function.
   assert.equal(typeof jose.decodeJwt, 'function');
   assert.equal(typeof jose.decodeProtectedHeader, 'function');
+  assert.equal(typeof jose.UnsecuredJWT, 'function');
   assert.deepEqual(
-    Object.keys(polyjose).filter((name) => /decode|peek|unsecured|unverified|remote|fetch/i.test(name)),
-    ['base64urlDecode'],
+    Object.keys(polyjose).filter((name) => /decode|peek|unsecured|unverified|remote|fetch/i.test(name)).sort(),
+    ['base64urlDecode', 'decodeJwsUnverified', 'decodeJwtUnverified', 'decodeProtectedHeaderUnverified'],
   );
   // JWT encryption is nested (sign, then encrypt): there is no encrypt-only JWT like EncryptJWT.
   assert.equal(typeof jose.EncryptJWT, 'function');

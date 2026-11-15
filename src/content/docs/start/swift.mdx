@@ -17,6 +17,7 @@ Add the package with Swift Package Manager, in `Package.swift` or in Xcode under
 <Install platform="swift" />
 
 - **iOS 16 or later, and macOS 13 or later.** Those are the minimums the package declares.
+- **Apple silicon on the Mac.** The package's macOS and iOS Simulator code is arm64 only. With Xcode 27.2, a build that includes x86_64 fails to link, with `found architecture 'arm64', required architecture 'x86_64'` and `Undefined symbols for architecture x86_64`. That is the case for a universal (arm64 and x86_64) macOS build, for `swift build --arch x86_64`, and for a build for the generic iOS Simulator destination (`generic/platform=iOS Simulator`), which also builds x86_64. Leave x86_64 out in your app target's build settings: `EXCLUDED_ARCHS = x86_64` for macOS, and `EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64` for the iOS Simulator. The app is then built for arm64.
 - **Swift 6.** The package's manifest needs Swift tools 6.0.
 - **No other Rust static library in the same app.** polyjose links its own copy of the Rust standard library, so a second Rust static library can make the link fail with duplicate symbols.
 

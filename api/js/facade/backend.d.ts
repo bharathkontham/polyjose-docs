@@ -119,6 +119,14 @@ export interface BackendJwtNestedVerified {
     outerHeader: string;
     recipientIndex: number;
 }
+export interface BackendJwsUnverified {
+    protectedHeader: string;
+    payload: Uint8Array;
+}
+export interface BackendJwtUnverified {
+    header: string;
+    claims: string;
+}
 /** The functions a native layer provides (BACKEND.md). */
 export interface Backend {
     /** Optional one-time initialisation, awaited lazily before the first call. */
@@ -127,6 +135,10 @@ export interface Backend {
     errorCodes(): readonly string[];
     base64urlEncode(bytes: Uint8Array): MaybePromise<string>;
     base64urlDecode(text: string): MaybePromise<Uint8Array>;
+    /** The protected header as JSON text. */
+    decodeProtectedHeaderUnverified(token: string): MaybePromise<string>;
+    decodeJwsUnverified(jws: string): MaybePromise<BackendJwsUnverified>;
+    decodeJwtUnverified(token: string): MaybePromise<BackendJwtUnverified>;
     jwkParse(jwk: string): MaybePromise<string>;
     jwkToPublic(jwk: string): MaybePromise<string>;
     /** `hash` is `undefined` when the caller gave none: the core default, SHA-256 (ADR 0054 §9). */
