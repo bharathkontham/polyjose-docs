@@ -429,9 +429,12 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   }
   // The page's framing sentence names the polyjose release it describes. Only
   // that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.2.0.';
+  const framing = 'This page describes polyjose 0.3.0.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
+  // The lockfile sentence names the release of the commit the table is taken from; that one
+  // release is exempt too, so the table can lag the framing until it is refreshed.
+  const lockRelease = /commit\s+[0-9a-f]{7,40}\s*, the (\d+\.\d+\.\d+) release\b/.exec(outsideTable)?.[1];
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.2.0'), [], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.3.0' && v !== lockRelease), [], 'outside the table, only the release the page describes and the one its lockfile is from');
 });

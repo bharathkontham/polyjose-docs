@@ -6,7 +6,7 @@ description: Move a Kotlin or Java project from Nimbus JOSE + JWT to polyjose, t
 import Install from '../../../../components/samples/Install.astro';
 import Sample from '../../../../components/samples/Sample.astro';
 
-This page describes polyjose 0.2.0 and Nimbus JOSE + JWT 10.10.
+This page describes polyjose 0.3.0 and Nimbus JOSE + JWT 10.10.
 
 Each task below shows the Nimbus code first and the polyjose code after it. Both sides are compiled and run as tests against the same example keys. Further tests pass tokens between the two libraries in both directions: JWTs that Nimbus signs verify in polyjose, polyjose JWTs verify with Nimbus's `DefaultJWTProcessor`, and JWEs decrypt either way. So you can move one service at a time while the others still run Nimbus.
 
@@ -199,7 +199,7 @@ polyjose leaves some Nimbus features out on purpose. [What polyjose does not sup
 
 ### Calling polyjose from Java
 
-The package's API is designed for Kotlin, and calling it from Java is awkward in 0.2.0. The functions are Kotlin top-level functions, which Java sees as static methods of `dev.polyjose.Polyjose_ffiKt`. Java has no default arguments, so you pass every field of an options record, and members that take Kotlin unsigned integers get mangled names. If your project is Java only, a small Kotlin module that wraps the calls you need is the simplest route. See [Android and JVM (Kotlin)](/start/android/) and [Java](/security/not-supported/#java).
+The package's API is designed for Kotlin, and calling it from Java is awkward in 0.3.0. The functions are Kotlin top-level functions, which Java sees as static methods of `dev.polyjose.Polyjose_ffiKt`. Java has no default arguments, so you pass every field of an options record, and members that take Kotlin unsigned integers get mangled names. If your project is Java only, a small Kotlin module that wraps the calls you need is the simplest route. See [Android and JVM (Kotlin)](/start/android/) and [Java](/security/not-supported/#java).
 
 ## Checklist
 

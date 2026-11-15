@@ -24,7 +24,6 @@ Every entry then instantiates the module with the glue's asynchronous `init`, aw
 Where it has been run:
 
 - **Tested:** Node.js 22.12 or later, headless Chrome and Cloudflare Workers (workerd).
-- **Expected to work:** current Firefox and Safari, and bundlers that resolve `new URL(..., import.meta.url)` (webpack 5, Vite, esbuild).
 
 The work runs on the calling thread. To keep a page responsive during heavy operations, such as PBES2 with a high iteration count, call the package from a Web Worker.
 
