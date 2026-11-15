@@ -4,7 +4,9 @@
 // verifier makes (RFC 8725 §3.8-§3.12): issuer, audience, expiry and not-before with leeway
 // (RFC 7519 §4.1), maximum age, required claims, explicit typing (RFC 8725 §3.11), RFC 9068
 // access tokens, and nested JWTs (RFC 7519 §5.2). Tokens are issued a few minutes ahead of the
-// current time and verified in the same test, unless a test fixes the clock at `fixedNow`.
+// current time and verified in the same test, unless a test fixes the clock at `fixedNow`. The last
+// tests read tokens without verifying them (decodeJwtUnverified), then verify against the issuer's
+// JWK Set, samples/fixtures/jwks.json (RFC 7517 §5; RFC 8725 §3.8).
 
 import Foundation
 import Polyjose
@@ -297,4 +299,66 @@ final class ValidateJwtTests: XCTestCase {
         XCTAssertEqual(try jsonObject(verified.outerHeader)["cty"] as? String, "JWT", "RFC 7519 §5.2")
         XCTAssertEqual(verified.recipientIndex, 0)
     }
+
+    func testReadUnverified() throws {
+        let token = try issue(claimsJson(exp: currentTime() + 300))
+        // docs:start validate-jwt/read-unverified
+        // The signature isn't checked: use this to show the token's contents.
+        let unverified = try decodeJwtUnverified(token: token)
+        struct Claims: Decodable { let sub: String }
+        struct Header: Decodable { let alg: String }
+        let signedInAs = try JSONDecoder().decode(Claims.self, from: Data(unverified.claims.utf8)).sub  // "user-123"
+        let algorithm = try JSONDecoder().decode(Header.self, from: Data(unverified.header.utf8)).alg  // "ES256"
+        // docs:end validate-jwt/read-unverified
+        XCTAssertEqual(signedInAs, subject)
+        XCTAssertEqual(algorithm, "ES256")
+        // Another token's signature still decodes, and verification refuses it (RFC 7515 §5.2).
+        let other = try issue(claimsJson(exp: currentTime() + 600))
+        let parts = token.components(separatedBy: ".")
+        let spliced = "\(parts[0]).\(parts[1]).\(other.components(separatedBy: ".")[2])"
+        XCTAssertEqual(try jsonObject(try decodeJwtUnverified(token: spliced).claims)["sub"] as? String, subject)
+        XCTAssertEqual(codeOf { _ = try jwtVerify(token: spliced, key: try fixturePublicJwk("p256"), options: options) }, "InvalidSignature")
+        // An expired token decodes too: no claim is checked.
+        let expired = try issue(claimsJson(exp: fixedNow))
+        XCTAssertEqual((try jsonObject(try decodeJwtUnverified(token: expired).claims)["exp"] as? NSNumber)?.int64Value, fixedNow)
+        // A malformed token fails with the code verification gives it.
+        XCTAssertEqual(codeOf { _ = try decodeJwtUnverified(token: "not-a-token") }, "InvalidFormat")
+    }
+
+    func testChooseIssuer() throws {
+        // Signed with the fixture key under the kid the set gives it (RFC 7515 §4.1.4).
+        let keyWithKid = try withKid(try fixtureJwk("p256"), kid: "p256-2026")
+        let token = try jwtSign(claims: claimsJson(exp: currentTime() + 300), key: keyWithKid, options: JwtSignOptions(alg: "ES256"))
+        // Each issuer you accept, with its JWK Set as your application fetched it.
+        let trustedIssuers = [issuer: try fixtureJwks()]
+        // docs:start validate-jwt/choose-issuer
+        // trustedIssuers maps each issuer you accept to its JWK Set, from your configuration.
+        struct Issuer: Decodable { let iss: String? }
+        let unverified = try decodeJwtUnverified(token: token)
+        let iss = try JSONDecoder().decode(Issuer.self, from: Data(unverified.claims.utf8)).iss ?? ""
+        guard let jwks = trustedIssuers[iss] else { throw UnknownIssuer() }
+
+        let verified = try jwtVerifyWithJwks(
+            token: token,
+            jwks: jwks,
+            options: JwtVerifyOptions(
+                allowedAlgs: ["ES256", "Ed25519"],
+                issuers: [iss],  // binds the keys to this issuer
+                audiences: [audience]
+            )
+        )
+        struct Claims: Decodable { let sub: String }
+        let subject = try JSONDecoder().decode(Claims.self, from: Data(verified.claims.utf8)).sub  // "user-123"
+        // docs:end validate-jwt/choose-issuer
+        XCTAssertEqual(subject, "user-123")
+        XCTAssertEqual(verified.kid, "p256-2026")
+        // A token whose iss names no configured issuer never reaches verification.
+        let stranger = try jwtSign(
+            claims: claimsJson(exp: currentTime() + 300, iss: "https://other.example"), key: keyWithKid,
+            options: JwtSignOptions(alg: "ES256"))
+        XCTAssertNil(trustedIssuers[try jsonObject(try decodeJwtUnverified(token: stranger).claims)["iss"] as? String ?? ""])
+    }
 }
+
+/// What the choose-issuer sample throws for a token from an issuer it doesn't accept.
+private struct UnknownIssuer: Error {}

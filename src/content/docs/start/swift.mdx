@@ -53,3 +53,7 @@ Branch on `code()`, never on the message or the case name. [Errors](/concepts/er
 Every call runs on the thread that makes it, until it returns. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. In an app, keep them off the main actor, for example in a detached task:
 
 <Sample platform="swift" id="start/swift-background" />
+
+## Example app
+
+The polyjose-examples repository has an [iOS example app](https://github.com/bharathkontham/polyjose-examples/tree/main/ios).

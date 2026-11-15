@@ -66,3 +66,7 @@ Branch on `code()`, never on the message or the exception's class name. [Errors]
 Every call runs on the thread that makes it, until it returns. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. On Android, call polyjose from a background thread, never from the main thread. Any executor works, as does a coroutine on a background dispatcher:
 
 <Sample platform="kotlin" id="start/kotlin-background" />
+
+## Example app
+
+The polyjose-examples repository has an [Android example app](https://github.com/bharathkontham/polyjose-examples/tree/main/android).

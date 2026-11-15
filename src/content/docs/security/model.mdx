@@ -74,7 +74,19 @@ Some algorithms are left out entirely. There is no SHA-1, so no `RSA-OAEP` (use 
 - **One level of nesting.** The only nested form is a JWE whose plaintext is a signed JWT (sign, then encrypt, as RFC 7519 §11.2 recommends). Signed and nested tokens have separate entry points, so you always know which protection a token had, and both layers are checked with keys and algorithms you supply (RFC 8725 §3.3).
 - **An explicit clock.** The current time comes from a clock you pass, or from the platform clock, in whole seconds (NumericDate, RFC 7519 §2). Nothing reads the time behind your back.
 
-Claims are read only after the signature has been verified, so a tampered token reports `InvalidSignature`, never a claim error.
+When you verify a JWT, its claims are read only after the signature has been verified, so a tampered token reports `InvalidSignature`, never a claim error.
+
+## Reading without verifying
+
+Three utilities read a compact token without verifying it: `decodeProtectedHeaderUnverified`, `decodeJwsUnverified` and `decodeJwtUnverified` (in Rust, `util::decode_protected_header_unverified`, `util::decode_jws_unverified` and `util::decode_jwt_unverified`). The rule for them is that nothing unverified looks verified:
+
+- **The name says so.** Every one ends in `Unverified`, or `_unverified` in Rust.
+- **The results are separate types.** `JwsUnverified` and `JwtUnverified` (in Rust, `UnverifiedJws` and `UnverifiedJwt`) have no top-level `alg`, can't be passed where a verified result is expected, and don't convert to one.
+- **Nothing is accepted.** They take only the token, with no key, options or allow-list, and check no claim, so a result never means that a token passed.
+- **The parsing is verification's own.** The 1 MiB limit, strict base64url, one JSON object without duplicate members and the header's structure are checked by the same code, with the same error codes. An `alg` or `crit` that verification refuses, `none` included, is returned as data; verification still refuses it.
+- **A JWE stays encrypted.** Only its protected header can be read without the key.
+
+These utilities run no cryptographic operation and accept no token, so the checks of RFC 8725 §3.1 and §3.3 stay with verification. When you read `iss` to choose an issuer's keys, verify with that issuer configured (RFC 8725 §3.8), and sanitise a `kid` before you use it in a lookup (RFC 8725 §3.10).
 
 ## JWK Sets
 
@@ -99,7 +111,7 @@ polyjose never fetches a JWK Set itself. You fetch the issuer's set and pass it 
   - Swift: `data.resetBytes(in: data.startIndex..<data.endIndex)`
 
   This clears that buffer only, not copies made earlier by your code or the runtime.
-- **The Kotlin and Swift bindings leave copies in Rust memory.** Their generated interface layer passes values through buffers that it frees without overwriting. It leaves one un-wiped copy in Rust heap memory per secret byte argument, per secret field inside a record argument (such as the key in a `JwsSigner`), and per returned secret string. A returned secret byte array (a payload, plaintext or DER key) leaves at least two. A string passed as an argument on its own leaves none. The generated Kotlin and Swift code also copies secrets through temporary buffers of its own that it doesn't wipe. The Node.js and Web packages don't leave the Rust-side copies.
+- **The Kotlin and Swift bindings leave copies in Rust memory.** Their generated interface layer passes values through buffers that it frees without overwriting. It leaves one un-wiped copy in Rust heap memory per secret byte argument, per secret field inside a record argument (such as the key in a `JwsSigner`), and per returned secret string. A returned secret byte array (a payload, plaintext or DER key) leaves at least two. That includes `JwsVerified.payload` and `JwsUnverified.payload`. A string passed as an argument on its own leaves none. The generated Kotlin and Swift code also copies secrets through temporary buffers of its own that it doesn't wipe. The Node.js and Web packages don't leave the Rust-side copies.
 - **Printed records hide their secrets.** In Kotlin and Swift, printing a record that holds a secret, such as `JwsSigner` and `JweRecipient` with their key, shows only the secret's length: `<redacted, 120 bytes>` in Kotlin, and `<redacted, 120 chars>` for a string or `<redacted, 32 bytes>` for bytes in Swift. That covers `toString` (Kotlin) and `description` (Swift). Reading the field still gives you the secret, so never log a field such as a signer's `key`. JWT claims are not treated as secret, and print in full.
 
 ## Errors

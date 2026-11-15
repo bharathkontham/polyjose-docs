@@ -178,6 +178,20 @@ test('Security model: each fact is stated', async (t) => {
     ]);
   });
 
+  await t.test('6b. reading without verifying: nothing unverified looks verified', () => {
+    assertPhrases(text, 'the rule', [/nothing unverified looks verified/i]);
+    assertPhrases(text, 'the utilities and their results', [
+      'decodeProtectedHeaderUnverified',
+      'decodeJwsUnverified',
+      'decodeJwtUnverified',
+      'JwsUnverified',
+      'JwtUnverified',
+      /no top-level alg/,
+      /none included/,
+      'RFC 8725 §3.10',
+    ]);
+  });
+
   await t.test('7. JWK Sets', () => {
     assertPhrases(text, 'filter', ['kid', 'alg', 'use', 'key_ops']);
     assertPhrases(text, 'bound', [/at most 8\b/i, /in order/i]);
@@ -191,6 +205,7 @@ test('Security model: each fact is stated', async (t) => {
     assertPhrases(text, 'how to wipe', ['fill(0)', 'resetBytes']);
     assertPhrases(text, 'UniFFI residuals', [/one un-wiped copy/i, /record argument/i, /returned secret/i]);
     assertPhrases(text, 'UniFFI residuals, byte results', [/returned secret byte array[^.]*at least two/i]);
+    assertPhrases(text, 'UniFFI residuals, both JWS payloads', [/JwsVerified\.payload and JwsUnverified\.payload/]);
     assertPhrases(text, 'records redact their secrets', ['JwsSigner', 'JweRecipient', 'toString', 'description', '<redacted, ', /never log/i]);
     assert.doesNotMatch(text, /print every field, including the key/i, 'the Kotlin and Swift records redact their keys');
   });
@@ -208,7 +223,7 @@ test('Security model: each fact is stated', async (t) => {
 
 test('Not supported: every item has its fixed heading id, reason and alternative', async (t) => {
   const { html, text, links } = page('security/not-supported');
-  const ids = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
+  const ids = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'reading-a-jwe-without-the-key', 'out-of-scope', 'java'];
 
   await t.test('heading ids', () => {
     for (const id of ids) {
@@ -245,21 +260,19 @@ test('Not supported: every item has its fixed heading id, reason and alternative
     assertPhrases(text, 'zip', ['zip', 'compress: true', 'deflate', 'Node', 'Kotlin', 'Swift']);
   });
 
-  await t.test('decode without verify, out of scope, Java', () => {
-    assertPhrases(text, 'decode', [/decode/i, 'JWS', 'JWE']);
+  await t.test('out of scope, Java', () => {
     assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.2.0']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
-  // The pointer to the JWK Sets guide, which shows key selection from a set.
-  await t.test('decode without verify: points to the JWK Sets guide', () => {
-    const start = html.indexOf('<h2 id="decode-without-verify"');
-    const end = html.indexOf('<h2', start + 1);
-    assert.ok(start !== -1 && end > start, 'no decode-without-verify section');
-    const section = textOf(html.slice(start, end));
-    assert.ok(links.includes('/guides/jwk-sets/'), 'links the JWK Sets guide');
-    assert.match(section, /pass the issuer[’']s whole JWK Set and let polyjose select candidates; the JWK Sets guide shows how\./);
-    assert.doesNotMatch(section, /will cover|when it arrives/, 'the guide is written now');
+  // Reading a JWS or JWT without verifying it is supported (decode utilities); only a JWE's
+  // plaintext stays out of reach without the key.
+  await t.test('reading a JWE without the key: only the JWE plaintext, and a pointer to the header peek', () => {
+    const section = textOf(sectionHtml(html, 'reading-a-jwe-without-the-key'));
+    assertPhrases(section, 'JWE without the key', ['JWE', /plaintext/, /without the key/, 'RFC 7516 §5.2', 'decodeProtectedHeaderUnverified']);
+    assert.doesNotMatch(section, /\bJWS\b|decode without verify/i, 'the section is about JWE only');
+    assert.doesNotMatch(text, /decode without verify/i, 'the withdrawn item is gone');
+    assert.ok(links.includes('/guides/validate-jwt/#read-a-token-without-verifying-it'), 'links the new section');
   });
 });
 

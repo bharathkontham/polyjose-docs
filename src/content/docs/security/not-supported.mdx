@@ -54,13 +54,13 @@ It conforms as follows:
 
 **Instead:** send JWE content uncompressed. If you must accept compressed tokens from an existing sender, the Rust crate supports `zip` behind its opt-in `deflate` cargo feature, with decompressed output capped at 250,000 bytes by default.
 
-## Decode without verify
+## Reading a JWE without the key
 
-**Not supported:** reading the payload of a JWS, or the plaintext of a JWE, without verifying the signature or decrypting with your key. polyjose has no operation that does this, under any name.
+**Not supported:** reading the plaintext of a JWE without decrypting it with your key.
 
-**Why:** claims read from an unverified token are claims anyone could have written. RFC 8725 §3.3 ("Validate All Cryptographic Operations") requires the entire token to be rejected when any cryptographic check fails. A helper that skips the check makes it easy to act on such claims by mistake.
+**Why:** the plaintext is encrypted, so it can't be read without the key (RFC 7516 §5.2). This also applies to the claims inside a nested JWT.
 
-**Instead:** verify or decrypt first. The verified result includes the headers along with the payload. If you need the `kid` to pick a key, pass the issuer's whole JWK Set and let polyjose select candidates; the [JWK Sets guide](/guides/jwk-sets/) shows how.
+**Instead:** decrypt with your key and your allow-lists. To read a JWE's protected header without the key, for example to see its `kid`, use `decodeProtectedHeaderUnverified`, as [Validate a JWT › Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it) shows.
 
 ## Out of scope
 

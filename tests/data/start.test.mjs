@@ -120,3 +120,19 @@ describe('platform facts', () => {
 		}
 	});
 });
+
+// Each binding's Get started page links its example app in the polyjose-examples repository
+// (owner, 2026-11-15). Rust has none yet.
+describe('example apps', () => {
+	const EXAMPLES = 'https://github.com/bharathkontham/polyjose-examples/tree/main/';
+	const FOLDERS = { node: 'node', web: 'web', kotlin: 'android', swift: 'ios' };
+	for (const [platform, folder] of Object.entries(FOLDERS)) {
+		test(`${PAGES[platform]} links the ${folder} example app`, () => {
+			const { body } = page(PAGES[platform]);
+			assert.ok(body.includes(`href="${EXAMPLES}${folder}"`), `links ${EXAMPLES}${folder}`);
+		});
+	}
+	test('the Rust page links no example app', () => {
+		assert.doesNotMatch(page(PAGES.rust).body, /polyjose-examples/);
+	});
+});

@@ -16,7 +16,7 @@ import { createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes } f
 import jwt from 'jsonwebtoken';
 // docs:end migrate-jsonwebtoken/import-before
 // docs:start migrate-jsonwebtoken/import
-import { base64urlEncode, jwkFromPem, jwtSign, jwtVerify, jwtVerifyWithJwks, PolyjoseError } from '@polyjose/node';
+import { base64urlEncode, decodeJwtUnverified, jwkFromPem, jwtSign, jwtVerify, jwtVerifyWithJwks, PolyjoseError } from '@polyjose/node';
 // docs:end migrate-jsonwebtoken/import
 import { jwkParse } from '@polyjose/node';
 import { fixtureJwk, fixturePublicJwk } from './lib/fixtures.mjs';
@@ -258,14 +258,18 @@ test('decode without verifying', async () => {
 
   {
     // docs:start migrate-jsonwebtoken/decode
-    // polyjose reads the header and claims only from a token it has verified.
-    const { header, claims } = await jwtVerify(token, publicKey, {
-      allowedAlgs: ['ES256'],
-      audiences: ['https://api.example'],
-    });
+    // The signature isn't checked.
+    const { header, claims } = await decodeJwtUnverified(token);
     // docs:end migrate-jsonwebtoken/decode
     assert.equal(header.kid, 'p256-2026');
     assert.equal(claims.sub, SUBJECT);
+    // Interop: the same header and claims as jsonwebtoken's decode (RFC 7515 §7.1).
+    assert.deepEqual(header, jwt.decode(token, { complete: true }).header);
+    assert.deepEqual(claims, jwt.decode(token));
+    // The verified result carries the same claims once the signature checks.
+    const verified = await jwtVerify(token, publicKey, { allowedAlgs: ['ES256'], audiences: [AUDIENCE] });
+    assert.deepEqual(verified.claims, claims);
+    assert.equal('alg' in (await decodeJwtUnverified(token)), false, 'no top-level alg, unlike the verified result');
   }
 });
 

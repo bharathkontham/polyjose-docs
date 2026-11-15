@@ -37,7 +37,7 @@ The same code runs in browsers and Workers with `@polyjose/wasm`: see [Web (WASM
 		<tr><th scope="row"><code>jwt.sign(payload, key, options)</code></th><td><code>await jwtSign(claims, key, &#123; alg &#125;)</code></td></tr>
 		<tr><th scope="row"><code>jwt.verify(token, key, options)</code>, with or without a callback</th><td><code>await jwtVerify(token, key, &#123; allowedAlgs, … &#125;)</code>, which returns <code>&#123; claims, header, alg &#125;</code></td></tr>
 		<tr><th scope="row"><code>jwt.verify(token, getKey, …)</code> with a key function</th><td><code>await jwtVerifyWithJwks(token, jwks, options)</code></td></tr>
-		<tr><th scope="row"><code>jwt.decode(token)</code></th><td>None: polyjose reads a token only by verifying it</td></tr>
+		<tr><th scope="row"><code>jwt.decode(token)</code></th><td><code>await decodeJwtUnverified(token)</code>, which returns <code>&#123; header, claims &#125;</code> (<a href="#reading-a-token-without-verifying-it">Reading a token without verifying it</a>)</td></tr>
 		<tr><th scope="row">A secret string or <code>Buffer</code></th><td>An <code>oct</code> JWK whose <code>k</code> is the base64url of the secret's bytes. A string's bytes are its UTF-8 encoding, <code>new TextEncoder().encode(secret)</code></td></tr>
 		<tr><th scope="row">A PEM string or <code>KeyObject</code></th><td>A JWK: convert PEM with <code>jwkFromPem</code></td></tr>
 		<tr><th scope="row"><code>TokenExpiredError</code>, <code>NotBeforeError</code>, <code>JsonWebTokenError</code></th><td><code>PolyjoseError</code>, with a <code>code</code> (<a href="#handle-errors">Handle errors</a>)</td></tr>
@@ -140,12 +140,12 @@ polyjose makes no network requests: fetching the set from the issuer's `jwks_uri
 
 ## Reading a token without verifying it
 
-`jwt.decode` returns the claims of a token whose signature nobody checked. polyjose has no such function, under any name: claims read that way could have been written by anyone. Verify first, and read the header and the claims from the result.
+`jwt.decode` becomes `decodeJwtUnverified`, which returns a Promise of `{ header, claims }`, as `jwt.decode` with `complete: true` returns `{ header, payload }`. This doesn't check the signature; don't trust these values until you verify the token.
 
 <Sample platform="node" id="migrate-jsonwebtoken/decode-before" title="jsonwebtoken" />
 <Sample platform="node" id="migrate-jsonwebtoken/decode" title="polyjose" />
 
-The usual reason to decode first is to find the `kid`, or the issuer, to pick a key. Pass the issuer's JWK Set instead, as [above](#choosing-the-key-by-kid), and choose the set from your endpoint's configuration, not from the token. See [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+A common reason to decode first is to find the `kid` to pick a key. Pass the issuer's JWK Set instead, as [above](#choosing-the-key-by-kid): it chooses the key by `kid` for you. To choose between issuers by `iss`, see [Validate a JWT › Choose the issuer, then verify](/guides/validate-jwt/#choose-the-issuer-then-verify).
 
 ## Handle errors
 
@@ -190,7 +190,7 @@ A token that is wrong in several ways reports the first failing check, in a fixe
 ## Not supported, or different
 
 - **JWE.** Not part of this migration, because `jsonwebtoken` has none. polyjose supports it: see [Encrypt and decrypt](/guides/encrypt-and-decrypt/).
-- **`jwt.decode`.** No unverified decoding; see [above](#reading-a-token-without-verifying-it).
+- **`jwt.decode`.** Its result is a plain object. `decodeJwtUnverified` returns a `JwtUnverified`, a separate type from the verified result; see [above](#reading-a-token-without-verifying-it).
 - **Encrypted PEM** (`{ key, passphrase }`). Decrypt the key with `node:crypto` and export a JWK, as in [PEM keys](#pem-keys).
 - **Regular expressions in `audience`,** and the `jwtid` and `nonce` checks. Audiences are exact strings; compare `jti` and `nonce` yourself after verifying.
 - **`ignoreExpiration` and `ignoreNotBefore`.** There is no way to accept a token outside its validity period beyond `leeway`.
@@ -206,5 +206,5 @@ polyjose also signs with algorithms `jsonwebtoken` doesn't have, such as `Ed2551
 4. Write `exp`, `iat`, `nbf`, `iss`, `aud`, `sub` and `jti` as claims when you sign.
 5. Pass `allowedAlgs` to every verify, and rename `issuer`, `audience` and `clockTolerance`.
 6. Make sure the tokens you accept carry `exp`, and configure `audiences` where they carry `aud`.
-7. Replace key functions with `jwtVerifyWithJwks`, and `jwt.decode` with the verified result.
+7. Replace key functions with `jwtVerifyWithJwks`, and `jwt.decode` with `await decodeJwtUnverified`.
 8. Branch on `PolyjoseError.code` instead of the error classes, with a default branch.

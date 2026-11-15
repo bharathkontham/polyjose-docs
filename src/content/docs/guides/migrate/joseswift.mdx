@@ -35,6 +35,7 @@ Check the platforms before you switch. polyjose needs iOS 16, macOS 13 or watchO
 	<tbody>
 		<tr><th scope="row"><code>JWS(header:payload:signer:)</code>, <code>compactSerializedString</code></th><td><code>jwsSignCompact(payload:key:options:)</code>, which returns the token</td></tr>
 		<tr><th scope="row"><code>JWS(compactSerialization:)</code> and <code>validate(using:)</code></th><td><code>jwsVerifyCompact(token:key:options:)</code> with <code>JwsVerifyOptions(allowedAlgs:)</code></td></tr>
+		<tr><th scope="row"><code>JWS(compactSerialization:)</code>, then <code>header</code> or <code>payload</code> without <code>validate(using:)</code></th><td><code>decodeJwsUnverified(jws:)</code> or <code>decodeProtectedHeaderUnverified(token:)</code> (<a href="/guides/validate-jwt/#read-a-token-without-verifying-it">Read a token without verifying it</a>)</td></tr>
 		<tr><th scope="row"><code>JWSHeader</code>, <code>JWEHeader</code></th><td>A JSON header in the options, such as <code>JwsSignOptions(protectedHeader:)</code>; results return headers as JSON text</td></tr>
 		<tr><th scope="row"><code>Payload</code></th><td><code>Data</code></td></tr>
 		<tr><th scope="row"><code>Signer</code>, <code>Verifier</code></th><td>No object: the key and the algorithm go into each call</td></tr>
@@ -177,7 +178,7 @@ Where JOSESwift's errors end up:
 - **`none` is never accepted.** Neither library verifies an unsigned token. polyjose fails with `AlgorithmNotAllowed`, even when the allow-list names `none` ([RFC 8725 §3.2](https://www.rfc-editor.org/rfc/rfc8725#section-3.2)).
 - **Keys are bound to their algorithm family.** An RSA key can't be used for ES256, an EC key can't be used as an HMAC secret, and a JWK's `alg`, `use` and `key_ops`, when present, limit what it can do. A mismatch fails with `KeyAlgorithmMismatch` ([RFC 8725 §2.1](https://www.rfc-editor.org/rfc/rfc8725#section-2.1)).
 - **Error codes, not error cases.** See [Handle errors](#handle-errors).
-- **No payload before verification.** JOSESwift's `JWS(compactSerialization:)` exposes `payload` before `validate(using:)` runs. polyjose returns the payload only from a successful verify ([Not supported › Decode without verify](/security/not-supported/#decode-without-verify)).
+- **Unverified reads are separate calls.** JOSESwift's `JWS(compactSerialization:)` exposes `payload` before `validate(using:)` runs, on the same object. In polyjose, `jwsVerifyCompact` returns the payload only after the signature checks, and `decodeJwsUnverified(jws:)` reads it without verifying, into a `JwsUnverified`, a separate type from `JwsVerified` ([Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it)).
 - **More in polyjose.** JWT validation, the JSON serializations ([RFC 7515 §7.2](https://www.rfc-editor.org/rfc/rfc7515#section-7.2), [RFC 7516 §7.2](https://www.rfc-editor.org/rfc/rfc7516#section-7.2)), Ed25519 and X25519 keys, JWK Set selection and nested JWTs. [Algorithms](/concepts/algorithms/) lists every algorithm.
 
 ## Not supported, or different

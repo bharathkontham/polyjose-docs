@@ -3,12 +3,15 @@
 //! Issuing and verifying signed JWTs (RFC 7519 §7.1–§7.2) under a validation policy: the
 //! algorithm allow-list, issuer and audience (RFC 8725 §3.8–§3.9), the time claims with a leeway
 //! (RFC 7519 §4.1.4–§4.1.6), explicit typing (RFC 8725 §3.11–§3.12), JWT access tokens
-//! (RFC 9068) and nested JWTs (RFC 7519 §5.2, §11.2).
+//! (RFC 9068) and nested JWTs (RFC 7519 §5.2, §11.2). The last tests read tokens without
+//! verifying them (`util::decode_jwt_unverified`), then verify against the issuer's JWK Set,
+//! `samples/fixtures/jwks.json` (RFC 7517 §5; RFC 8725 §3.8).
 //!
 //! The signing key is the RFC 7515 A.3.1 P-256 key of `samples/fixtures/keys.json`. Tokens that
 //! use the current time set `exp` a few minutes ahead and are verified in the same test; the
 //! others use a fixed clock.
 
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use polyjose::Error;
@@ -16,12 +19,12 @@ use polyjose::header::Header;
 use polyjose::json::Value;
 use polyjose::jwa::{ContentEncAlg, KeyMgmtAlg, SigningAlg};
 use polyjose::jwe::{DecryptPolicy, Encryptor, Recipient};
-use polyjose::jwk::EcCurve;
+use polyjose::jwk::{EcCurve, Jwk, JwkSet};
 use polyjose::jwt::{
     self, Audience, Claims, FixedClock, IssueOptions, Keys, NumericDate, Policy, SystemClock,
 };
 use polyjose::keys::{self, KeySpec};
-use polyjose::util::b64url_decode;
+use polyjose::util::{self, b64url_decode};
 use polyjose_samples::{fixture_jwk, fixture_public_jwk};
 
 /// The issuer and audience of every token here (RFC 7519 §4.1.1, §4.1.3).
@@ -59,6 +62,17 @@ fn sign(claims: &Claims) -> Result<String, Error> {
         &IssueOptions::new(SigningAlg::ES256),
         &fixture_jwk("p256"),
     )
+}
+
+/// The JWK Set the issuer publishes at its `jwks_uri` (RFC 7517 §5).
+const JWKS_JSON: &str = include_str!("../../fixtures/jwks.json");
+
+/// The fixture P-256 key with the `kid` the set gives it (RFC 7517 §4.5), which `jwt::sign`
+/// copies into the token's header (RFC 7515 §4.1.4).
+fn p256_with_kid() -> Jwk {
+    let mut object = fixture_jwk("p256").to_object();
+    object.insert("kid", "p256-2026");
+    Jwk::from_object(&object).expect("the fixture key with a kid")
 }
 
 /// The JWS Protected Header of a compact token (RFC 7515 §7.1).
@@ -392,5 +406,79 @@ fn nested() -> Result<(), Error> {
         5,
         "the outer JWE is compact (RFC 7516 §7.1)"
     );
+    Ok(())
+}
+
+#[test]
+fn read_unverified() -> Result<(), Error> {
+    let token = sign(&claims(now() + 300))?;
+    // docs:start validate-jwt/read-unverified
+    // The signature isn't checked: use this to show the token's contents.
+    let unverified = util::decode_jwt_unverified(&token)?;
+    let signed_in_as = unverified.claims.sub.as_deref(); // Some("user-123")
+    let algorithm = unverified.header.alg.as_deref(); // Some("ES256")
+    // docs:end validate-jwt/read-unverified
+    assert_eq!(signed_in_as, Some(SUBJECT));
+    assert_eq!(algorithm, Some("ES256"));
+    // Another token's signature still decodes, and verification refuses it (RFC 7515 §5.2).
+    let other = sign(&claims(now() + 600))?;
+    let (signing_input, _) = token.rsplit_once('.').expect("three parts");
+    let (_, signature) = other.rsplit_once('.').expect("three parts");
+    let spliced = format!("{signing_input}.{signature}");
+    assert_eq!(
+        util::decode_jwt_unverified(&spliced)?.claims.sub.as_deref(),
+        Some(SUBJECT)
+    );
+    let algs = [SigningAlg::ES256];
+    let policy = Policy::new(&SystemClock, &algs)?
+        .issuer(ISSUER)
+        .audience(AUDIENCE);
+    let public_key = fixture_public_jwk("p256");
+    let err = jwt::verify(&spliced, Keys::One(&public_key), &policy).expect_err("spliced");
+    assert_eq!(err.code(), "InvalidSignature");
+    // An expired token decodes too: no claim is checked.
+    let expired = sign(&claims(NOW))?;
+    let exp = util::decode_jwt_unverified(&expired)?.claims.exp;
+    assert_eq!(exp, NumericDate::from_secs(NOW));
+    // A malformed token fails with the code verification gives it.
+    let err = util::decode_jwt_unverified("not-a-token").expect_err("one part");
+    assert_eq!(err.code(), "InvalidFormat");
+    Ok(())
+}
+
+#[test]
+fn choose_issuer() -> Result<(), Error> {
+    let token = jwt::sign(
+        &claims(now() + 300),
+        &IssueOptions::new(SigningAlg::ES256),
+        &p256_with_kid(),
+    )?;
+    // Each issuer you accept, with its JWK Set as your application fetched it.
+    let trusted_issuers = HashMap::from([(ISSUER, JwkSet::from_json(JWKS_JSON.as_bytes())?)]);
+    // docs:start validate-jwt/choose-issuer
+    // `trusted_issuers` maps each issuer you accept to its JWK Set, from your configuration.
+    let unverified = util::decode_jwt_unverified(&token)?;
+    let iss = unverified.claims.iss.as_deref().unwrap_or_default();
+    let jwks = trusted_issuers.get(iss).ok_or(Error::InvalidClaim("iss"))?;
+
+    let algs = [SigningAlg::ES256, SigningAlg::Ed25519];
+    let policy = Policy::new(&SystemClock, &algs)?
+        .issuer(iss) // binds the keys to this issuer
+        .audience(AUDIENCE);
+    let verified = jwt::verify(&token, Keys::Set(jwks), &policy)?;
+    let subject = verified.claims.sub.as_deref(); // Some("user-123")
+    // docs:end validate-jwt/choose-issuer
+    assert_eq!(subject, Some(SUBJECT));
+    assert_eq!(verified.kid.as_deref(), Some("p256-2026"));
+    // A token whose iss names no configured issuer never reaches verification.
+    let mut stranger = claims(now() + 300);
+    stranger.iss = Some("https://other.example".into());
+    let stranger = jwt::sign(
+        &stranger,
+        &IssueOptions::new(SigningAlg::ES256),
+        &p256_with_kid(),
+    )?;
+    let iss = util::decode_jwt_unverified(&stranger)?.claims.iss;
+    assert!(!trusted_issuers.contains_key(iss.as_deref().unwrap_or_default()));
     Ok(())
 }
