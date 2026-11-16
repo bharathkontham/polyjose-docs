@@ -54,6 +54,43 @@ These copies are freed memory that the process reuses. Reading them takes a memo
 
 `AndroidKeystoreKey` signs and decrypts with an Android Keystore or StrongBox key. It is in the Android library only: the desktop JVM has no Android Keystore, so `polyjose-jvm` has the `PlatformKey` interface and no key class. Printing an `AndroidKeystoreKey` shows its type and `securityLevel` only, never its alias or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the API level each algorithm needs, StrongBox and user authentication.
 
+### `AndroidKeystoreKey`
+
+<table tabindex="0">
+	<caption>The members of <code>AndroidKeystoreKey</code></caption>
+	<thead>
+		<tr>
+			<th scope="col">Member</th>
+			<th scope="col">What it does</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>generate(alias, algorithm, strongBox, userAuthentication, keySize, authorizer)</code></th><td>Creates a key under the alias. Defaults: <code>strongBox = StrongBox.Off</code>, no user authentication, 2048-bit RSA or P-256 for ECDH-ES, no authorizer</td></tr>
+		<tr><th scope="row"><code>open(alias, algorithm, authorizer)</code></th><td>Finds the key under the alias and checks through its <code>KeyInfo</code> that it permits the algorithm</td></tr>
+		<tr><th scope="row"><code>delete(alias)</code></th><td>Deletes the key; no key is not an error</td></tr>
+		<tr><th scope="row"><code>securityLevel</code></th><td><code>StrongBox</code>, <code>TrustedEnvironment</code>, <code>Software</code>, <code>SecureHardware</code> (below API 31) or <code>Unknown</code>, as <code>KeyInfo</code> reports it</td></tr>
+		<tr><th scope="row"><code>publicJwk()</code>, <code>algorithms()</code></th><td>The public JWK as JSON text, public members only; the algorithm the key is bound to, or the four ECDH-ES names</td></tr>
+		<tr><th scope="row"><code>AndroidKeystoreKey.StrongBox</code></th><td><code>Off</code>, <code>Preferred</code>, <code>Required</code></td></tr>
+		<tr><th scope="row"><code>AndroidKeystoreKey.UserAuthentication(validitySeconds, allowDeviceCredential)</code></th><td><code>validitySeconds</code> above 0: time-bound; 0: per use, through the authorizer</td></tr>
+		<tr><th scope="row"><code>PlatformKeyAuthorizer</code>, <code>BiometricPromptAuthorizer</code></th><td>The hook that authenticates each operation of a per-use key, and polyjose's implementation on the framework's <code>BiometricPrompt</code>, which refuses the main thread</td></tr>
+	</tbody>
+</table>
+
+- **Errors.** `generate`, `open` and `delete` throw `PolyjoseException`: `UnsupportedAlgorithm` (an algorithm, size, API level or authentication mode the backend can't serve), `KeyAlgorithmMismatch` (`open` on a key that doesn't permit the algorithm), `KeyNotFound` (no key under the alias, or one the platform invalidated) and `PlatformKeyFailed` (including an alias that already holds a key, and `Required` without StrongBox). A call that uses the key reports `KeyNotFound`, `UserAuthenticationRequired`, and any other platform failure as `PlatformKeyFailed` when signing and `DecryptionFailed` when decrypting.
+- **Threads.** A key that needs user authentication can block its thread while a prompt is up. Call it off the main thread.
+
+### Android Keystore
+
+The default, `StrongBox.Off`: the key lives where the Keystore keeps it, normally the device's TEE. `ES256`, `ES384`, `ES512`, `RS256` to `RS512` and `PS256` to `PS512` from API 23; the ECDH-ES family from API 31; `RSA-OAEP-256` from API 34. [Get started › Android Keystore](/start/android/#android-keystore) has a complete example.
+
+### StrongBox
+
+`StrongBox.Required` or `StrongBox.Preferred`, from API 28: `ES256`, `RS256` and `PS256` with 2048-bit keys, the ECDH-ES family on P-256 (API 31) and `RSA-OAEP-256` with 2048-bit keys (API 34). Without StrongBox, `Required` fails with `PlatformKeyFailed` and `Preferred` uses the TEE. [Get started › StrongBox](/start/android/#strongbox) has an example.
+
+### Use a key you already have
+
+`open(alias, algorithm)` accepts a key your app created with `KeyPairGenerator` and `KeyGenParameterSpec` when its type, curve or size, purpose, digest and padding permit the algorithm, and fails with `KeyAlgorithmMismatch` otherwise. [Get started › Use a key you already have](/start/android/#use-a-key-you-already-have) has an example, and [Hardware-backed keys › Use a key you already have](/guides/hardware-backed-keys/#use-a-key-you-already-have) the settings for each algorithm.
+
 ## Which native library the desktop JVM loads
 
 The library's build patches the generated Kotlin so that UniFFI's library lookup calls polyjose's own native loader. The patch fails the build when UniFFI's generated text is not exactly what it was written against, so a UniFFI upgrade can't silently drop it.

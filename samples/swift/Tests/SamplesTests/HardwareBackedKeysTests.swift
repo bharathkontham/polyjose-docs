@@ -253,4 +253,107 @@ final class HardwareBackedKeysTests: XCTestCase {
         let signature = try base64urlDecode(text: token.components(separatedBy: ".")[2])
         XCTAssertEqual(signature.count, 64)
     }
+
+    // MARK: - Get started in Swift › Keys the platform holds (src/content/docs/start/swift.mdx), and
+    // Use a key you already have (both pages)
+    //
+    // These store keys, so the macOS host compiles them and skips them when the Keychain refuses to
+    // store an item (see the file comment). polyjose's hosted iOS tests
+    // (platforms/swift/HostedTests/Tests/AppleKeyHostedTests.swift) make the same calls.
+
+    func testStartSecureEnclave() throws {
+        try skipUnlessKeysCanBeStored(secureEnclave: true)
+        for tag in ["com.example.app.signing-key", "com.example.app.decryption-key"] { try? AppleKey.delete(tag: tag) }
+        let claims = #"{"sub":"\#(subject)","exp":\#(Int64(Date().timeIntervalSince1970) + 300)}"#
+        // docs:start start/swift-secure-enclave
+        // Find the signing key, or create it in the Secure Enclave the first time.
+        let signingKey: AppleKey
+        do {
+            signingKey = try AppleKey.open(tag: "com.example.app.signing-key", algorithm: "ES256")
+        } catch let error as PolyjoseError where error.code() == "KeyNotFound" {
+            signingKey = try AppleKey.generate(
+                tag: "com.example.app.signing-key", algorithm: "ES256", protection: .secureEnclave)
+            // Register signingKey.publicJwk() with your server.
+        }
+        let token = try jwtSignWithPlatformKey(claims: claims, key: signingKey, options: JwtSignOptions(alg: "ES256"))
+
+        // Decrypting takes a second key, bound to ECDH-ES.
+        let decryptionKey = try AppleKey.generate(
+            tag: "com.example.app.decryption-key", algorithm: "ECDH-ES", protection: .secureEnclave)
+        // The sender encrypts to its public JWK, here or on a server.
+        let jwe = try jweEncryptCompact(
+            plaintext: Data("hello".utf8),
+            options: JweEncryptOptions(
+                enc: "A256GCM", recipients: [JweRecipient(alg: "ECDH-ES+A256KW", key: try decryptionKey.publicJwk())]))
+        let decrypted = try jweDecryptCompactWithPlatformKey(
+            token: jwe, key: decryptionKey,
+            options: JweDecryptOptions(allowedAlgs: ["ECDH-ES+A256KW"], allowedEnc: ["A256GCM"]))
+
+        // When the user signs out, or the keys must be replaced:
+        try AppleKey.delete(tag: "com.example.app.signing-key")
+        try AppleKey.delete(tag: "com.example.app.decryption-key")
+        // docs:end start/swift-secure-enclave
+        XCTAssertEqual(signingKey.protection, .secureEnclave)
+        XCTAssertEqual(decryptionKey.protection, .secureEnclave)
+        XCTAssertEqual(String(decoding: decrypted.plaintext, as: UTF8.self), "hello")
+        _ = try jwtVerify(token: token, key: try signingKey.publicJwk(), options: JwtVerifyOptions(allowedAlgs: ["ES256"]))
+    }
+
+    func testStartKeychain() throws {
+        try skipUnlessKeysCanBeStored(secureEnclave: false)
+        for tag in ["com.example.app.rsa-signing-key", "com.example.app.rsa-decryption-key"] { try? AppleKey.delete(tag: tag) }
+        let claims = #"{"sub":"\#(subject)","exp":\#(Int64(Date().timeIntervalSince1970) + 300)}"#
+        // docs:start start/swift-keychain
+        // A Keychain key: stored and protected by the OS, not hardware-bound.
+        let signingKey = try AppleKey.generate(
+            tag: "com.example.app.rsa-signing-key", algorithm: "PS256", protection: .keychain, keySizeInBits: 3072)
+        let token = try jwtSignWithPlatformKey(claims: claims, key: signingKey, options: JwtSignOptions(alg: "PS256"))
+
+        // RSA-OAEP-256 decryption, with a second key.
+        let decryptionKey = try AppleKey.generate(
+            tag: "com.example.app.rsa-decryption-key", algorithm: "RSA-OAEP-256", protection: .keychain)
+        let jwe = try jweEncryptCompact(
+            plaintext: Data("hello".utf8),
+            options: JweEncryptOptions(
+                enc: "A256GCM", recipients: [JweRecipient(alg: "RSA-OAEP-256", key: try decryptionKey.publicJwk())]))
+        let decrypted = try jweDecryptCompactWithPlatformKey(
+            token: jwe, key: decryptionKey,
+            options: JweDecryptOptions(allowedAlgs: ["RSA-OAEP-256"], allowedEnc: ["A256GCM"]))
+
+        try AppleKey.delete(tag: "com.example.app.rsa-signing-key")
+        try AppleKey.delete(tag: "com.example.app.rsa-decryption-key")
+        // docs:end start/swift-keychain
+        XCTAssertEqual(signingKey.protection, .keychain)
+        XCTAssertEqual(String(decoding: decrypted.plaintext, as: UTF8.self), "hello")
+        _ = try jwtVerify(token: token, key: try signingKey.publicJwk(), options: JwtVerifyOptions(allowedAlgs: ["PS256"]))
+    }
+
+    func testExistingKey() throws {
+        try skipUnlessKeysCanBeStored(secureEnclave: false)
+        let tag = "com.example.app.existing-key"
+        _ = SecItemDelete([kSecClass: kSecClassKey, kSecAttrApplicationTag: Data(tag.utf8)] as CFDictionary)
+        let claims = #"{"sub":"\#(subject)","exp":\#(Int64(Date().timeIntervalSince1970) + 300)}"#
+        // Stands in for the code that stored the key before the app used polyjose.
+        var error: Unmanaged<CFError>?
+        guard let secKey = SecKeyCreateRandomKey(
+            [
+                kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+                kSecAttrKeySizeInBits: 256,
+                kSecPrivateKeyAttrs: [kSecAttrIsPermanent: true, kSecAttrApplicationTag: Data(tag.utf8)] as [CFString: Any],
+            ] as CFDictionary,
+            &error
+        ) else { throw error!.takeRetainedValue() as Error }
+        // docs:start hardware-backed-keys/existing-key
+        // Your app stored the private key itself, with kSecAttrApplicationTag = Data(tag.utf8).
+        // Find it by the same tag...
+        let key = try AppleKey.open(tag: "com.example.app.existing-key", algorithm: "ES256")
+        // ...or wrap the SecKey your app holds.
+        let sameKey = try AppleKey(secKey: secKey, algorithm: "ES256")
+
+        let token = try jwtSignWithPlatformKey(claims: claims, key: key, options: JwtSignOptions(alg: "ES256"))
+        // docs:end hardware-backed-keys/existing-key
+        XCTAssertEqual(try sameKey.publicJwk(), try key.publicJwk())
+        _ = try jwtVerify(token: token, key: try key.publicJwk(), options: JwtVerifyOptions(allowedAlgs: ["ES256"]))
+        try AppleKey.delete(tag: tag)
+    }
 }
