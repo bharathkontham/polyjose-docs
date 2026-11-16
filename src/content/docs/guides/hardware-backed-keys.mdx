@@ -227,6 +227,8 @@ A key can require the user to authenticate before it signs or decrypts. A call t
 
 On Apple platforms, set `access` flags when you create the key, as above. The system shows the prompt during the call.
 
+**Face ID needs `NSFaceIDUsageDescription`.** An app whose `AppleKey` access control can use biometry (`.biometryCurrentSet`, `.biometryAny`, or `.userPresence` where Face ID is used) must set `NSFaceIDUsageDescription` in its Info.plist: Apple's documentation says the key "is required if your app uses APIs that access Face ID" ([`NSFaceIDUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsfaceidusagedescription)). With a generated Info.plist, set the build setting `INFOPLIST_KEY_NSFaceIDUsageDescription`. Without the key, iOS terminated the app when a `.biometryCurrentSet` key signed, on an iPhone 16 with iOS 27.0.1: "attempted to access privacy-sensitive data without a usage description. The app's Info.plist must contain an NSFaceIDUsageDescription key". On that device, the first Face ID use showed a one-time iOS prompt asking whether the app may use Face ID, before the Face ID prompt itself, and the `.biometryCurrentSet` prompt offered Face ID only, with no passcode fallback.
+
 On Android, pass `userAuthentication` when you create the key. The device needs a secure lock screen. There are two modes:
 
 - **Time-bound**, `UserAuthentication(validitySeconds > 0, allowDeviceCredential)`. Your app shows its own `BiometricPrompt` or the device credential screen, and after the user authenticates, the key works for that many seconds. Outside that window, calls fail with `UserAuthenticationRequired`. Every key kind can be time-bound.
