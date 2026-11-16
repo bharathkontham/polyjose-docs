@@ -277,9 +277,14 @@ final class HardwareBackedKeysTests: XCTestCase {
         }
         let token = try jwtSignWithPlatformKey(claims: claims, key: signingKey, options: JwtSignOptions(alg: "ES256"))
 
-        // Decrypting takes a second key, bound to ECDH-ES.
-        let decryptionKey = try AppleKey.generate(
-            tag: "com.example.app.decryption-key", algorithm: "ECDH-ES", protection: .secureEnclave)
+        // Decrypting takes a second key, bound to ECDH-ES: find it, or create it.
+        let decryptionKey: AppleKey
+        do {
+            decryptionKey = try AppleKey.open(tag: "com.example.app.decryption-key", algorithm: "ECDH-ES")
+        } catch let error as PolyjoseError where error.code() == "KeyNotFound" {
+            decryptionKey = try AppleKey.generate(
+                tag: "com.example.app.decryption-key", algorithm: "ECDH-ES", protection: .secureEnclave)
+        }
         // The sender encrypts to its public JWK, here or on a server.
         let jwe = try jweEncryptCompact(
             plaintext: Data("hello".utf8),
@@ -331,7 +336,8 @@ final class HardwareBackedKeysTests: XCTestCase {
     func testExistingKey() throws {
         try skipUnlessKeysCanBeStored(secureEnclave: false)
         let tag = "com.example.app.existing-key"
-        _ = SecItemDelete([kSecClass: kSecClassKey, kSecAttrApplicationTag: Data(tag.utf8)] as CFDictionary)
+        _ = SecItemDelete(
+            [kSecClass: kSecClassKey, kSecAttrApplicationTag: Data(tag.utf8), kSecUseDataProtectionKeychain: true] as CFDictionary)
         let claims = #"{"sub":"\#(subject)","exp":\#(Int64(Date().timeIntervalSince1970) + 300)}"#
         // Stands in for the code that stored the key before the app used polyjose.
         var error: Unmanaged<CFError>?
@@ -339,6 +345,7 @@ final class HardwareBackedKeysTests: XCTestCase {
             [
                 kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
                 kSecAttrKeySizeInBits: 256,
+                kSecUseDataProtectionKeychain: true,  // not the legacy macOS login keychain
                 kSecPrivateKeyAttrs: [kSecAttrIsPermanent: true, kSecAttrApplicationTag: Data(tag.utf8)] as [CFString: Any],
             ] as CFDictionary,
             &error
