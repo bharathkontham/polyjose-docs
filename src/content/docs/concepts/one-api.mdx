@@ -3,7 +3,7 @@ title: One API on every platform
 description: How the same polyjose operations, types, defaults and errors look in Rust, JavaScript, Kotlin and Swift.
 ---
 
-This page describes polyjose 0.2.0.
+This page describes polyjose 0.3.0.
 
 polyjose is one implementation, written in Rust. The Node and Web packages, the Kotlin library and the Swift package all call that same code through a thin layer that only converts types. So every platform offers the same operations, with the same options, the same defaults and the same [error codes](/concepts/errors/).
 
@@ -84,6 +84,11 @@ Each name below is the JavaScript, Kotlin and Swift spelling. In Rust the same w
 | `errorCodes` | Returns every stable [error code](/concepts/errors/). |
 | `base64urlEncode` | Encodes bytes as base64url without padding. |
 | `base64urlDecode` | Decodes strict, unpadded base64url to bytes. |
+| `decodeProtectedHeaderUnverified` | Returns the protected header of a compact JWS or JWE, without verifying or decrypting anything. |
+| `decodeJwsUnverified` | Returns the protected header and payload of a compact JWS, without checking the signature. |
+| `decodeJwtUnverified` | Returns the header and claims of a signed JWT, without checking the signature or any claim. |
+
+The three `decode…Unverified` operations take only the token. Their results, `JwsUnverified` and `JwtUnverified`, are separate types from the verified results. [Validate a JWT › Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it) shows when to use them.
 
 ### JWK
 
@@ -146,4 +151,4 @@ These operations take a platform key, an object that implements the `PlatformKey
 | `jwtDecryptNestedWithPlatformKey` | Decrypts a nested JWT with a platform key and verifies the signed JWT inside with a public key. |
 | `jwtDecryptNestedWithPlatformKeyAndJwks` | The same, verifying the inner JWT with a key from a JWK Set. |
 
-Some things are not offered on any platform: RSA key generation and multi-prime RSA keys, `RSA-OAEP` and `RSA1_5`, SHA-1 thumbprints, accepting `none`, and decoding a JWS or JWE without verifying it. Compression (`zip`) is available only in Rust. [What polyjose does not support](/security/not-supported/) explains each one.
+Some things are not offered on any platform: RSA key generation and multi-prime RSA keys, `RSA-OAEP` and `RSA1_5`, SHA-1 thumbprints, accepting `none`, and reading a JWE's plaintext without the key. Compression (`zip`) is available only in Rust. [What polyjose does not support](/security/not-supported/) explains each one.

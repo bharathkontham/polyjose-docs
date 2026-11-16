@@ -6,7 +6,7 @@ description: Move a Node.js or web project from the jose package to @polyjose/no
 import Install from '../../../../components/samples/Install.astro';
 import Sample from '../../../../components/samples/Sample.astro';
 
-This page describes polyjose 0.2.0, compared with `jose` 6.2.13.
+This page describes polyjose 0.3.0, compared with `jose` 6.2.13.
 
 Both sides of every sample on this page run as tests: the `jose` code against that exact version, the polyjose code against `@polyjose/node` and again against `@polyjose/wasm`. The same tests check that tokens made by either library are accepted by the other.
 
@@ -57,7 +57,8 @@ polyjose exports functions, not classes. There are no builders such as `SignJWT`
 		<tr><th scope="row"><code>EncryptJWT</code>, <code>jwtDecrypt</code></th><td>Nested JWTs only, signed and then encrypted: <code>jwtEncryptNested</code>, <code>jwtDecryptNested</code> (<a href="/guides/validate-jwt/#nested-jwts-sign-then-encrypt">Validate a JWT</a>)</td></tr>
 		<tr><th scope="row"><code>createLocalJWKSet(jwks)</code> passed to <code>jwtVerify</code></th><td><code>jwtVerifyWithJwks(token, jwks, options)</code>; <code>jwksSelect</code> picks one key</td></tr>
 		<tr><th scope="row"><code>createRemoteJWKSet(url)</code></th><td>None: fetch and cache the set yourself, then pass it to <code>jwtVerifyWithJwks</code></td></tr>
-		<tr><th scope="row"><code>decodeJwt</code>, <code>decodeProtectedHeader</code>, <code>UnsecuredJWT</code></th><td>None: polyjose reads a token only by verifying it</td></tr>
+		<tr><th scope="row"><code>decodeJwt</code>, <code>decodeProtectedHeader</code></th><td><code>decodeJwtUnverified</code>, <code>decodeProtectedHeaderUnverified</code>, which return Promises (<a href="#read-a-token-without-verifying-it">Read a token without verifying it</a>)</td></tr>
+		<tr><th scope="row"><code>UnsecuredJWT</code></th><td>None: polyjose never creates or accepts an unsecured JWT</td></tr>
 		<tr><th scope="row"><code>errors.*</code>, each with a <code>code</code></th><td><code>PolyjoseError</code>, with a <code>code</code> (<a href="#handle-errors">Handle errors</a>)</td></tr>
 		<tr><th scope="row"><code>base64url.encode</code>, <code>base64url.decode</code></th><td><code>base64urlEncode</code>, <code>base64urlDecode</code>, which return Promises</td></tr>
 	</tbody>
@@ -78,6 +79,15 @@ The options are renamed, and `allowedAlgs` is required. `issuers` and `audiences
 <Sample platform="node" id="migrate-panva-jose/verify-jwt" title="polyjose" />
 
 [Validate a JWT](/guides/validate-jwt/) lists the defaults and every option.
+
+## Read a token without verifying it
+
+`decodeJwt` becomes `decodeJwtUnverified`, and `decodeProtectedHeader` becomes `decodeProtectedHeaderUnverified`. Both return Promises, where `jose`'s are synchronous, so `await` them. `decodeJwtUnverified` returns `{ header, claims }` where `decodeJwt` returns the claims alone. This doesn't check the signature: anyone can write these values, so don't use them for authorization or trust decisions until you verify the token.
+
+<Sample platform="node" id="migrate-panva-jose/decode-before" title="jose" />
+<Sample platform="node" id="migrate-panva-jose/decode" title="polyjose" />
+
+[Validate a JWT › Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it) has the details, including how to choose an issuer before verifying.
 
 ## Sign and verify a JWS
 
@@ -176,7 +186,7 @@ In Node.js, `@polyjose/node` is a native addon whose calls run on the libuv thre
 ## Not supported, or different
 
 - **Fetching a remote JWK Set.** polyjose does no network I/O, and never follows a `jku` or `x5u` header. [Fetch the set yourself](#an-issuers-jwks_uri).
-- **Reading a token without verifying it.** There is no `decodeJwt`, `decodeProtectedHeader` or `UnsecuredJWT.decode`. Verify first: the result carries the header and the claims. To choose a key by `kid`, pass the whole set. See [Not supported › Decode without verify](/security/not-supported/#decode-without-verify).
+- **Unsecured JWTs** (`UnsecuredJWT`). polyjose never creates or accepts a token with `alg: none`. `decodeJwtUnverified` reads one as data, as it reads any signed JWT, [without verifying it](#read-a-token-without-verifying-it).
 - **`CryptoKey` and `KeyObject` inputs.** Every key is a JWK. Convert PEM and DER with `jwkFromPem` and `jwkFromDer`, which read PKCS #8, SEC 1, SPKI and PKCS #1. There is no certificate import, and polyjose never validates a certificate chain.
 - **Encrypted JWTs without a signature** (`EncryptJWT`). polyjose encrypts JWTs only as nested JWTs: signed, then encrypted.
 - **RSA key generation.** polyjose signs and decrypts with RSA keys you import, but can't generate them. Other algorithms that polyjose leaves out, such as `RSA1_5` and `RSA-OAEP` with SHA-1, are listed with the reasons in [What polyjose does not support](/security/not-supported/).
@@ -189,5 +199,5 @@ In Node.js, `@polyjose/node` is a native addon whose calls run on the libuv thre
 4. Rename the JWT options: `issuers`, `audiences`, `leeway`, `maxAge`, `now`, all times in seconds.
 5. Make sure every token you accept has an `exp`, and configure `audiences` where tokens carry an `aud`.
 6. Fetch and cache remote JWK Sets yourself, and pass them to `jwtVerifyWithJwks`.
-7. Remove `decodeJwt` and `decodeProtectedHeader`; read headers and claims from the verified result.
+7. Replace `decodeJwt` and `decodeProtectedHeader` with `await decodeJwtUnverified` and `await decodeProtectedHeaderUnverified`, and read trusted headers and claims from the verified result.
 8. Branch on `PolyjoseError.code`, with a default branch for codes you don't handle.

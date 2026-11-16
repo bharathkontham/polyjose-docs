@@ -5,17 +5,23 @@
 // 60 seconds of leeway, `aud` rejected unless audiences are configured, `typ` absent or `JWT`.
 // Tokens are ES256 (RFC 7518 §3.4) with the RFC 7515 Appendix A.3.1 key. Tokens that depend on the
 // clock set `exp` relative to the current time and are verified in the same test; the rest pass a
-// fixed `now`.
+// fixed `now`. The last tests read tokens without verifying them (decodeJwtUnverified), then verify
+// against the issuer's JWK Set, samples/fixtures/jwks.json (RFC 7517 §5; RFC 8725 §3.8).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
+  decodeJwtUnverified,
   jwkGenerateEc,
   jwkToPublic,
   jwtDecryptNested,
   jwtEncryptNested,
   jwtSign,
   jwtVerify,
+  jwtVerifyWithJwks,
   PolyjoseError,
 } from '@polyjose/node';
 import { fixtureJwk, fixturePublicJwk } from './lib/fixtures.mjs';
@@ -48,6 +54,21 @@ async function codeOf(promise) {
     throw err;
   }
   assert.fail('expected a PolyjoseError');
+}
+
+/**
+ * The text of samples/fixtures/jwks.json, found by walking up from this file (the Web run
+ * executes a copy of it from another directory).
+ */
+function readJwksFixture() {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (;;) {
+    const candidate = join(dir, 'fixtures', 'jwks.json');
+    if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
+    const parent = dirname(dir);
+    if (parent === dir) throw new Error('samples/fixtures/jwks.json not found');
+    dir = parent;
+  }
 }
 
 /** The JWS Protected Header of a compact token, decoded. */
@@ -328,4 +349,54 @@ test('nested JWT: sign, then encrypt', async () => {
   assert.equal(nested.split('.').length, 5);
   // A nested JWT is not a signed JWT: jwtVerify refuses its five parts.
   assert.equal(await codeOf(jwtVerify(nested, publicKey, { allowedAlgs: ['ES256'] })), 'InvalidFormat');
+});
+
+test('read a JWT without verifying it', async () => {
+  const token = await issue({ iss: ISSUER, sub: SUBJECT, aud: AUDIENCE, exp: nowSeconds() + 300 });
+  // docs:start validate-jwt/read-unverified
+  // The signature isn't checked: use this to show the token's contents.
+  const { header, claims } = await decodeJwtUnverified(token);
+  const signedInAs = claims.sub; // "user-123"
+  const algorithm = header.alg; // "ES256"
+  // docs:end validate-jwt/read-unverified
+  assert.equal(signedInAs, SUBJECT);
+  assert.equal(algorithm, 'ES256');
+  assert.equal(claims.iss, ISSUER);
+  assert.equal('alg' in (await decodeJwtUnverified(token)), false, 'no top-level alg, unlike jwtVerify');
+  // Another token's signature still decodes, and verification refuses it (RFC 7515 §5.2).
+  const other = await issue({ iss: ISSUER, sub: 'someone-else', exp: nowSeconds() + 300 });
+  const spliced = `${token.slice(0, token.lastIndexOf('.'))}${other.slice(other.lastIndexOf('.'))}`;
+  assert.equal((await decodeJwtUnverified(spliced)).claims.sub, SUBJECT);
+  assert.equal(await codeOf(jwtVerify(spliced, publicKey, { allowedAlgs: ['ES256'], issuers: [ISSUER], audiences: [AUDIENCE] })), 'InvalidSignature');
+  // An expired token decodes too: no claim is checked.
+  const expired = await issue({ iss: ISSUER, sub: SUBJECT, exp: NOW });
+  assert.equal((await decodeJwtUnverified(expired)).claims.exp, NOW);
+  // A malformed token fails with the code verification gives it.
+  assert.equal(await codeOf(decodeJwtUnverified('not-a-token')), 'InvalidFormat');
+});
+
+test('choose the issuer from the unverified iss, then verify', async () => {
+  // Signed with the fixture key under the kid the set gives it (RFC 7515 §4.1.4).
+  const keyWithKid = { ...signingKey, kid: 'p256-2026' };
+  const token = await jwtSign({ iss: ISSUER, sub: SUBJECT, aud: AUDIENCE, exp: nowSeconds() + 300 }, keyWithKid, { alg: 'ES256' });
+  // Each issuer you accept, with its JWK Set as your application fetched it.
+  const trustedIssuers = new Map([[ISSUER, readJwksFixture()]]);
+  // docs:start validate-jwt/choose-issuer
+  // `trustedIssuers` maps each issuer you accept to its JWK Set, from your configuration.
+  const { claims: unverified } = await decodeJwtUnverified(token);
+  const jwks = trustedIssuers.get(unverified.iss);
+  if (jwks === undefined) throw new Error('unknown issuer');
+
+  const verified = await jwtVerifyWithJwks(token, jwks, {
+    allowedAlgs: ['ES256', 'Ed25519'],
+    issuers: [unverified.iss], // binds the keys to this issuer
+    audiences: ['https://api.example'],
+  });
+  const subject = verified.claims.sub; // "user-123"
+  // docs:end validate-jwt/choose-issuer
+  assert.equal(subject, SUBJECT);
+  assert.equal(verified.kid, 'p256-2026');
+  // A token whose iss names no configured issuer never reaches verification.
+  const stranger = await jwtSign({ iss: 'https://other.example', sub: SUBJECT, aud: AUDIENCE, exp: nowSeconds() + 300 }, keyWithKid, { alg: 'ES256' });
+  assert.equal(trustedIssuers.get((await decodeJwtUnverified(stranger)).claims.iss), undefined);
 });

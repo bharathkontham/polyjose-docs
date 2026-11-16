@@ -97,7 +97,7 @@ const GROUP_OPERATIONS = {
 const GROUP_USAGE = { 'jws-alg': 'alg', 'jwe-alg': 'alg', 'jwe-enc': 'enc', zip: 'zip' };
 const STATUSES = ['yes', 'verify-only', 'encrypt-only', 'no'];
 // Fixed heading ids on Security › Not supported.
-const NOT_SUPPORTED_IDS = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'decode-without-verify', 'out-of-scope', 'java'];
+const NOT_SUPPORTED_IDS = ['rsa-key-generation-and-multi-prime-keys', 'rsa1_5', 'sha-1', 'zip-in-bindings', 'reading-a-jwe-without-the-key', 'out-of-scope', 'java'];
 
 // polyjose's Error::CODES (crates/polyjose/src/error.rs) at commit 30a4a72, in its order, plus
 // the three platform key codes appended after MultipleMatchingKeys.
@@ -127,7 +127,10 @@ const RFC_TITLES = {
 
 // The operations of the binding surface, in camelCase, grouped as on the page.
 const OPERATIONS = {
-	Utilities: ['version', 'errorCodes', 'base64urlEncode', 'base64urlDecode'],
+	Utilities: [
+		'version', 'errorCodes', 'base64urlEncode', 'base64urlDecode',
+		'decodeProtectedHeaderUnverified', 'decodeJwsUnverified', 'decodeJwtUnverified',
+	],
 	JWK: [
 		'jwkParse', 'jwkToPublic', 'jwkThumbprint', 'jwkThumbprintUri', 'jwksSelect',
 		'jwkGenerateOct', 'jwkGenerateEc', 'jwkGenerateOkp', 'jwkGenerateForAlg',

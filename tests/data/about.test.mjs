@@ -108,8 +108,8 @@ const futureWording = [
 	/\bplanned for after the 0\.1\.0 release\b/i,
 ];
 
-/** The sentence that frames the About page's list as the 0.2.0 release. */
-const framingSentence = /This list describes polyjose 0\.2\.0\./;
+/** The sentence that frames the About page's list as the 0.3.0 release. */
+const framingSentence = /This list describes polyjose 0\.3\.0\./;
 
 const pages = {
 	landing: '',
@@ -131,7 +131,7 @@ describe('the future-wording checks themselves', () => {
 	test('accept the released phrasings', () => {
 		for (const now of [
 			'polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT.',
-			'RFC coverage. polyjose 0.2.0 implements: RFC 7515 (JWS)',
+			'RFC coverage. polyjose 0.3.0 implements: RFC 7515 (JWS)',
 			'The @polyjose/node package, a native addon that ships with prebuilt binaries.',
 			'Every binding passes the same conformance tests.',
 		]) {
@@ -139,8 +139,8 @@ describe('the future-wording checks themselves', () => {
 		}
 	});
 	test('the framing sentence pattern matches only the full sentence', () => {
-		assert.match('This list describes polyjose 0.2.0.', framingSentence);
-		assert.doesNotMatch('This list describes polyjose 0.2.0', framingSentence);
+		assert.match('This list describes polyjose 0.3.0.', framingSentence);
+		assert.doesNotMatch('This list describes polyjose 0.3.0', framingSentence);
 	});
 });
 
@@ -292,7 +292,7 @@ describe('About › Why polyjose', () => {
 		assert.match(text, /One JOSE implementation, every platform\./);
 	});
 
-	test('frames the "what makes polyjose different" list as the 0.2.0 release', () => {
+	test('frames the "what makes polyjose different" list as the 0.3.0 release', () => {
 		assert.match(text, framingSentence);
 		const framing = text.search(framingSentence);
 		const heading = text.search(/What makes polyjose different/);
@@ -384,7 +384,7 @@ describe('Reference › API reference', () => {
 		assert.match(text, /\/api\/js\//);
 		assert.match(text, /@polyjose\/node/);
 		assert.match(text, /@polyjose\/wasm/);
-		assert.match(text, /0\.2\.0 release \(commit f94b84a\)/, 'says which source the reference was generated from');
+		assert.match(text, /0\.3\.0 release \(commit 700394e\)/, 'says which source the reference was generated from');
 		const js = links.filter((l) => l.href.startsWith('/api/js'));
 		assert.deepEqual(js.map((l) => l.href), ['/api/js/index.html'], 'one link, to the generated index page');
 		assert.ok(existsSync(`${dist}api/js/index.html`), 'npm run build generates dist/api/js/index.html');

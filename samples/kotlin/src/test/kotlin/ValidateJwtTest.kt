@@ -4,7 +4,9 @@
 // verifier makes (RFC 8725 §3.8-§3.12): issuer, audience, expiry and not-before with leeway
 // (RFC 7519 §4.1), maximum age, required claims, explicit typing (RFC 8725 §3.11), RFC 9068
 // access tokens, and nested JWTs (RFC 7519 §5.2). Tokens are issued a few minutes ahead of the
-// current time and verified in the same test, unless a test fixes the clock at NOW.
+// current time and verified in the same test, unless a test fixes the clock at NOW. The last tests
+// read tokens without verifying them (decodeJwtUnverified), then verify against the issuer's JWK
+// Set, samples/fixtures/jwks.json (RFC 7517 §5; RFC 8725 §3.8).
 
 import dev.polyjose.*
 import java.time.Instant
@@ -276,5 +278,71 @@ class ValidateJwtTest {
         assertEquals(SUBJECT, JSONObject(verified.inner.claims).getString("sub"))
         assertEquals("JWT", JSONObject(verified.outerHeader).getString("cty"), "RFC 7519 §5.2")
         assertEquals(0u, verified.recipientIndex)
+    }
+
+    @Test
+    fun readUnverified() {
+        val token = issue("""{"iss":"$ISSUER","sub":"$SUBJECT","aud":"$AUDIENCE","exp":${currentTime() + 300}}""")
+        // docs:start validate-jwt/read-unverified
+        // The signature isn't checked: use this to show the token's contents.
+        val unverified = decodeJwtUnverified(token)
+        val signedInAs = JSONObject(unverified.claims).getString("sub") // "user-123"
+        val algorithm = JSONObject(unverified.header).getString("alg") // "ES256"
+        // docs:end validate-jwt/read-unverified
+        assertEquals(SUBJECT, signedInAs)
+        assertEquals("ES256", algorithm)
+        // Another token's signature still decodes, and verification refuses it (RFC 7515 §5.2).
+        val other = issue("""{"iss":"$ISSUER","sub":"someone-else","exp":${currentTime() + 300}}""")
+        val spliced = token.substringBeforeLast('.') + "." + other.substringAfterLast('.')
+        assertEquals(SUBJECT, JSONObject(decodeJwtUnverified(spliced).claims).getString("sub"))
+        assertEquals("InvalidSignature", codeOf { jwtVerify(spliced, publicKey, options) })
+        // An expired token decodes too: no claim is checked.
+        val expired = issue("""{"iss":"$ISSUER","sub":"$SUBJECT","exp":$NOW}""")
+        assertEquals(NOW, JSONObject(decodeJwtUnverified(expired).claims).getLong("exp"))
+        // A malformed token fails with the code verification gives it.
+        assertEquals("InvalidFormat", codeOf { decodeJwtUnverified("not-a-token") })
+        // decodeJwsUnverified returns the payload, and printing the record shows only its length.
+        val jws = decodeJwsUnverified(token)
+        assertEquals(SUBJECT, JSONObject(jws.payload.decodeToString()).getString("sub"))
+        assertEquals(true, jws.toString().contains("payload=<redacted, ${jws.payload.size} bytes>"), jws.toString())
+        assertEquals(false, jws.toString().contains(SUBJECT))
+    }
+
+    @Test
+    fun chooseIssuer() {
+        // Signed with the fixture key under the kid the set gives it (RFC 7515 §4.1.4).
+        val keyWithKid = withKid(signingKey, "p256-2026")
+        val token = jwtSign(
+            """{"iss":"$ISSUER","sub":"$SUBJECT","aud":"$AUDIENCE","exp":${currentTime() + 300}}""",
+            keyWithKid,
+            JwtSignOptions(alg = "ES256"),
+        )
+        // Each issuer you accept, with its JWK Set as your application fetched it.
+        val trustedIssuers = mapOf(ISSUER to fixtureJwks())
+        // docs:start validate-jwt/choose-issuer
+        // trustedIssuers maps each issuer you accept to its JWK Set, from your configuration.
+        val iss = JSONObject(decodeJwtUnverified(token).claims).optString("iss")
+        val jwks = trustedIssuers[iss] ?: error("unknown issuer")
+
+        val verified = jwtVerifyWithJwks(
+            token = token,
+            jwks = jwks,
+            options = JwtVerifyOptions(
+                allowedAlgs = listOf("ES256", "Ed25519"),
+                issuers = listOf(iss), // binds the keys to this issuer
+                audiences = listOf(AUDIENCE),
+            ),
+        )
+        val subject = JSONObject(verified.claims).getString("sub") // "user-123"
+        // docs:end validate-jwt/choose-issuer
+        assertEquals(SUBJECT, subject)
+        assertEquals("p256-2026", verified.kid)
+        // A token whose iss names no configured issuer never reaches verification.
+        val stranger = jwtSign(
+            """{"iss":"https://other.example","sub":"$SUBJECT","aud":"$AUDIENCE","exp":${currentTime() + 300}}""",
+            keyWithKid,
+            JwtSignOptions(alg = "ES256"),
+        )
+        assertEquals(null, trustedIssuers[JSONObject(decodeJwtUnverified(stranger).claims).optString("iss")])
     }
 }

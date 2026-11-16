@@ -1,11 +1,11 @@
 ---
 title: Validate a JWT
-description: Issue a JSON Web Token and validate it with an allow-list, issuer and audience, under safe defaults for expiry, leeway, audience and typ, plus access tokens, the clock and nested JWTs.
+description: Issue a JSON Web Token and validate it with an allow-list, issuer and audience, under safe defaults for expiry, leeway, audience and typ, plus access tokens, the clock, nested JWTs and reading a token without verifying it.
 ---
 
 import Samples from '../../../components/samples/Samples.astro';
 
-This page describes polyjose 0.2.0.
+This page describes polyjose 0.3.0.
 
 A JSON Web Token (JWT, [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519)) is a set of claims, such as who issued the token, who it is about and when it expires, carried in a signed JWS or an encrypted JWE. Validating one means verifying the signature and then checking the claims ([RFC 7519 §7.2](https://www.rfc-editor.org/rfc/rfc7519#section-7.2)), following the current best practices of [RFC 8725](https://www.rfc-editor.org/rfc/rfc8725).
 
@@ -111,6 +111,29 @@ A nested JWT is a signed JWT encrypted as a JWE, with `"cty": "JWT"` ([RFC 7519 
 Signed and nested JWTs have separate entry points, so you always know which protection a token had: `jwtVerify` refuses a nested JWT with `InvalidFormat`, and `jwtDecryptNested` needs one.
 
 Nesting gives confidentiality. It doesn't prove who encrypted the token: anyone who can decrypt it can take out the signed inner JWT and use it on its own, and with ECDH-ES or RSA-OAEP-256 anyone can encrypt a signed JWT to the recipient. If a token must only be accepted in nested form, say so inside the signed JWT, with a distinct `typ` or `aud`, and check it in the options. See [Encrypt and decrypt](/guides/encrypt-and-decrypt/) for the JWE options.
+
+## Read a token without verifying it
+
+`decodeJwtUnverified` returns a JWT's header and claims. It takes only the token: no key, no options and no allow-list. In Rust it is `util::decode_jwt_unverified`. This doesn't check the signature: anyone can write these values, so don't use them for authorization or trust decisions until you verify the token.
+
+Its main use is showing what a token says, such as the signed-in user, in an application that holds no verification key:
+
+<Samples id="validate-jwt/read-unverified" />
+
+The result is a `JwtUnverified` (in Rust, `util::UnverifiedJwt`), a different type from the `JwtVerified` that `jwtVerify` returns, with no `alg` member. The `alg` is in the header, unchecked, and may be `none`. No claim is checked, so the token may be expired or meant for another audience. The token is parsed by the same code that verification uses, with the same 1 MiB limit, so a token that fails parsing fails with the same error code in both. Treat the decoded objects as untrusted JSON; don't merge them into other objects.
+
+Two more operations read a token the same way:
+
+- `decodeJwsUnverified` (`util::decode_jws_unverified`) returns a compact JWS's protected header and payload, as a `JwsUnverified`. The payload is treated as secret, like the payload of a verified JWS: printing a `JwsUnverified` in Kotlin or Swift shows only the payload's length.
+- `decodeProtectedHeaderUnverified` (`util::decode_protected_header_unverified`) returns the protected header of a compact JWS or JWE. It is the only one of the three that accepts a JWE. A JWE's payload can't be read without the key.
+
+### Choose the issuer, then verify
+
+A service that accepts tokens from more than one issuer can read `iss` first, to choose whose keys to verify with. Take those keys from your own configuration, never from a `jku` or `x5u` header in the token. Then verify with that issuer in `issuers`, so the keys are bound to it ([RFC 8725 §3.8](https://www.rfc-editor.org/rfc/rfc8725#section-3.8)), and use the claims of the verified result:
+
+<Samples id="validate-jwt/choose-issuer" />
+
+A JWK Set already selects keys by `kid` when you verify with it ([JWK Sets › How a key is chosen](/guides/jwk-sets/#how-a-key-is-chosen)), so you don't need to read the `kid` yourself. If you use a `kid` from an unverified header in a lookup of your own, sanitise it first ([RFC 8725 §3.10](https://www.rfc-editor.org/rfc/rfc8725#section-3.10)).
 
 ## Unknown header parameters
 
