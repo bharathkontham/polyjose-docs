@@ -92,8 +92,13 @@ val signingKey = try {
 }
 val token = jwtSignWithPlatformKey(claims, signingKey, JwtSignOptions(alg = "ES256"))
 
-// Decrypting takes a second key, bound to ECDH-ES (API 31 or later).
-val decryptionKey = AndroidKeystoreKey.generate("decryption-key", "ECDH-ES")
+// Decrypting takes a second key, bound to ECDH-ES (API 31 or later): find it, or create it.
+val decryptionKey = try {
+    AndroidKeystoreKey.open("decryption-key", "ECDH-ES")
+} catch (e: PolyjoseException) {
+    if (e.code() != "KeyNotFound") throw e
+    AndroidKeystoreKey.generate("decryption-key", "ECDH-ES")
+}
 // The sender encrypts to its public JWK, here or on a server.
 val jwe = jweEncryptCompact(
     "hello".toByteArray(),
@@ -111,7 +116,7 @@ AndroidKeystoreKey.delete("decryption-key")
 - **Algorithms and API levels.** `ES256`, `ES384`, `ES512`, `RS256` to `RS512` and `PS256` to `PS512` from API 23; the ECDH-ES family from API 31; `RSA-OAEP-256` from API 34. RSA keys are 2048 (the default), 3072 or 4096 bits (`keySize`); ECDH-ES keys use P-256 (the default), P-384 or P-521. Below the level, `generate` and `open` fail with `UnsupportedAlgorithm`, never a later call. [Key stores and algorithms](/guides/hardware-backed-keys/#key-stores-and-algorithms) has the table.
 - **User authentication.** Pass `userAuthentication = AndroidKeystoreKey.UserAuthentication(validitySeconds, allowDeviceCredential)` to `generate`. The device needs a secure lock screen. With `validitySeconds` above 0 the key works for that many seconds after your app's own `BiometricPrompt`; with 0, each signature or `RSA-OAEP-256` decryption goes through the `PlatformKeyAuthorizer` you pass to `generate` or `open`, such as polyjose's `BiometricPromptAuthorizer`. ECDH-ES keys are time-bound only. [User authentication](/guides/hardware-backed-keys/#user-authentication) has the rules per API level.
 - **The main thread.** A call that waits for the user blocks its thread. `BiometricPromptAuthorizer` refuses the main thread before it shows anything, because waiting there would deadlock: the call then fails with `PlatformKeyFailed` when signing and `DecryptionFailed` when decrypting. Use a background thread, as in [Stay off the main thread](#stay-off-the-main-thread).
-- **Errors.** `KeyNotFound`: no key under the alias, or one the platform invalidated (create and register a new key). `UserAuthenticationRequired`: the user hasn't authenticated, or cancelled (prompt, then try again). `PlatformKeyFailed` when signing, `DecryptionFailed` when decrypting: any other platform failure. `generate` fails with `PlatformKeyFailed` when the alias already holds a key. `open` fails with `KeyAlgorithmMismatch` when the key doesn't permit the algorithm.
+- **Errors.** `KeyNotFound`: no key under the alias, or one the platform invalidated (create and register a new key). `UserAuthenticationRequired`: the user hasn't authenticated, cancelled, or can't authenticate, such as a biometric lockout; `BiometricPromptAuthorizer` reports every prompt error this way (prompt, then try again). `PlatformKeyFailed` when signing, `DecryptionFailed` when decrypting: any other platform failure. `generate` fails with `PlatformKeyFailed` when the alias already holds a key. `open` fails with `KeyAlgorithmMismatch` when the key doesn't permit the algorithm.
 
 ### StrongBox
 
