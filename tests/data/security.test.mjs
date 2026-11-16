@@ -262,7 +262,7 @@ test('Not supported: every item has its fixed heading id, reason and alternative
   });
 
   await t.test('out of scope, Java', () => {
-    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.3.0']);
+    assertPhrases(text, 'out of scope', ['Ed448', 'X448', 'X.509', 'HPKE', 'COSE', '0.4.0']);
     assertPhrases(text, 'Java', ['Java', 'Kotlin', /awkward/i]);
   });
 
