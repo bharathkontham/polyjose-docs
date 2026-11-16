@@ -24,6 +24,7 @@ const sidebar = [
       { slug: 'guides/validate-jwt' },
       { slug: 'guides/manage-keys' },
       { slug: 'guides/secure-key-storage' },
+      { slug: 'guides/hardware-backed-keys' },
       { slug: 'guides/jwk-sets' },
       {
         label: 'Migrate',

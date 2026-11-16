@@ -3,7 +3,7 @@ title: Migrate to polyjose
 description: Pick the migration guide for the JOSE library you use now, and see the changes that every move to polyjose brings.
 ---
 
-This page describes polyjose 0.3.0.
+This page describes polyjose 0.4.0.
 
 Each guide compares polyjose with one JOSE library and shows the same tasks in both, side by side: install and import, signing and verifying a JWT, JWS, JWE, keys, JWK Sets and errors. Both sides of every sample run as tests, the other library's against the exact version the guide names. Further tests pass tokens between the two libraries in both directions, so you can move one service at a time.
 
@@ -38,7 +38,7 @@ These rules hold on every platform, whichever library you leave. Each guide show
 
 Most migrations also meet these:
 
-- **Keys are JWKs.** Every call takes keys as JWKs. Convert PEM or DER once, with `jwkFromPem` or `jwkFromDer`, and store the JWK. Platform key objects such as `CryptoKey`, `KeyObject` or `SecKey` aren't accepted, so a key that never leaves hardware can only be used through its public half. See [Manage keys](/guides/manage-keys/).
+- **Keys are JWKs.** Every call takes keys as JWKs. Convert PEM or DER once, with `jwkFromPem` or `jwkFromDer`, and store the JWK. `CryptoKey` and `KeyObject` aren't accepted, so in JavaScript a key that never leaves hardware can only be used through its public half. In Swift and Kotlin, a key the platform holds (Secure Enclave, Keychain, Android Keystore, StrongBox) signs and decrypts through `AppleKey` or `AndroidKeystoreKey`, and any other key holder through the `PlatformKey` interface. A Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. See [Manage keys](/guides/manage-keys/) and [Hardware-backed keys](/guides/hardware-backed-keys/).
 - **Strict JWT defaults.** `exp` is required, a token's `aud` is checked even when you configured no audience, and 60 seconds of leeway is allowed by default, at most 600. Each has an explicit setting: see [Validate a JWT](/guides/validate-jwt/).
 - **Nothing is fetched, and nothing unverified looks verified.** polyjose makes no network requests and never follows a `jku` or `x5u` header, so your application fetches and caches an issuer's JWK Set. Pass the whole set to `jwtVerifyWithJwks` and let it choose the key ([Work with JWK Sets](/guides/jwk-sets/)). Verify and decrypt return a header, claims or payload only after checking them. To read a token without verifying it, use `decodeJwtUnverified`, `decodeJwsUnverified` or `decodeProtectedHeaderUnverified`, whose results are separate types from the verified ones ([Read a token without verifying it](/guides/validate-jwt/#read-a-token-without-verifying-it)).
 - **Some algorithms are left out on purpose,** among them `RSA1_5`, `RSA-OAEP` with SHA-1 and RSA key generation. [What polyjose does not support](/security/not-supported/) lists each one with the reason.

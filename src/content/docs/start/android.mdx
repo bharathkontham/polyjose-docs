@@ -3,6 +3,7 @@ title: Android and JVM (Kotlin)
 description: Add polyjose to an Android app or a JVM project in Kotlin, then sign and verify your first JWS.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
 import Install from '../../../components/samples/Install.astro';
 import Sample from '../../../components/samples/Sample.astro';
 
@@ -66,6 +67,99 @@ Branch on `code()`, never on the message or the exception's class name. [Errors]
 Every call runs on the thread that makes it, until it returns. Most calls are quick, but some, such as PBES2 with a high iteration count, are not. On Android, call polyjose from a background thread, never from the main thread. Any executor works, as does a coroutine on a background dispatcher:
 
 <Sample platform="kotlin" id="start/kotlin-background" />
+
+## Keys the platform holds
+
+To sign and decrypt with a key that the Android Keystore or StrongBox holds and never exports, use `AndroidKeystoreKey`, which is in the Android library only. This section shows the calls; [Hardware-backed keys](/guides/hardware-backed-keys/) has the details.
+
+<Aside type="caution" title="About the code in this section">
+Unlike the rest of this page, the Kotlin code in this section isn't run by this site's samples, because Android Keystore code needs Android and the samples run on the JVM. It makes the same calls as the polyjose library's Android instrumented tests, which run on an Android emulator. The emulator's keys are software keys, so those runs show that the code works, not where a real device keeps the key. The open-or-create pattern and the alias names are examples to adapt.
+</Aside>
+
+### Android Keystore
+
+`AndroidKeystoreKey.generate(alias, algorithm)` creates a key in the Android Keystore under an alias of your choice, `open(alias, algorithm)` finds it again on later launches, and `delete(alias)` removes it. Each key is bound to one algorithm. Call these, and every call that uses the key, off the main thread.
+
+```kotlin
+import dev.polyjose.*
+
+// Find the signing key, or create it the first time.
+val signingKey = try {
+    AndroidKeystoreKey.open("signing-key", "ES256")
+} catch (e: PolyjoseException) {
+    if (e.code() != "KeyNotFound") throw e
+    AndroidKeystoreKey.generate("signing-key", "ES256") // register signingKey.publicJwk() with your server
+}
+val token = jwtSignWithPlatformKey(claims, signingKey, JwtSignOptions(alg = "ES256"))
+
+// Decrypting takes a second key, bound to ECDH-ES (API 31 or later): find it, or create it.
+val decryptionKey = try {
+    AndroidKeystoreKey.open("decryption-key", "ECDH-ES")
+} catch (e: PolyjoseException) {
+    if (e.code() != "KeyNotFound") throw e
+    AndroidKeystoreKey.generate("decryption-key", "ECDH-ES")
+}
+// The sender encrypts to its public JWK, here or on a server.
+val jwe = jweEncryptCompact(
+    "hello".toByteArray(),
+    JweEncryptOptions(enc = "A256GCM", recipients = listOf(JweRecipient(alg = "ECDH-ES+A256KW", key = decryptionKey.publicJwk()))),
+)
+val decrypted = jweDecryptCompactWithPlatformKey(
+    jwe, decryptionKey, JweDecryptOptions(allowedAlgs = listOf("ECDH-ES+A256KW"), allowedEnc = listOf("A256GCM")),
+)
+
+// When the user signs out, or the keys must be replaced:
+AndroidKeystoreKey.delete("signing-key")
+AndroidKeystoreKey.delete("decryption-key")
+```
+
+- **Algorithms and API levels.** `ES256`, `ES384`, `ES512`, `RS256` to `RS512` and `PS256` to `PS512` from API 23; the ECDH-ES family from API 31; `RSA-OAEP-256` from API 34. RSA keys are 2048 (the default), 3072 or 4096 bits (`keySize`); ECDH-ES keys use P-256 (the default), P-384 or P-521. Below the level, `generate` and `open` fail with `UnsupportedAlgorithm`, never a later call. [Key stores and algorithms](/guides/hardware-backed-keys/#key-stores-and-algorithms) has the table.
+- **User authentication.** Pass `userAuthentication = AndroidKeystoreKey.UserAuthentication(validitySeconds, allowDeviceCredential)` to `generate`. The device needs a secure lock screen. With `validitySeconds` above 0 the key works for that many seconds after your app's own `BiometricPrompt`; with 0, each signature or `RSA-OAEP-256` decryption goes through the `PlatformKeyAuthorizer` you pass to `generate` or `open`, such as polyjose's `BiometricPromptAuthorizer`. ECDH-ES keys are time-bound only. [User authentication](/guides/hardware-backed-keys/#user-authentication) has the rules per API level.
+- **The main thread.** A call that waits for the user blocks its thread. `BiometricPromptAuthorizer` refuses the main thread before it shows anything, because waiting there would deadlock: the call then fails with `PlatformKeyFailed` when signing and `DecryptionFailed` when decrypting. Use a background thread, as in [Stay off the main thread](#stay-off-the-main-thread).
+- **Errors.** `KeyNotFound`: no key under the alias, or one the platform invalidated (create and register a new key). `UserAuthenticationRequired`: the user hasn't authenticated, cancelled, or can't authenticate, such as a biometric lockout; `BiometricPromptAuthorizer` reports every prompt error this way (prompt, then try again). `PlatformKeyFailed` when signing, `DecryptionFailed` when decrypting: any other platform failure. `generate` fails with `PlatformKeyFailed` when the alias already holds a key. `open` fails with `KeyAlgorithmMismatch` when the key doesn't permit the algorithm.
+
+### StrongBox
+
+StrongBox is a separate secure chip that some devices have, from API 28. Ask for it with the `strongBox` argument of `generate`:
+
+```kotlin
+// StrongBox or nothing: on a device without StrongBox this fails with PlatformKeyFailed.
+val key = AndroidKeystoreKey.generate("signing-key", "ES256", AndroidKeystoreKey.StrongBox.Required)
+
+// StrongBox where the device has it, the TEE otherwise; securityLevel says which.
+val preferred = AndroidKeystoreKey.generate("other-key", "ES256", AndroidKeystoreKey.StrongBox.Preferred)
+val inStrongBox = preferred.securityLevel == AndroidKeystoreKey.SecurityLevel.StrongBox
+```
+
+- **Modes.** `Off`, the default, never asks for StrongBox. `Preferred` uses StrongBox when the device has it and StrongBox can serve the algorithm, and the device's trusted execution environment (TEE) otherwise. `Required` uses StrongBox or fails. polyjose never moves a key to the TEE unless you chose `Preferred`.
+- **Algorithms.** StrongBox serves `ES256`, `RS256` and `PS256` with 2048-bit keys (API 28), the ECDH-ES family on P-256 (API 31) and `RSA-OAEP-256` with 2048-bit keys (API 34). For any other algorithm, `Required` fails with `UnsupportedAlgorithm` and `Preferred` uses the TEE.
+- **Without StrongBox hardware.** `Required` fails with `PlatformKeyFailed` and leaves no key under the alias; `Preferred` creates the key in the TEE. The library's tests check both on an emulator, which has no StrongBox. Android's [`FEATURE_STRONGBOX_KEYSTORE`](https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_STRONGBOX_KEYSTORE) system feature tells your app whether a device has StrongBox.
+- **`securityLevel`** is what the Keystore reports for the key, never what was asked for: `StrongBox`, `TrustedEnvironment`, `Software`, `SecureHardware` (below API 31, where Android doesn't say which) or `Unknown`.
+- **Not verified on a device yet.** polyjose's StrongBox success path hasn't been run on a device with StrongBox, so a StrongBox key has been tested only as far as the emulator goes: the failure and fallback above.
+
+### Use a key you already have
+
+A key your app created itself with `KeyPairGenerator` and `KeyGenParameterSpec`, without polyjose, opens with `AndroidKeystoreKey.open(alias, algorithm)` and then works like any other `AndroidKeystoreKey`:
+
+```kotlin
+// Your app created this key before it used polyjose.
+KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").run {
+    initialize(
+        KeyGenParameterSpec.Builder("existing-key", KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .build(),
+    )
+    generateKeyPair()
+}
+
+val key = AndroidKeystoreKey.open("existing-key", "ES256")
+val token = jwtSignWithPlatformKey(claims, key, JwtSignOptions(alg = "ES256"))
+```
+
+`open` reads the key's `KeyInfo` and accepts it only when it permits the algorithm: the key type and curve or size, the purpose (`PURPOSE_SIGN`, `PURPOSE_AGREE_KEY` or `PURPOSE_DECRYPT`), the digest and the padding. Extra purposes, digests and paddings are accepted. Otherwise it fails with `KeyAlgorithmMismatch`. [Use a key you already have](/guides/hardware-backed-keys/#use-a-key-you-already-have) lists the settings each algorithm needs, including `setMgf1Digests` for `RSA-OAEP-256`.
+
+To encrypt a JWE or a nested JWT to the device, a sender needs only the key's public JWK: `key.publicJwk()` with `jweEncryptCompact` or `jwtEncryptNested`, on the device or on a server. The device decrypts with `jweDecryptCompactWithPlatformKey` or `jwtDecryptNestedWithPlatformKey`.
 
 ## Example app
 

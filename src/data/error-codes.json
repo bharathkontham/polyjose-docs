@@ -167,6 +167,35 @@
         "A sandbox or runtime that blocks the platform's random source",
         "Generating a key, encrypting or signing where no secure random source exists"
       ]
+    },
+    {
+      "code": "KeyNotFound",
+      "meaning": "A platform key (Kotlin, Swift and Rust) is not usable: there is no key under that name, or the platform has invalidated it.",
+      "causes": [
+        "Opening a tag or alias under which no key was created, or whose key was deleted",
+        "An Android key invalidated by the platform, for example after the lock screen was removed or reset, or the biometrics changed",
+        "A `PlatformKey` implementation that reports the key as not found"
+      ]
+    },
+    {
+      "code": "UserAuthenticationRequired",
+      "meaning": "A platform key (Kotlin, Swift and Rust) needs the user to authenticate, and they have not, or cancelled or failed the prompt.",
+      "causes": [
+        "The user cancelled the system's biometric or passcode prompt, or failed it",
+        "An Apple key used while biometry is locked out",
+        "An Android time-bound key used outside its validity window",
+        "A `PlatformKey` implementation that reports that the user has not authenticated"
+      ]
+    },
+    {
+      "code": "PlatformKeyFailed",
+      "meaning": "A platform key (Kotlin, Swift and Rust) failed in any other way while creating, opening or signing.",
+      "causes": [
+        "A signature from the platform that is malformed or does not verify against the key's public JWK",
+        "Creating a key under a tag or alias that already holds one",
+        "StrongBox `Required` on a device without StrongBox",
+        "Any other platform error; during a decryption, polyjose reports `DecryptionFailed` instead"
+      ]
     }
   ]
 }

@@ -5,7 +5,7 @@ description: Every JOSE algorithm identifier polyjose recognises, what it does w
 
 import AlgorithmMatrix from '../../../components/AlgorithmMatrix.astro';
 
-This page describes polyjose 0.3.0.
+This page describes polyjose 0.4.0.
 
 polyjose recognises the JOSE algorithm identifiers on this page, spelled exactly as in the [IANA JOSE registry](https://www.iana.org/assignments/jose/jose.xhtml). The same identifiers, with the same behaviour, apply in Rust, Node, the Web, Kotlin and Swift.
 
@@ -17,11 +17,11 @@ Recognising an identifier is not the same as accepting it. Every verify and decr
 
 Where a recipient expects `RSA-OAEP`, use `RSA-OAEP-256` instead, or ECDH-ES for new recipients.
 
-RFC 7518 marks three algorithms Required: `HS256` for JWS ([RFC 7518 §3.1](https://www.rfc-editor.org/rfc/rfc7518#section-3.1)), and `A128CBC-HS256` and `A256CBC-HS512` for JWE content encryption ([RFC 7518 §5.1](https://www.rfc-editor.org/rfc/rfc7518#section-5.1)). polyjose 0.3.0 implements all three. Of the Recommended algorithms, it leaves out `RSA1_5`, which is Recommended- and which RFC 8725 §3.2 tells applications to avoid, and `RSA-OAEP`, which is Recommended+ ([RFC 7518 §4.1](https://www.rfc-editor.org/rfc/rfc7518#section-4.1)) and uses SHA-1.
+RFC 7518 marks three algorithms Required: `HS256` for JWS ([RFC 7518 §3.1](https://www.rfc-editor.org/rfc/rfc7518#section-3.1)), and `A128CBC-HS256` and `A256CBC-HS512` for JWE content encryption ([RFC 7518 §5.1](https://www.rfc-editor.org/rfc/rfc7518#section-5.1)). polyjose 0.4.0 implements all three. Of the Recommended algorithms, it leaves out `RSA1_5`, which is Recommended- and which RFC 8725 §3.2 tells applications to avoid, and `RSA-OAEP`, which is Recommended+ ([RFC 7518 §4.1](https://www.rfc-editor.org/rfc/rfc7518#section-4.1)) and uses SHA-1.
 
 ## Reading the tables
 
-- Each table has one column per operation: **Sign** and **Verify** for JWS, **Encrypt** and **Decrypt** for JWE. **Yes** means the operation is part of 0.3.0.
+- Each table has one column per operation: **Sign** and **Verify** for JWS, **Encrypt** and **Decrypt** for JWE. **Yes** means the operation is part of 0.4.0.
 - RSA keys work in both directions: the private key signs `RS*` and `PS*` tokens and decrypts `RSA-OAEP-256`, and the public key verifies and encrypts. RSA keys can't be generated; import them from a JWK, PEM or DER.
 - **No** in both columns means polyjose recognises the identifier only to report a precise error.
 - **Specification** gives the section that defines the identifier, then its requirement level: the "JOSE Implementation Requirements" value in the IANA registry. RFC 7518 §3.1, §4.1 and §5.1 set it for the algorithms that RFC defines. A `+` means the requirement is likely to become stronger in a future version of the specification, and a `-` that it is likely to become weaker.
@@ -45,3 +45,12 @@ For new tokens, prefer `Ed25519`. [RFC 9864](https://www.rfc-editor.org/rfc/rfc9
 <AlgorithmMatrix group="zip" />
 
 Compressing data before encrypting it can leak information about the plaintext ([RFC 8725 §3.6](https://www.rfc-editor.org/rfc/rfc8725#section-3.6)), so compression is off unless you turn it on.
+
+## Platform keys
+
+In Kotlin and Swift, a key held by the Secure Enclave, the Keychain (a Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key), the Android Keystore or StrongBox can serve these algorithms, when its key store supports them:
+
+- **Signing:** `ES256`, `ES384`, `ES512`, `RS256`, `RS384`, `RS512`, `PS256`, `PS384` and `PS512`.
+- **Decryption:** `ECDH-ES`, `ECDH-ES+A128KW`, `ECDH-ES+A192KW` and `ECDH-ES+A256KW` on P-256, P-384 and P-521, and `RSA-OAEP-256`.
+
+`AppleKey` and `AndroidKeystoreKey` refuse any other algorithm with `UnsupportedAlgorithm` when the key is created. Only `ES256` and ECDH-ES on P-256 are available in every key store. [Hardware-backed keys › Key stores and algorithms](/guides/hardware-backed-keys/#key-stores-and-algorithms) lists what each key store supports, and from which OS version.

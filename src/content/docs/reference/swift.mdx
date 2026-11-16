@@ -20,3 +20,45 @@ This page has the details of the polyjose Swift package that you don't need to g
 - **Wiping returned `Data` doesn't remove every copy.** The generated `Polyjose.swift` copies secret inputs (keys, payloads, plaintexts, `aad`, `detachedPayload`) and secret outputs (`payload`, `plaintext`, `aad`) through temporary Swift arrays, and frees them without wiping them. The Rust side of the call leaves unwiped copies on its own heap too, as the [Kotlin library](/reference/android/#copies-left-on-the-rust-heap) does, through the same generated interface layer. Your wipe reaches only the `Data` you hold. Reading the freed memory needs access to your app's process (a debugger, a core dump or a jailbroken device).
 
 [Secrets in memory](/security/model/#secrets-in-memory) covers what every platform does with secrets.
+
+## Platform keys
+
+`AppleKey` signs and decrypts with a Secure Enclave or Keychain key, and the `PlatformKey` protocol lets you bring any other key holder. A Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. Printing an `AppleKey` shows its type and `protection` only, never its tag or public key. [Hardware-backed keys](/guides/hardware-backed-keys/) shows how to create, find, use and delete one, the algorithms each key store supports, and the error codes.
+
+**Face ID needs `NSFaceIDUsageDescription`.** An app whose `AppleKey` access control can use biometry (`.biometryCurrentSet`, `.biometryAny`, or `.userPresence` where Face ID is used) must set `NSFaceIDUsageDescription` in its Info.plist: Apple's documentation says the key "is required if your app uses APIs that access Face ID" ([`NSFaceIDUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsfaceidusagedescription)). With a generated Info.plist, set the build setting `INFOPLIST_KEY_NSFaceIDUsageDescription`. Without the key, iOS terminated the app when a `.biometryCurrentSet` key signed, on an iPhone 16 with iOS 27.0.1: "attempted to access privacy-sensitive data without a usage description. The app's Info.plist must contain an NSFaceIDUsageDescription key". On that device, the first Face ID use showed a one-time iOS prompt asking whether the app may use Face ID, before the Face ID prompt itself, and the `.biometryCurrentSet` prompt offered Face ID only, with no passcode fallback.
+
+### `AppleKey`
+
+<table tabindex="0">
+	<caption>The members of <code>AppleKey</code></caption>
+	<thead>
+		<tr>
+			<th scope="col">Member</th>
+			<th scope="col">What it does</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>static func generate(tag:algorithm:protection:access:keySizeInBits:)</code></th><td>Creates a permanent key under <code>kSecAttrApplicationTag</code> = the tag's UTF-8 bytes. <code>access</code> defaults to <code>Access()</code>; <code>keySizeInBits</code> to 2048 for RSA and 256 for ECDH-ES</td></tr>
+		<tr><th scope="row"><code>static func open(tag:algorithm:context:)</code></th><td>Finds the private key stored under the tag and binds it to the algorithm. <code>context</code> (an <code>LAContext</code>, optional) is the authentication context of the key's calls</td></tr>
+		<tr><th scope="row"><code>static func delete(tag:)</code></th><td>Deletes every key under the tag; no key is not an error</td></tr>
+		<tr><th scope="row"><code>init(secKey:algorithm:)</code></th><td>Wraps a private <code>SecKey</code> your app holds</td></tr>
+		<tr><th scope="row"><code>protection</code></th><td><code>.secureEnclave</code> or <code>.keychain</code>, as the platform reports it (<code>kSecAttrTokenID</code>)</td></tr>
+		<tr><th scope="row"><code>publicJwk()</code>, <code>algorithms()</code></th><td>The public JWK as JSON text, public members only; the algorithm the key is bound to, or the four ECDH-ES names</td></tr>
+		<tr><th scope="row"><code>AppleKey.Access(accessibility:flags:context:)</code></th><td><code>accessibility</code>: <code>.whenUnlockedThisDeviceOnly</code> (the default), <code>.afterFirstUnlockThisDeviceOnly</code>, <code>.whenPasscodeSetThisDeviceOnly</code>. <code>flags</code>: <code>.userPresence</code>, <code>.biometryAny</code>, <code>.biometryCurrentSet</code>, <code>.devicePasscode</code>. <code>context</code>: an optional <code>LAContext</code></td></tr>
+	</tbody>
+</table>
+
+- **Errors.** `generate`, `open`, `delete` and `init(secKey:algorithm:)` throw `PolyjoseError`: `UnsupportedAlgorithm` (an algorithm or size the protection can't serve), `KeyAlgorithmMismatch` (a key that can't serve the algorithm), `InvalidKey` (`init` given a public key), `KeyNotFound`, `UserAuthenticationRequired` and `PlatformKeyFailed` (including a tag that already holds a key). A call that uses the key reports `KeyNotFound`, `UserAuthenticationRequired`, and any other platform failure as `PlatformKeyFailed` when signing and `DecryptionFailed` when decrypting.
+- **Threads.** Every call is synchronous. A key with an `access` flag shows a system prompt during the call and blocks its thread until the user answers, so call it off the main thread.
+
+### Secure Enclave
+
+`protection: .secureEnclave`: a hardware-bound P-256 key that can't be exported, for `ES256` and the ECDH-ES family. Any other algorithm or size, and a device without a Secure Enclave, is `UnsupportedAlgorithm`, with no fallback. [Get started › Secure Enclave](/start/swift/#secure-enclave) has a complete example.
+
+### Keychain
+
+`protection: .keychain`: stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. `ES256`, `ES384`, `ES512`; `RS256` to `RS512` and `PS256` to `PS512` and `RSA-OAEP-256` with 2048, 3072 or 4096-bit keys; the ECDH-ES family on P-256, P-384 and P-521. [Get started › Keychain](/start/swift/#keychain) has a complete example.
+
+### Use a key you already have
+
+`open(tag:algorithm:)` finds a private key your app stored with its own `kSecAttrApplicationTag` (the tag's UTF-8 bytes), in the data protection keychain; `init(secKey:algorithm:)` wraps any private `SecKey`. Both check the key type, size and `SecKeyIsAlgorithmSupported`, and fail with `KeyAlgorithmMismatch` otherwise. [Get started › Use a key you already have](/start/swift/#use-a-key-you-already-have) has an example, and [Hardware-backed keys › Use a key you already have](/guides/hardware-backed-keys/#use-a-key-you-already-have) the attributes it matches.

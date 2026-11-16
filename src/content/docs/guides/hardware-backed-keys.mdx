@@ -1,0 +1,434 @@
+---
+title: Hardware-backed keys
+description: Sign and decrypt in Swift and Kotlin with keys that the Secure Enclave, the Keychain, the Android Keystore or StrongBox holds, and know what each key store protects.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import Sample from '../../../components/samples/Sample.astro';
+
+This page describes polyjose 0.4.0.
+
+In Swift and Kotlin, polyjose can sign and decrypt with a private key that the operating system holds: a Secure Enclave or Keychain key on Apple platforms, an Android Keystore or StrongBox key on Android. Your app creates the key under a name, finds it again on later launches, and passes it to polyjose instead of a JWK. polyjose asks the platform for one private-key step at a time and never sees the private key. It ships two such keys, `AppleKey` in Swift and `AndroidKeystoreKey` in Kotlin, and an interface, `PlatformKey`, for any other key holder.
+
+Node.js and the web have no platform keys. Rust has the same `PlatformKey` trait and `…_with_platform_key` functions, with no key class of its own: you implement the trait. On Node.js and the web, keep a JWK encrypted at rest as [Store keys securely](/guides/secure-key-storage/) shows.
+
+<Aside type="caution" title="About the code on this page">
+The Swift code on this page comes from this site's sample tests, which run against polyjose on macOS. The samples that store a key under a tag are compiled there but not run, because macOS lets only a signed app with a keychain entitlement store a key. The Kotlin code isn't in this site's samples, because Android Keystore code needs Android. The Kotlin snippets that create, find and delete a key, sign, decrypt, choose StrongBox, set user authentication and open a key your app created itself make the same calls as the polyjose library's Android instrumented tests; the error-handling and `JcaEs256Key` code are examples to adapt.
+</Aside>
+
+## Start with ES256 and ECDH-ES on P-256
+
+Each key store can do a different set of algorithms. Only two work with every one of them: `ES256` for signing, and ECDH-ES (`ECDH-ES`, `ECDH-ES+A128KW`, `ECDH-ES+A192KW`, `ECDH-ES+A256KW`) on P-256 for decryption. Use them unless a peer needs something else. [Key stores and algorithms](#key-stores-and-algorithms) lists the rest.
+
+## What the platform does and what polyjose does
+
+Only the step that needs the private key moves to the operating system. Everything else stays in polyjose, in Rust:
+
+<table tabindex="0">
+	<caption>Who does each step with a platform key</caption>
+	<thead>
+		<tr>
+			<th scope="col">Operation</th>
+			<th scope="col">The platform does</th>
+			<th scope="col">polyjose does</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">Signing (<code>ES*</code>, <code>RS*</code>, <code>PS*</code>)</th><td>Computes the signature, including the hash of the signing input</td><td>Builds the header and the signing input; checks the allow-list and that the key is bound to the algorithm; converts an ECDSA signature to the JOSE form (<a href="https://www.rfc-editor.org/rfc/rfc7518#section-3.4">RFC 7518 §3.4</a>); verifies the signature against the key's public JWK before it returns the token</td></tr>
+		<tr><th scope="row">ECDH-ES decryption</th><td>Computes the shared secret Z with the sender's ephemeral public key</td><td>Checks the allow-lists and the key; validates the ephemeral public key (<a href="https://www.rfc-editor.org/rfc/rfc7518#section-4.6.1.1">RFC 7518 §4.6.1.1</a>); derives the key with the Concat KDF (<a href="https://www.rfc-editor.org/rfc/rfc7518#section-4.6.2">§4.6.2</a>); unwraps it; decrypts the content and checks its tag</td></tr>
+		<tr><th scope="row"><code>RSA-OAEP-256</code> decryption</th><td>Decrypts the JWE Encrypted Key into the content encryption key (CEK)</td><td>Everything else, including the random substitute CEK that hides a failed key decryption (<a href="https://www.rfc-editor.org/rfc/rfc7516#section-11.5">RFC 7516 §11.5</a>)</td></tr>
+	</tbody>
+</table>
+
+Verifying, encrypting to a recipient, key derivation, key unwrap and content encryption never move to the platform. To verify a token a platform key signed, or to encrypt to one, use its public JWK with the usual calls.
+
+The shared secret Z and the CEK pass through your app's memory, as they do with every JOSE library, because key derivation and content decryption run there. The private key doesn't: polyjose never asks for it, and a Secure Enclave or Android Keystore key can't be exported (an iOS Keychain key can, by code that holds its reference). polyjose wipes its own copies of Z and the CEK; [Security model › Platform keys](/security/model/#platform-keys) lists the copies it can't wipe.
+
+Before polyjose asks the platform for anything, it runs the same checks as with a JWK: the header rules, your `allowedAlgs` and `allowedEnc`, and whether the key may serve the algorithm. An algorithm outside your allow-list never reaches the key. A key serves only the algorithm it was created for, and using it for another one fails with `KeyAlgorithmMismatch`.
+
+## Key stores and algorithms
+
+<table tabindex="0">
+	<caption>The keys polyjose creates in each key store</caption>
+	<thead>
+		<tr>
+			<th scope="col">Key store</th>
+			<th scope="col">Signing</th>
+			<th scope="col">Decryption</th>
+			<th scope="col">Minimum OS</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row">Secure Enclave (<code>AppleKey</code>, <code>.secureEnclave</code>)</th><td><code>ES256</code></td><td>ECDH-ES family on P-256</td><td>iOS 16, macOS 13, watchOS 9</td></tr>
+		<tr><th scope="row">Keychain (<code>AppleKey</code>, <code>.keychain</code>)</th><td><code>ES256</code>, <code>ES384</code>, <code>ES512</code>; <code>RS256</code> to <code>RS512</code> and <code>PS256</code> to <code>PS512</code> with 2048, 3072 or 4096-bit keys</td><td>ECDH-ES family on P-256, P-384 and P-521; <code>RSA-OAEP-256</code> with 2048, 3072 or 4096-bit keys</td><td>iOS 16, macOS 13, watchOS 9</td></tr>
+		<tr><th scope="row">Android Keystore (<code>AndroidKeystoreKey</code>)</th><td><code>ES256</code>, <code>ES384</code>, <code>ES512</code>; <code>RS256</code> to <code>RS512</code> and <code>PS256</code> to <code>PS512</code> with 2048, 3072 or 4096-bit keys</td><td>ECDH-ES family on P-256, P-384 and P-521; <code>RSA-OAEP-256</code> with 2048, 3072 or 4096-bit keys</td><td>Android 6 (API 23); per algorithm in the next table</td></tr>
+		<tr><th scope="row">StrongBox (<code>AndroidKeystoreKey</code>)</th><td><code>ES256</code>; <code>RS256</code> and <code>PS256</code> with 2048-bit keys</td><td>ECDH-ES family on P-256; <code>RSA-OAEP-256</code> with 2048-bit keys</td><td>Android 9 (API 28); per algorithm in the next table</td></tr>
+	</tbody>
+</table>
+
+- **The Secure Enclave holds P-256 keys only,** and they can't be exported. It is the only hardware-bound protection on Apple platforms.
+- **Keychain keys are stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key.** Use the Secure Enclave where `ES256` and P-256 are enough.
+- **An Android Keystore key** can't be exported. Its `securityLevel` says where the Keystore keeps it: in the device's trusted execution environment (TEE), in StrongBox, or in software ([Android: StrongBox and the security level](#android-strongbox-and-the-security-level)).
+- Anything not in the table, such as `ES384` in the Secure Enclave, `EdDSA` or `HS256`, fails with `UnsupportedAlgorithm` when you create the key, never later when you use it.
+
+Android adds each algorithm at a different API level:
+
+<table tabindex="0">
+	<caption>Lowest Android API level at which polyjose creates each key</caption>
+	<thead>
+		<tr>
+			<th scope="col">Algorithm</th>
+			<th scope="col">Android Keystore</th>
+			<th scope="col">StrongBox</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>ES256</code></th><td>23</td><td>28</td></tr>
+		<tr><th scope="row"><code>ES384</code>, <code>ES512</code></th><td>23</td><td>–</td></tr>
+		<tr><th scope="row"><code>RS256</code>, <code>PS256</code></th><td>23</td><td>28, 2048-bit keys</td></tr>
+		<tr><th scope="row"><code>RS384</code>, <code>RS512</code>, <code>PS384</code>, <code>PS512</code></th><td>23</td><td>–</td></tr>
+		<tr><th scope="row">ECDH-ES family, P-256</th><td>31</td><td>31</td></tr>
+		<tr><th scope="row">ECDH-ES family, P-384 and P-521</th><td>31</td><td>–</td></tr>
+		<tr><th scope="row"><code>RSA-OAEP-256</code></th><td>34</td><td>34, 2048-bit keys</td></tr>
+	</tbody>
+</table>
+
+A dash means polyjose doesn't create that key in StrongBox. Below the listed level, creating or opening the key fails with `UnsupportedAlgorithm`. The library's minimum stays API 23.
+
+## Create a key and find it again
+
+Create the key once, under a tag (Apple) or an alias (Android) of your choice, and register its public JWK wherever tokens are verified or encrypted. `publicJwk()` returns it as JSON text. On later launches, open the key by the same name. Each key is bound to one algorithm: a signing algorithm, `RSA-OAEP-256`, or `ECDH-ES`, which also covers the three `ECDH-ES+A*KW` forms; your decrypt allow-list picks among them.
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+import dev.polyjose.*
+
+// Once, for example when the user signs in: create the key in the Android Keystore.
+val created = AndroidKeystoreKey.generate("signing-key", "ES256")
+val publicJwk = created.publicJwk() // register this with your server
+
+// On every later launch: find it again by its alias.
+val key = AndroidKeystoreKey.open("signing-key", "ES256")
+
+// When the user signs out, or the key must be replaced:
+AndroidKeystoreKey.delete("signing-key")
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/create-open-delete" />
+
+</TabItem>
+</Tabs>
+
+- **Creating** under a name that already holds a key fails with `PlatformKeyFailed`: delete the old key first. A failed create leaves no key behind.
+- **Opening** a name that has no key fails with `KeyNotFound`. Opening a key for an algorithm it wasn't created for fails with `KeyAlgorithmMismatch`.
+- **Deleting** a name that has no key is not an error.
+- `keySizeInBits:` (Swift) and `keySize` (Kotlin) choose the RSA key size (2048, the default, 3072 or 4096) or the ECDH-ES curve (256, the default, 384 or 521). `ES256`, `ES384` and `ES512` imply their curve.
+
+On Apple platforms, every key polyjose creates is `ThisDeviceOnly` and never synchronizable, and polyjose always uses the data protection keychain, also on macOS. On macOS, storing a key needs a signed app with a keychain entitlement, which is Apple's rule: an unsigned binary gets `PlatformKeyFailed` from `generate`.
+
+In Swift you can also wrap a private `SecKey` your app created itself. It is bound to the algorithm you name, and `protection` reports where it lives:
+
+<Sample platform="swift" id="hardware-backed-keys/own-seckey" />
+
+## Sign a JWT
+
+Pass the key where a signing call would take a JWK. The signing operations for platform keys are `jwsSignCompactWithPlatformKey` and `jwtSignWithPlatformKey`. Anyone with the public JWK verifies the token as usual, with `jwtVerify` or `jwsVerifyCompact`.
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+val token = jwtSignWithPlatformKey("""{"iss":"joe","sub":"keystore"}""", key, JwtSignOptions(alg = "ES256"))
+val verified = jwtVerify(token, key.publicJwk(), JwtVerifyOptions(allowedAlgs = listOf("ES256"), allowMissingExp = true))
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/sign-jwt" />
+
+</TabItem>
+</Tabs>
+
+polyjose verifies every signature the platform returns against the key's public JWK before it returns the token. A signature that doesn't verify, for example because a different key sits behind the name, fails with `PlatformKeyFailed` instead of producing a bad token.
+
+## Decrypt a JWE
+
+The sender encrypts to the key's public JWK with `jweEncryptCompact` or `jweEncryptJson`, as for any other key. The app decrypts with `jweDecryptCompactWithPlatformKey` or `jweDecryptJsonWithPlatformKey`, and a nested JWT with `jwtDecryptNestedWithPlatformKey` or `jwtDecryptNestedWithPlatformKeyAndJwks`, which verify the inner JWT with an ordinary public JWK or JWK Set.
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+val key = AndroidKeystoreKey.generate("decryption-key", "ECDH-ES")
+
+// The sender encrypts to the key's public JWK, as for any other key.
+val token = jweEncryptCompact(
+    "hello".toByteArray(),
+    JweEncryptOptions(enc = "A256GCM", recipients = listOf(JweRecipient(alg = "ECDH-ES+A256KW", key = key.publicJwk()))),
+)
+
+// The app decrypts with the platform key. Only the ECDH agreement runs in the Keystore.
+val decrypted = jweDecryptCompactWithPlatformKey(
+    token,
+    key,
+    JweDecryptOptions(allowedAlgs = listOf("ECDH-ES+A256KW"), allowedEnc = listOf("A256GCM")),
+)
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/decrypt-jwe" />
+
+</TabItem>
+</Tabs>
+
+As with a JWK, a failed decryption is the single `DecryptionFailed` ([RFC 7516 §11.5](https://www.rfc-editor.org/rfc/rfc7516#section-11.5)), a wrong or tampered encrypted key included. The two exceptions are `KeyNotFound` and `UserAuthenticationRequired`, which say nothing about the token.
+
+## Use a key you already have
+
+A key your app created before it used polyjose, in the Keychain, the Secure Enclave or the Android Keystore, can sign and decrypt with polyjose as it is: open it by the name your app gave it, for the one algorithm it serves. You don't create it again, and its public JWK stays the same.
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+// Your app created this key before it used polyjose.
+KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").run {
+    initialize(
+        KeyGenParameterSpec.Builder("existing-key", KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .build(),
+    )
+    generateKeyPair()
+}
+
+val key = AndroidKeystoreKey.open("existing-key", "ES256")
+val token = jwtSignWithPlatformKey(claims, key, JwtSignOptions(alg = "ES256"))
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/existing-key" />
+
+</TabItem>
+</Tabs>
+
+The library's tests do exactly this on both platforms: a key created with the platform's own API, not with polyjose, opened by its name, signing a JWT that verifies with its public JWK, and decrypting a JWE and a nested JWT encrypted to that public JWK.
+
+### On Android: the settings each algorithm needs
+
+`AndroidKeystoreKey.open(alias, algorithm)` reads the key's `KeyInfo` and accepts the key only when it permits the algorithm:
+
+<table tabindex="0">
+	<caption>What an existing Android Keystore key needs for each algorithm</caption>
+	<thead>
+		<tr>
+			<th scope="col">Algorithm</th>
+			<th scope="col">Key</th>
+			<th scope="col">Purpose</th>
+			<th scope="col">Digest and padding</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>ES256</code>, <code>ES384</code>, <code>ES512</code></th><td>EC on <code>secp256r1</code>, <code>secp384r1</code>, <code>secp521r1</code></td><td><code>PURPOSE_SIGN</code></td><td><code>DIGEST_SHA256</code>, <code>DIGEST_SHA384</code>, <code>DIGEST_SHA512</code></td></tr>
+		<tr><th scope="row"><code>RS256</code>, <code>RS384</code>, <code>RS512</code></th><td>RSA, 2048, 3072 or 4096 bits</td><td><code>PURPOSE_SIGN</code></td><td>The SHA-2 digest of the same size; <code>SIGNATURE_PADDING_RSA_PKCS1</code></td></tr>
+		<tr><th scope="row"><code>PS256</code>, <code>PS384</code>, <code>PS512</code></th><td>RSA, 2048, 3072 or 4096 bits</td><td><code>PURPOSE_SIGN</code></td><td>The SHA-2 digest of the same size; <code>SIGNATURE_PADDING_RSA_PSS</code></td></tr>
+		<tr><th scope="row"><code>ECDH-ES</code> (the whole family)</th><td>EC on P-256, P-384 or P-521</td><td><code>PURPOSE_AGREE_KEY</code> (API 31)</td><td>None</td></tr>
+		<tr><th scope="row"><code>RSA-OAEP-256</code></th><td>RSA, 2048, 3072 or 4096 bits</td><td><code>PURPOSE_DECRYPT</code></td><td><code>DIGEST_SHA256</code>; <code>ENCRYPTION_PADDING_RSA_OAEP</code>; on API 35 and later also <code>setMgf1Digests(KeyProperties.DIGEST_SHA256)</code></td></tr>
+	</tbody>
+</table>
+
+- **Extra settings are accepted.** A key with `PURPOSE_SIGN or PURPOSE_VERIFY`, or with more digests and paddings than the algorithm needs, opens: one RSA key with SHA-256 and SHA-512 and both signature paddings opened as `RS256`, `PS256` and `RS512`.
+- **A key that lacks a setting fails with `KeyAlgorithmMismatch`**: the wrong digest (including a key with `DIGEST_NONE` only), padding, purpose, curve or key type, or an RSA key of another size, such as 1024 bits.
+- **The MGF1 digest of `RSA-OAEP-256` isn't checked by `open`.** A key created without `setMgf1Digests(DIGEST_SHA256)` opens. On the API 36 emulator, whose KeyMint is the software implementation, every decryption with such a key failed with `DecryptionFailed`, and the same key with that setting decrypted. On the API 34 emulator, which has no `setMgf1Digests`, a key with the other settings decrypted. Other devices weren't measured. polyjose's own `generate` sets it, and checks a new key, as [Android: StrongBox and the security level](#android-strongbox-and-the-security-level) describes; for a key your app made, decrypt one test token before you rely on it.
+- **Other outcomes of `open`.** No key under the alias, or an alias that holds a secret key such as an AES key, is `KeyNotFound`. An `ECDH-ES+A*KW` name is `UnsupportedAlgorithm`: open the key as `ECDH-ES`, which serves the whole family. Below the algorithm's API level, `open` fails with `UnsupportedAlgorithm` too.
+- **User authentication.** A key that needs authentication for each use takes the `PlatformKeyAuthorizer` you pass to `open`, as in [User authentication](#user-authentication).
+- `securityLevel` reports where the key lives, as for a key polyjose created.
+
+### On Apple platforms: the attributes `open(tag:)` matches
+
+`AppleKey.open(tag:algorithm:)` asks the Security framework for one key item with these attributes:
+
+- `kSecClass` `kSecClassKey` and `kSecAttrKeyClass` `kSecAttrKeyClassPrivate`;
+- `kSecAttrApplicationTag` equal to the tag's UTF-8 bytes, `Data(tag.utf8)`;
+- in the data protection keychain (`kSecUseDataProtectionKeychain`), also on macOS, so a key in the legacy macOS file-based keychain isn't found by `open(tag:)`.
+
+Then it checks the key, as `AppleKey(secKey:algorithm:)` does: `kSecAttrKeyType` EC for `ES*` and ECDH-ES, RSA for `RS*`, `PS*` and `RSA-OAEP-256`; `kSecAttrKeySizeInBits` 256, 384 or 521 for the curve, and 2048, 3072 or 4096 for RSA; and `SecKeyIsAlgorithmSupported` for the algorithm. A key that fails a check is `KeyAlgorithmMismatch`. Accessibility and access control aren't checked: they apply when the key is used.
+
+- **One key, several algorithms.** A software key your app made has no purpose of its own unless your app restricts it: in polyjose's tests on the iOS Simulator, one Keychain P-256 key opened as `ES256` and as `ECDH-ES`, and one RSA key as `RS256`, `PS256` and `RSA-OAEP-256`. `open` doesn't read `kSecAttrCanSign` or `kSecAttrCanDecrypt`: a Keychain RSA key stored with either set to `false` still signed and decrypted there. Each `AppleKey` serves the one algorithm you open it for; use one key per algorithm.
+- **A key under another tag format.** If your app stored the tag as bytes that aren't a UTF-8 string, `open(tag:)` can't find it: query the `SecKey` yourself and pass it to `AppleKey(secKey:algorithm:)`, which also accepts a key that isn't stored at all.
+- `protection` reports `.secureEnclave` for a Secure Enclave key and `.keychain` for any other, from the key's `kSecAttrTokenID`.
+
+### Encrypting to the device needs only the public JWK
+
+A sender encrypts a JWE or a nested JWT to the key's public JWK, `publicJwk()`, with `jweEncryptCompact`, `jweEncryptJson` or `jwtEncryptNested`, on the device or on a server. It never needs the platform key. The device decrypts with `jweDecryptCompactWithPlatformKey`, `jweDecryptJsonWithPlatformKey` or `jwtDecryptNestedWithPlatformKey`, as in [Decrypt a JWE](#decrypt-a-jwe).
+
+## Apple: Secure Enclave or Keychain
+
+`AppleKey.generate` takes a `protection`:
+
+- **`.secureEnclave`**: a hardware-bound P-256 key that can't be exported, for `ES256` and the ECDH-ES family. Any other algorithm or size fails with `UnsupportedAlgorithm`, and so does a device without a Secure Enclave. There is no fallback to a Keychain key.
+- **`.keychain`**: the key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. It supports every algorithm in the table above.
+
+The key's `protection` property says where the key lives, as the Security framework reports it (`kSecAttrTokenID`), not what was asked for. An app that wants the Secure Enclave where it exists and a Keychain key elsewhere makes the two calls itself, so the choice stays visible in its code.
+
+`access` sets when the key can be used. Its accessibility is `.whenUnlockedThisDeviceOnly` (the default), `.afterFirstUnlockThisDeviceOnly` or `.whenPasscodeSetThisDeviceOnly`. Its flags, `.userPresence`, `.biometryAny`, `.biometryCurrentSet` and `.devicePasscode`, make the system show a prompt during each call that uses the key. `access` can also carry an `LAContext`, which the key's calls use as their authentication context, and `open(tag:algorithm:context:)` takes one too.
+
+<Sample platform="swift" id="hardware-backed-keys/user-presence" />
+
+## Android: StrongBox and the security level
+
+`AndroidKeystoreKey.generate` takes a `strongBox` mode. polyjose never moves a key to the TEE without saying so:
+
+- **`Off`** (the default): the key is created in the TEE. StrongBox is never asked for.
+- **`Preferred`**: the key is created in StrongBox when the device has it and StrongBox can serve the algorithm, and in the TEE otherwise.
+- **`Required`**: StrongBox or nothing. On a device without StrongBox, creating the key fails with `PlatformKeyFailed`; for an algorithm StrongBox can't serve, with `UnsupportedAlgorithm`. No key is left behind.
+
+The key's `securityLevel` property is what the Keystore's `KeyInfo` reports for the key, never what was asked for: `StrongBox`, `TrustedEnvironment`, `Software`, `SecureHardware` below API 31 (where Android doesn't say which secure hardware), or `Unknown`. Read it after `Preferred` to know where the key ended up.
+
+```kotlin
+val key = AndroidKeystoreKey.generate("signing-key", "ES256", AndroidKeystoreKey.StrongBox.Preferred)
+val inStrongBox = key.securityLevel == AndroidKeystoreKey.SecurityLevel.StrongBox
+```
+
+**`RSA-OAEP-256` needs API 34 or later**, for keys generated on API 34 or later. When the new key needs no user authentication, `generate` checks it before returning: polyjose encrypts a random 32-byte content key to it and the Keystore decrypts it. If that fails, the key is deleted and `generate` fails with `UnsupportedAlgorithm`. A key that needs user authentication can't be checked that way, so create one key without authentication on a device first to find out whether it can do `RSA-OAEP-256`.
+
+## User authentication
+
+A key can require the user to authenticate before it signs or decrypts. A call that needs the user waits while the prompt is up, so **call polyjose off the main thread**, as for every [Kotlin](/start/android/#stay-off-the-main-thread) and [Swift](/start/swift/#stay-off-the-main-thread) call. If the user hasn't authenticated, cancels or fails the prompt, or can't authenticate (for example biometry is locked out or not enrolled), the call fails with `UserAuthenticationRequired`: let them try again.
+
+On Apple platforms, set `access` flags when you create the key, as above. The system shows the prompt during the call.
+
+**Face ID needs `NSFaceIDUsageDescription`.** An app whose `AppleKey` access control can use biometry (`.biometryCurrentSet`, `.biometryAny`, or `.userPresence` where Face ID is used) must set `NSFaceIDUsageDescription` in its Info.plist: Apple's documentation says the key "is required if your app uses APIs that access Face ID" ([`NSFaceIDUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsfaceidusagedescription)). With a generated Info.plist, set the build setting `INFOPLIST_KEY_NSFaceIDUsageDescription`. Without the key, iOS terminated the app when a `.biometryCurrentSet` key signed, on an iPhone 16 with iOS 27.0.1: "attempted to access privacy-sensitive data without a usage description. The app's Info.plist must contain an NSFaceIDUsageDescription key". On that device, the first Face ID use showed a one-time iOS prompt asking whether the app may use Face ID, before the Face ID prompt itself, and the `.biometryCurrentSet` prompt offered Face ID only, with no passcode fallback.
+
+On Android, pass `userAuthentication` when you create the key. The device needs a secure lock screen. There are two modes:
+
+- **Time-bound**, `UserAuthentication(validitySeconds > 0, allowDeviceCredential)`. Your app shows its own `BiometricPrompt` or the device credential screen, and after the user authenticates, the key works for that many seconds. Outside that window, calls fail with `UserAuthenticationRequired`. Every key kind can be time-bound.
+- **Per use**, `UserAuthentication(0, allowDeviceCredential)`, for signing and `RSA-OAEP-256` keys on API 28 and later. Each operation is handed, initialised, to the `PlatformKeyAuthorizer` you pass to `generate` or `open`, which returns once the user has authenticated it. polyjose ships `BiometricPromptAuthorizer`, built on the framework's `android.hardware.biometrics.BiometricPrompt`; your app declares `android.permission.USE_BIOMETRIC`. On the main thread it refuses before showing anything, because waiting for the prompt there would deadlock, and the call fails with `PlatformKeyFailed` when signing or `DecryptionFailed` when decrypting.
+
+```kotlin
+// Time-bound: the key works for 30 seconds after your app's own prompt.
+val timeBound = AndroidKeystoreKey.generate(
+    "signing-key", "ES256", userAuthentication = AndroidKeystoreKey.UserAuthentication(30, true),
+)
+
+// Per use: polyjose hands each signature to the authorizer, which shows the prompt.
+val authorizer = BiometricPromptAuthorizer(activity, "Sign in", "Cancel", allowDeviceCredential = true)
+val perUse = AndroidKeystoreKey.generate(
+    "per-use-key", "ES256",
+    userAuthentication = AndroidKeystoreKey.UserAuthentication(0, true), authorizer = authorizer,
+)
+```
+
+`allowDeviceCredential` lets the PIN, pattern or password stand in for a strong biometric. Below API 30, Android decides it: a time-bound key admits the credential and a per-use key doesn't, and asking for the other choice there fails with `UnsupportedAlgorithm`.
+
+ECDH-ES keys on Android are time-bound only. Asking for a per-use ECDH-ES key fails with `UnsupportedAlgorithm`.
+
+A JWE with several recipients can call the key once for each recipient whose algorithm passed your allow-list, so a key that prompts can prompt more than once. `KeyNotFound` or `UserAuthenticationRequired` ends the call at once, so a cancelled prompt isn't followed by another. For such tokens use a time-bound key, or set `maxRecipients` to 1 in `JweDecryptOptions`.
+
+## Errors
+
+Three error codes belong to platform keys:
+
+<table tabindex="0">
+	<caption>Platform key error codes and what an app does</caption>
+	<thead>
+		<tr>
+			<th scope="col">Code</th>
+			<th scope="col">Meaning</th>
+			<th scope="col">What to do</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr><th scope="row"><code>KeyNotFound</code></th><td>No key under that name, or the key was deleted. On Android also a key the platform has invalidated, for example after the lock screen was removed or reset, or the biometrics changed</td><td>Create and register a new key</td></tr>
+		<tr><th scope="row"><code>UserAuthenticationRequired</code></th><td>The user hasn't authenticated (on Android, outside the time-bound window), cancelled or failed the prompt, or can't authenticate: biometry locked out, not available or not enrolled, or no passcode set. On Android, <code>BiometricPromptAuthorizer</code> reports every prompt error, lockout included, as this code</td><td>Prompt, then try again</td></tr>
+		<tr><th scope="row"><code>PlatformKeyFailed</code></th><td>Any other platform failure while creating, opening or signing, including a name that already holds a key, StrongBox <code>Required</code> on a device without StrongBox, and a signature that doesn't verify</td><td>Report it; retrying may not help</td></tr>
+	</tbody>
+</table>
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+try {
+    val token = jwtSignWithPlatformKey(claims, key, JwtSignOptions(alg = "ES256"))
+    send(token)
+} catch (e: PolyjoseException) {
+    when (e.code()) {
+        "UserAuthenticationRequired" -> showRetry() // the user cancelled or hasn't authenticated
+        "KeyNotFound" -> enrolAgain() // the key is gone or invalidated: create and register a new one
+        "PlatformKeyFailed" -> report(e) // retrying may not help
+        else -> throw e
+    }
+}
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/errors" />
+
+</TabItem>
+</Tabs>
+
+For a decryption, any platform failure other than `KeyNotFound` and `UserAuthenticationRequired` is `DecryptionFailed`. Existing codes also apply: `UnsupportedAlgorithm` when you create or open a key for an algorithm, size or authentication mode its key store can't serve, `KeyAlgorithmMismatch` when you open or use a key for an algorithm it wasn't created for, and in Swift `InvalidKey` when `AppleKey(secKey:algorithm:)` gets a public key. Messages never contain the platform's own error text, the tag or the alias, and printing a key shows only its type and its `protection` or `securityLevel`. [Errors](/concepts/errors/) lists every code.
+
+## Implement `PlatformKey` yourself
+
+`AppleKey` and `AndroidKeystoreKey` implement the `PlatformKey` interface (a `protocol` in Swift). You can implement it for any other key holder, such as a smart card or a cloud key management service, also on the desktop JVM, whose library has the interface but no key class. It has five methods:
+
+- `publicJwk()`: the key's public JWK as JSON text, public members only. A JWK with a private member fails with `InvalidKey`.
+- `algorithms()`: the JOSE algorithms the key may be used for, all of the key's own family, such as `["ES256"]`. An algorithm not listed fails with `KeyAlgorithmMismatch`.
+- `sign(alg, signingInput)`: the signature of the JWS signing input. The key hashes the input itself. For `ES*`, return the ASN.1 DER signature that platform signing APIs produce; for `RS*` and `PS*`, the signature octets.
+- `agree(peerPublicKey)`: the ECDH shared secret Z with the peer's public point, given as an uncompressed point (`0x04`, X, Y).
+- `decryptKey(alg, encryptedKey)`: the `RSA-OAEP-256` decryption of the JWE Encrypted Key.
+
+<Tabs syncKey="platform">
+<TabItem label="Kotlin">
+
+```kotlin
+import dev.polyjose.*
+import java.security.KeyPair
+import java.security.Signature
+
+/** A platform key for a P-256 key pair whose private key stays behind the JCA. */
+class JcaEs256Key(private val keys: KeyPair) : PlatformKey {
+    override fun publicJwk(): String = jwkFromDer(keys.public.encoded, "spki")
+
+    override fun algorithms(): List<String> = listOf("ES256")
+
+    // SHA256withECDSA hashes the signing input and returns an ASN.1 DER signature.
+    override fun sign(alg: String, signingInput: ByteArray): ByteArray =
+        Signature.getInstance("SHA256withECDSA").run {
+            initSign(keys.private)
+            update(signingInput)
+            sign()
+        }
+
+    // This key only signs, so polyjose never calls these: algorithms() names no decryption.
+    override fun agree(peerPublicKey: ByteArray): ByteArray = throw PlatformKeyException.Failed()
+
+    override fun decryptKey(alg: String, encryptedKey: ByteArray): ByteArray = throw PlatformKeyException.Failed()
+}
+```
+
+</TabItem>
+<TabItem label="Swift">
+
+<Sample platform="swift" id="hardware-backed-keys/implement" />
+
+</TabItem>
+</Tabs>
+
+polyjose applies every check above to your implementation: the allow-lists, the key binding, the validation of the ephemeral public key, and verification of every signature you return. A faulty implementation can make a call fail, but it can't make polyjose return a token that doesn't verify under the public JWK.
+
+Your methods report failures with `PlatformKeyError` in Swift and `PlatformKeyException` in Kotlin, whose cases are `NotFound`, `UserAuthenticationRequired` and `Failed`. Any other error you throw counts as `Failed`, and its message is dropped. **For a decryption, report `NotFound` or `UserAuthenticationRequired` only for a condition that doesn't depend on the ciphertext**: no such key, or the user hasn't authenticated or cancelled. polyjose reports those two as `KeyNotFound` and `UserAuthenticationRequired`, so they must never reveal anything about a token. Report everything else, such as a key decryption that failed, as `Failed`: polyjose then reports `DecryptionFailed`, like every other decryption failure.

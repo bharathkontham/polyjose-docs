@@ -6,7 +6,7 @@ description: Move a Kotlin or Java project from Nimbus JOSE + JWT to polyjose, t
 import Install from '../../../../components/samples/Install.astro';
 import Sample from '../../../../components/samples/Sample.astro';
 
-This page describes polyjose 0.3.0 and Nimbus JOSE + JWT 10.10.
+This page describes polyjose 0.4.0 and Nimbus JOSE + JWT 10.10.
 
 Each task below shows the Nimbus code first and the polyjose code after it. Both sides are compiled and run as tests against the same example keys. Further tests pass tokens between the two libraries in both directions: JWTs that Nimbus signs verify in polyjose, polyjose JWTs verify with Nimbus's `DefaultJWTProcessor`, and JWEs decrypt either way. So you can move one service at a time while the others still run Nimbus.
 
@@ -194,12 +194,12 @@ polyjose leaves some Nimbus features out on purpose. [What polyjose does not sup
 - **RSA key generation.** There is no `RSAKeyGenerator`: `jwkGenerateForAlg("RS256")` fails with `UnsupportedAlgorithm`. Generate RSA keys with your platform's tools and import them, or switch to EC or Ed25519 keys, which polyjose generates.
 - **`RSA1_5` and `RSA-OAEP`.** Nimbus still supports both. polyjose does neither, in either direction, and a token that uses them fails with `UnsupportedAlgorithm`. Ask senders to move to `RSA-OAEP-256` or `ECDH-ES` before you switch the recipient over.
 - **Compression.** The Kotlin package is built without JWE compression, so a token that Nimbus encrypted with `"zip": "DEF"` fails with `UnsupportedAlgorithm`. Send content uncompressed ([RFC 8725 §3.6](https://www.rfc-editor.org/rfc/rfc8725#section-3.6)).
-- **Keys that never leave hardware.** Nimbus signers and decrypters accept a `java.security.PrivateKey`, which may be a handle to an Android Keystore or PKCS #11 key. polyjose needs the private key as a JWK, so it can't sign or decrypt with such a key. It can verify for it and encrypt to it with the public key, imported with `jwkFromDer(publicKey.encoded, "spki")`. [Store keys securely](/guides/secure-key-storage/) shows how to keep a JWK protected by the Android Keystore instead.
+- **Keys that never leave hardware.** Nimbus signers and decrypters accept a `java.security.PrivateKey`, which may be a handle to an Android Keystore or PKCS #11 key. In polyjose, an Android Keystore or StrongBox key is an `AndroidKeystoreKey`, which you pass to the `…WithPlatformKey` calls, and any other key handle can implement the `PlatformKey` interface. See [Hardware-backed keys](/guides/hardware-backed-keys/). For algorithms the Keystore can't do, [Store keys securely](/guides/secure-key-storage/) shows how to keep a JWK protected by the Android Keystore instead.
 - **Certificates.** Nimbus has helpers for X.509 certificates and can build a JWK from one. polyjose carries `x5c` and `x5u` as data, never validates a certificate chain and doesn't import certificates. Validate certificates with the JVM's own X.509 support, then pass polyjose the public key you trust.
 
 ### Calling polyjose from Java
 
-The package's API is designed for Kotlin, and calling it from Java is awkward in 0.3.0. The functions are Kotlin top-level functions, which Java sees as static methods of `dev.polyjose.Polyjose_ffiKt`. Java has no default arguments, so you pass every field of an options record, and members that take Kotlin unsigned integers get mangled names. If your project is Java only, a small Kotlin module that wraps the calls you need is the simplest route. See [Android and JVM (Kotlin)](/start/android/) and [Java](/security/not-supported/#java).
+The package's API is designed for Kotlin, and calling it from Java is awkward in 0.4.0. The functions are Kotlin top-level functions, which Java sees as static methods of `dev.polyjose.Polyjose_ffiKt`. Java has no default arguments, so you pass every field of an options record, and members that take Kotlin unsigned integers get mangled names. If your project is Java only, a small Kotlin module that wraps the calls you need is the simplest route. See [Android and JVM (Kotlin)](/start/android/) and [Java](/security/not-supported/#java).
 
 ## Checklist
 

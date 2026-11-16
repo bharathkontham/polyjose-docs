@@ -12,8 +12,8 @@
  *   `unavailable` names an unknown platform or a key missing from
  *   src/data/unavailable.json
  * - a region is defined but no page uses it (an orphan)
- * - <Sample> appears outside the get-started pages (start/) and the
- *   migration guides (guides/migrate/)
+ * - <Sample> appears outside the get-started pages (start/), the
+ *   migration guides (guides/migrate/) and the hardware-backed keys guide
  *
  * The build enforces the per-page rules as well; this check adds orphans and
  * the <Sample> page rule, and runs without building the site.
@@ -36,6 +36,13 @@ const DOCS = 'src/content/docs';
  * (a region in the same test file) next to the polyjose code.
  */
 const SINGLE_SAMPLE_DIRS = ['start/', 'guides/migrate/'];
+/**
+ * Single pages where <Sample> may show the Swift region inside the page's own
+ * Kotlin and Swift tabs: the hardware-backed keys guide covers only those two
+ * platforms, and its Kotlin code (Android Keystore) can't be a sample, because
+ * samples/kotlin runs on the JVM.
+ */
+const SINGLE_SAMPLE_PAGES = ['guides/hardware-backed-keys.mdx'];
 const SKIP_DIRS = new Set(['node_modules', 'target', 'build']);
 
 /**
@@ -140,9 +147,9 @@ export function checkCoverage(root) {
 
     // <Sample>
     const page = relative(DOCS, usage.file).split(sep).join('/');
-    if (!SINGLE_SAMPLE_DIRS.some((dir) => page.startsWith(dir))) {
+    if (!SINGLE_SAMPLE_DIRS.some((dir) => page.startsWith(dir)) && !SINGLE_SAMPLE_PAGES.includes(page)) {
       errors.push(
-        `${at} <Sample> is only for get-started pages (start/) and migration guides (guides/migrate/); use <Samples> here so every platform is shown`,
+        `${at} <Sample> is only for get-started pages (start/), migration guides (guides/migrate/) and guides/hardware-backed-keys.mdx; use <Samples> here so every platform is shown`,
       );
     }
     try {

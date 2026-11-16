@@ -31,7 +31,7 @@ const ALL = [...RUSTCRYPTO, ...DALEK, ...RUST_RANDOM];
 // Quarkslab post names subtle among the libraries it audited.
 const REVIEWED = ['aes-gcm', 'k256', 'curve25519-dalek', 'rsa', 'crypto-bigint', 'subtle'];
 
-// Each crate's exact version in polyjose's Cargo.lock at commit 700394e (0.3.0), copied
+// Each crate's exact version in polyjose's Cargo.lock at commit dc41ae3 (0.4.0), copied
 // by hand. A fixture on purpose: the data file is compared with the lockfile's
 // values, not with itself.
 const LOCKED = {
@@ -418,7 +418,7 @@ test('page: each row shows the crate\'s locked version, and says where the versi
     assert.match(row, new RegExp(`<td class="version[^"]*"[^>]*>\\s*<code[^>]*>${p.version.replace(/\./g, '\\.')}</code>`), `${p.crate}: version cell`);
   }
   assert.match(text, /Cargo\.lock/);
-  assert.match(text, /commit 700394e/);
+  assert.match(text, /commit dc41ae3/);
   assert.doesNotMatch(text, /before 0\.1\.0 is published/);
 });
 
@@ -429,9 +429,9 @@ test('page: thanks the upstream maintainers by project name, and shows versions 
   }
   // The page's framing sentence names the polyjose release it describes. Only
   // that exact sentence is exempt; any other x.y.z still fails.
-  const framing = 'This page describes polyjose 0.3.0.';
+  const framing = 'This page describes polyjose 0.4.0.';
   assert.ok(text.includes(framing), 'the framing sentence is on the page');
   const outsideTable = textOf(main.replace(/<table class="primitives[^"]*"[\s\S]*?<\/table>/, ' ')).split(framing).join(' ');
   const versions = [...outsideTable.matchAll(/\bv?\d+\.\d+\.\d+(?:-[\w.]+)?/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.3.0'), [], 'outside the table, only the release the page describes');
+  assert.deepEqual([...new Set(versions)].filter((v) => v !== '0.4.0'), [], 'outside the table, only the release the page describes');
 });

@@ -3,9 +3,11 @@ title: One API on every platform
 description: How the same polyjose operations, types, defaults and errors look in Rust, JavaScript, Kotlin and Swift.
 ---
 
-This page describes polyjose 0.3.0.
+This page describes polyjose 0.4.0.
 
 polyjose is one implementation, written in Rust. The Node and Web packages, the Kotlin library and the Swift package all call that same code through a thin layer that only converts types. So every platform offers the same operations, with the same options, the same defaults and the same [error codes](/concepts/errors/).
+
+Kotlin and Swift also have [platform keys](#platform-keys-kotlin-and-swift), keys that the operating system holds, which Node.js and the Web don't have.
 
 The operation names on this page are fixed for the 0.1.x series.
 
@@ -66,7 +68,7 @@ Rust callers use the crate's own types, which the [API reference](/reference/api
 
 ### Kotlin and Swift: synchronous calls
 
-Calls run on the thread that makes them and throw on failure. Move work off the main thread yourself, for example with `Dispatchers.Default` in Kotlin or a `Task` in Swift.
+Calls run on the thread that makes them and throw on failure. Move work off the main thread yourself, for example with `Dispatchers.Default` in Kotlin or a `Task` in Swift. A call with a platform key that needs the user to authenticate waits while the system prompt is shown.
 
 Kotlin data classes and Swift structs print their fields in `toString()` and `description`, except secret fields, which print as their length only, such as `<redacted, 32 bytes>`. Reading a secret field, such as the key of a `JwsSigner` or a `JweRecipient`, gives the secret itself, so don't log it.
 
@@ -135,5 +137,18 @@ The three `decode…Unverified` operations take only the token. Their results, `
 | `jwtEncryptNested` | Encrypts a signed JWT for one recipient, producing a nested JWT. |
 | `jwtDecryptNested` | Decrypts a nested JWT and verifies the signed JWT inside, with separate settings for each layer. |
 | `jwtDecryptNestedWithJwks` | The same, verifying the inner JWT with a key from a JWK Set. |
+
+### Platform keys (Kotlin and Swift)
+
+These operations take a platform key, an object that implements the `PlatformKey` interface (such as `AppleKey` or `AndroidKeystoreKey`), in place of a private JWK. They exist in Kotlin and Swift, and in Rust as `jws::sign_compact_with_platform_key`, `jwt::sign_with_platform_key`, `jwe::decrypt_compact_with_platform_key` and so on, taking your own implementation of the `PlatformKey` trait. Node.js and the Web don't have them. [Hardware-backed keys](/guides/hardware-backed-keys/) shows them.
+
+| Operation | What it does |
+|---|---|
+| `jwsSignCompactWithPlatformKey` | Signs a payload into a compact JWS with a platform key. |
+| `jwtSignWithPlatformKey` | Signs a claims set into a JWT with a platform key. |
+| `jweDecryptCompactWithPlatformKey` | Decrypts a compact JWE with a platform key. |
+| `jweDecryptJsonWithPlatformKey` | Decrypts a flattened or general JSON JWE with a platform key. |
+| `jwtDecryptNestedWithPlatformKey` | Decrypts a nested JWT with a platform key and verifies the signed JWT inside with a public key. |
+| `jwtDecryptNestedWithPlatformKeyAndJwks` | The same, verifying the inner JWT with a key from a JWK Set. |
 
 Some things are not offered on any platform: RSA key generation and multi-prime RSA keys, `RSA-OAEP` and `RSA1_5`, SHA-1 thumbprints, accepting `none`, and reading a JWE's plaintext without the key. Compression (`zip`) is available only in Rust. [What polyjose does not support](/security/not-supported/) explains each one.

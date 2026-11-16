@@ -55,6 +55,49 @@ Every call runs on the thread that makes it, until it returns. Most calls are qu
 
 <Sample platform="swift" id="start/swift-background" />
 
+## Keys the platform holds
+
+To sign and decrypt with a key that the Secure Enclave or the Keychain holds, use `AppleKey`. This section shows the calls; [Hardware-backed keys](/guides/hardware-backed-keys/) has the details. The samples in this section store a key, which macOS allows only a signed app with a keychain entitlement, so this site's tests compile them but don't run them; the polyjose library's tests make the same calls in an app on the iOS Simulator. The open-or-create pattern and the tags are examples to adapt.
+
+`AppleKey.generate(tag:algorithm:protection:)` creates a key under a tag of your choice, `open(tag:algorithm:)` finds it again on later launches, and `delete(tag:)` removes it. Each key is bound to one algorithm, and its `protection` property says where it lives, as the Security framework reports it.
+
+### Secure Enclave
+
+A Secure Enclave key is a hardware-bound P-256 key that can't be exported, for `ES256` and the ECDH-ES family (`ECDH-ES`, `ECDH-ES+A128KW`, `ECDH-ES+A192KW`, `ECDH-ES+A256KW`). It is the only hardware-bound protection on Apple platforms.
+
+<Sample platform="swift" id="start/swift-secure-enclave" />
+
+- Any other algorithm or size, and a device without a Secure Enclave, fails with `UnsupportedAlgorithm` when you create the key. There is no fallback to a Keychain key.
+- On an iPhone 16 with iOS 27.0.1, a Secure Enclave key was created, found again by its tag from a second run of the app, used to sign and deleted.
+
+### Keychain
+
+A Keychain key is stored and protected by the OS, not hardware-bound; on iOS, code that holds the key reference can export the private key. It serves the algorithms the Secure Enclave can't: `ES384`, `ES512`, `RS256` to `RS512` and `PS256` to `PS512` with 2048, 3072 or 4096-bit keys, the ECDH-ES family on P-384 and P-521, and `RSA-OAEP-256`, as well as `ES256` and ECDH-ES on P-256. Use the Secure Enclave where `ES256` and P-256 are enough.
+
+<Sample platform="swift" id="start/swift-keychain" />
+
+On the same iPhone, Keychain `ES384` and `RS256` keys were created, found again by tag from a second run, used to sign and deleted. `keySizeInBits:` chooses the RSA key size (2048, the default, 3072 or 4096) or the ECDH-ES curve (256, the default, 384 or 521). Every key polyjose creates is `ThisDeviceOnly` and never synchronizable.
+
+### Prompts, threads and errors
+
+These apply to both kinds of key.
+
+- **User authentication.** `access: AppleKey.Access(flags: [.userPresence])` (or `.biometryAny`, `.biometryCurrentSet`, `.devicePasscode`) makes the system show a prompt during each call that uses the key. An `LAContext` in `access`, or passed to `open(tag:algorithm:context:)`, lets one authentication serve several calls: on an iPhone 16 with iOS 27.0.1, one context gave one prompt for two signatures.
+- **Stay off the main thread.** A call on a key that prompts waits for the user, so it blocks its thread for as long as the prompt is up. Make these calls off the main actor, as in [Stay off the main thread](#stay-off-the-main-thread).
+- **Errors.** `KeyNotFound`: no key under the tag (create and register a new key). `UserAuthenticationRequired`: the user hasn't authenticated, cancelled or failed the prompt, or can't authenticate: biometry is locked out, not available or not enrolled, or no passcode is set (prompt, then try again); on the iPhone, a cancelled prompt gave this code. `PlatformKeyFailed` when creating, opening or signing, `DecryptionFailed` when decrypting: any other platform failure. `generate` fails with `PlatformKeyFailed` when the tag already holds a key, and `open` with `KeyAlgorithmMismatch` when the key can't serve the algorithm.
+
+**Face ID needs `NSFaceIDUsageDescription`.** An app whose `AppleKey` access control can use biometry (`.biometryCurrentSet`, `.biometryAny`, or `.userPresence` where Face ID is used) must set `NSFaceIDUsageDescription` in its Info.plist: Apple's documentation says the key "is required if your app uses APIs that access Face ID" ([`NSFaceIDUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nsfaceidusagedescription)). With a generated Info.plist, set the build setting `INFOPLIST_KEY_NSFaceIDUsageDescription`. Without the key, iOS terminated the app when a `.biometryCurrentSet` key signed, on an iPhone 16 with iOS 27.0.1: "attempted to access privacy-sensitive data without a usage description. The app's Info.plist must contain an NSFaceIDUsageDescription key". On that device, the first Face ID use showed a one-time iOS prompt asking whether the app may use Face ID, before the Face ID prompt itself, and the `.biometryCurrentSet` prompt offered Face ID only, with no passcode fallback.
+
+### Use a key you already have
+
+A private key your app stored itself, with `SecKeyCreateRandomKey` and its own `kSecAttrApplicationTag`, works with polyjose without being created again. Find it with `open(tag:algorithm:)`, or wrap the `SecKey` you hold with `AppleKey(secKey:algorithm:)`:
+
+<Sample platform="swift" id="hardware-backed-keys/existing-key" />
+
+`open(tag:)` looks for a private key whose `kSecAttrApplicationTag` is the UTF-8 bytes of the tag, in the data protection keychain, and checks that its type, size and the Security framework's `SecKeyIsAlgorithmSupported` fit the algorithm; otherwise it fails with `KeyAlgorithmMismatch`. [Use a key you already have](/guides/hardware-backed-keys/#use-a-key-you-already-have) has the details for each algorithm.
+
+To encrypt a JWE or a nested JWT to the device, a sender needs only the key's public JWK: `try key.publicJwk()` with `jweEncryptCompact` or `jwtEncryptNested`, on the device or on a server. The device decrypts with `jweDecryptCompactWithPlatformKey` or `jwtDecryptNestedWithPlatformKey`.
+
 ## Example app
 
 The [iOS example app](https://github.com/bharathkontham/polyjose-examples/tree/main/ios), a SwiftUI app, has one example file per task, which you can copy into your app on its own: sign and verify a JWS, issue and validate a JWT, encrypt and decrypt a JWE, and create keys and use a JWK Set. To run every example as a check on an iOS Simulator, run `./run.sh` in its folder.
