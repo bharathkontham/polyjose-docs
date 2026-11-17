@@ -68,3 +68,5 @@ Branch on `code`, never on the message. [Errors](/concepts/errors/) lists every 
 ## Example app
 
 The [Node.js example app](https://github.com/bharathkontham/polyjose-examples/tree/main/node) has one example file per task, which you can copy into your project on its own: sign and verify a JWS, issue and validate a JWT, encrypt and decrypt a JWE, and create keys and use a JWK Set. To run every example as a check, run `npm ci --ignore-scripts && npm run verify` in its folder.
+
+The [TypeScript example app](https://github.com/bharathkontham/polyjose-examples/tree/main/node-ts) has the same examples in strict TypeScript. The [NestJS example app](https://github.com/bharathkontham/polyjose-examples/tree/main/nestjs) is a small service that loads its signing keys from configuration, publishes a JWK Set, issues tokens from a token endpoint and validates them in a JWT guard.

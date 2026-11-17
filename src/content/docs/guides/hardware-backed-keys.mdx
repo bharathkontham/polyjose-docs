@@ -10,6 +10,8 @@ This page describes polyjose 0.4.0.
 
 In Swift and Kotlin, polyjose can sign and decrypt with a private key that the operating system holds: a Secure Enclave or Keychain key on Apple platforms, an Android Keystore or StrongBox key on Android. Your app creates the key under a name, finds it again on later launches, and passes it to polyjose instead of a JWK. polyjose asks the platform for one private-key step at a time and never sees the private key. It ships two such keys, `AppleKey` in Swift and `AndroidKeystoreKey` in Kotlin, and an interface, `PlatformKey`, for any other key holder.
 
+The [iOS](https://github.com/bharathkontham/polyjose-examples/tree/main/ios) and [Android](https://github.com/bharathkontham/polyjose-examples/tree/main/android) example apps have an example file for each of these key stores and an interactive [playground](https://github.com/bharathkontham/polyjose-examples/blob/main/PLAYGROUND.md) for trying each key store and algorithm in the app.
+
 Node.js and the web have no platform keys. Rust has the same `PlatformKey` trait and `…_with_platform_key` functions, with no key class of its own: you implement the trait. On Node.js and the web, keep a JWK encrypted at rest as [Store keys securely](/guides/secure-key-storage/) shows.
 
 <Aside type="caution" title="About the code on this page">
