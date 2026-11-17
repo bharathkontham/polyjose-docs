@@ -101,3 +101,5 @@ To encrypt a JWE or a nested JWT to the device, a sender needs only the key's pu
 ## Example app
 
 The [iOS example app](https://github.com/bharathkontham/polyjose-examples/tree/main/ios), a SwiftUI app, has one example file per task, which you can copy into your app on its own: sign and verify a JWS, issue and validate a JWT, encrypt and decrypt a JWE, and create keys and use a JWK Set. To run every example as a check on an iOS Simulator, run `./run.sh` in its folder.
+
+The app also has an example file for each platform key store, a Keychain key (stored and protected by the OS) and a Secure Enclave key, and an interactive playground with the tabs Checks, Sign, Encrypt, Keys and Log for trying each key store and algorithm on an iPhone or the Simulator. [PLAYGROUND.md](https://github.com/bharathkontham/polyjose-examples/blob/main/PLAYGROUND.md) describes the playground.
