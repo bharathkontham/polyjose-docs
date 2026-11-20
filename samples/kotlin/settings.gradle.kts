@@ -22,7 +22,7 @@ dependencyResolutionManagement {
     versionCatalogs {
         create("libs") {
             from(files(providers.gradleProperty("polyjose.catalog")
-                .getOrElse("../.polyjose/export/polyjose/platforms/android/gradle/libs.versions.toml")))
+                .getOrElse("../.polyjose/export/polyjose/bindings/kotlin/gradle/libs.versions.toml")))
         }
     }
 }

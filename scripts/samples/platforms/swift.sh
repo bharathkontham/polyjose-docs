@@ -3,7 +3,7 @@
 # samples/README.md).
 #
 # Git mode, in the copy of the pinned commit that common.sh exports:
-#   1. platforms/swift/scripts/build-xcframework.sh builds PolyjoseFFI.xcframework (incremental
+#   1. bindings/swift/scripts/build-xcframework.sh builds PolyjoseFFI.xcframework (incremental
 #      after the first run);
 #   2. samples/swift depends on that copy by path, and `swift test` runs on the macOS host, in
 #      Swift 6 language mode with warnings as errors, with POLYJOSE_LOCAL_XCFRAMEWORK=1 so that
@@ -36,8 +36,8 @@ fi
 samples_need cargo
 samples_export_polyjose
 
-echo "==> swift: build PolyjoseFFI.xcframework (platforms/swift/scripts/build-xcframework.sh)"
-"$POLYJOSE_EXPORT/platforms/swift/scripts/build-xcframework.sh"
+echo "==> swift: build PolyjoseFFI.xcframework (bindings/swift/scripts/build-xcframework.sh)"
+"$POLYJOSE_EXPORT/bindings/swift/scripts/build-xcframework.sh"
 
 echo "==> swift: samples (swift test, samples/swift)"
 POLYJOSE_LOCAL_XCFRAMEWORK=1 swift test \

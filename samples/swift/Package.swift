@@ -3,7 +3,7 @@
 // the pinned commit (scripts/samples/platforms/swift.sh). Never published.
 //
 // swift.sh exports that commit to samples/.polyjose/export/polyjose, builds its XCFramework with
-// platforms/swift/scripts/build-xcframework.sh, and runs `swift test` with
+// bindings/swift/scripts/build-xcframework.sh, and runs `swift test` with
 // POLYJOSE_LOCAL_XCFRAMEWORK=1, which makes polyjose's Package.swift use that local build.
 //
 // JOSESwift is a test-only dependency, pinned to one exact version (Package.resolved is committed),

@@ -259,7 +259,7 @@ final class HardwareBackedKeysTests: XCTestCase {
     //
     // These store keys, so the macOS host compiles them and skips them when the Keychain refuses to
     // store an item (see the file comment). polyjose's hosted iOS tests
-    // (platforms/swift/HostedTests/Tests/AppleKeyHostedTests.swift) make the same calls.
+    // (bindings/swift/HostedTests/Tests/AppleKeyHostedTests.swift) make the same calls.
 
     func testStartSecureEnclave() throws {
         try skipUnlessKeysCanBeStored(secureEnclave: true)
