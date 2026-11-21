@@ -6,7 +6,7 @@ description: Sign and decrypt in Swift and Kotlin with keys that the Secure Encl
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 import Sample from '../../../components/samples/Sample.astro';
 
-This page describes polyjose 0.4.0.
+This page describes polyjose 0.5.0.
 
 In Swift and Kotlin, polyjose can sign and decrypt with a private key that the operating system holds: a Secure Enclave or Keychain key on Apple platforms, an Android Keystore or StrongBox key on Android. Your app creates the key under a name, finds it again on later launches, and passes it to polyjose instead of a JWK. polyjose asks the platform for one private-key step at a time and never sees the private key. It ships two such keys, `AppleKey` in Swift and `AndroidKeystoreKey` in Kotlin, and an interface, `PlatformKey`, for any other key holder.
 

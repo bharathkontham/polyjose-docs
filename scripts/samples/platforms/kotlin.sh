@@ -32,13 +32,13 @@ if [ "$SAMPLES_PIN_SOURCE" = registry ]; then
   git init -q "$src"
   git -C "$src" fetch -q --depth 1 "$url" "refs/tags/$tag"
   git -C "$src" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
-  android="$src/platforms/android"
+  kotlin_dir="$src/bindings/kotlin"
 
   echo "==> kotlin: samples against dev.polyjose:polyjose-jvm:$SAMPLES_PIN_VERSION from Maven Central (gradlew -p samples/kotlin test)"
-  "$android/gradlew" --no-daemon --console=plain -p "$SAMPLES_ROOT/samples/kotlin" \
+  "$kotlin_dir/gradlew" --no-daemon --console=plain -p "$SAMPLES_ROOT/samples/kotlin" \
     --project-cache-dir "$SAMPLES_WORK_DIR/gradle/kotlin-samples-registry" \
     -Ppolyjose.version="$SAMPLES_PIN_VERSION" \
-    -Ppolyjose.catalog="$android/gradle/libs.versions.toml" \
+    -Ppolyjose.catalog="$kotlin_dir/gradle/libs.versions.toml" \
     -Psamples.buildDir="$SAMPLES_WORK_DIR/build/kotlin-samples-registry" \
     -Pkotlin.project.persistent.dir="$SAMPLES_WORK_DIR/gradle/kotlin-samples-registry-kotlin" \
     test
@@ -50,18 +50,18 @@ samples_need cargo
   || samples_skip "polyjose's Gradle build needs the Android SDK to configure; set ANDROID_HOME"
 samples_export_polyjose
 
-android="$POLYJOSE_EXPORT/platforms/android"
+kotlin_dir="$POLYJOSE_EXPORT/bindings/kotlin"
 echo "==> kotlin: build the polyjose-jvm jar (gradlew :polyjose-jvm:jar)"
-(cd "$android" && ./gradlew --no-daemon --console=plain :polyjose-jvm:jar)
+(cd "$kotlin_dir" && ./gradlew --no-daemon --console=plain :polyjose-jvm:jar)
 
 # The jar task's one output; the sources and javadoc jars are other tasks.
-jars=$(find "$android/polyjose-jvm/build/libs" -maxdepth 1 -name 'polyjose-jvm-*.jar' \
+jars=$(find "$kotlin_dir/jvm/build/libs" -maxdepth 1 -name 'polyjose-jvm-*.jar' \
   ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print)
 [ -n "$jars" ] && [ "$(printf '%s\n' "$jars" | wc -l | tr -d ' ')" = 1 ] \
-  || { echo "kotlin: expected one polyjose-jvm jar in $android/polyjose-jvm/build/libs" >&2; exit 1; }
+  || { echo "kotlin: expected one polyjose-jvm jar in $kotlin_dir/jvm/build/libs" >&2; exit 1; }
 
 echo "==> kotlin: samples (gradlew -p samples/kotlin test)"
-"$android/gradlew" --no-daemon --console=plain -p "$SAMPLES_ROOT/samples/kotlin" \
+"$kotlin_dir/gradlew" --no-daemon --console=plain -p "$SAMPLES_ROOT/samples/kotlin" \
   --project-cache-dir "$SAMPLES_WORK_DIR/gradle/kotlin-samples" \
   -Ppolyjose.jvmJar="$jars" \
   -Psamples.buildDir="$SAMPLES_WORK_DIR/build/kotlin-samples" \
