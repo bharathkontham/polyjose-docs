@@ -449,6 +449,16 @@ test('scans the sitemap and other non-HTML text files of the built site', (t) =>
   assert.equal(scanned, 11);
 });
 
+test('scans the per-page Markdown of the built site (/<slug>.md)', (t) => {
+  const root = tree({ ...CLEAN_DIST, 'dist/start/rust.md': '# Rust\n\nSee ADR 0040 for the samples.\n' });
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const { findings } = scanSite(root);
+  assert.deepEqual(
+    findings.map((f) => `${f.file}:${f.line}:${f.match}`),
+    ['dist/start/rust.md:3:ADR 0040'],
+  );
+});
+
 test('isAssetUrl matches only built asset paths', () => {
   for (const url of ['/_astro/page.x-T12_ab.js', '_astro/a.css', '../_astro/a.css', './_astro/a.css']) {
     assert.equal(isAssetUrl(url), true, url);
