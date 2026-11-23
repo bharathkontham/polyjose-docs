@@ -1,15 +1,15 @@
 // What lint:refs reads from the built site, beyond the reader-visible page text
 // (lib/html-text.mjs): the URLs that pages link to or load, the built files
-// that are not HTML (the sitemap, robots.txt, JSON and web manifests), and the
-// built scripts, styles, images and source maps (assets), whose content is
-// always read, under /_astro/ too. Only hashed asset file *names* in page URLs
-// are left out (isAssetUrl).
+// that are not HTML (the sitemap, robots.txt, llms.txt, the per-page Markdown,
+// JSON and web manifests), and the built scripts, styles, images and source
+// maps (assets), whose content is always read, under /_astro/ too. Only
+// hashed asset file *names* in page URLs are left out (isAssetUrl).
 
 import { listFiles } from './files.mjs';
 import { decodeEntities, tokens } from './html-text.mjs';
 
 /** Built files that are text but not HTML, by extension (any case). */
-export const DIST_TEXT_EXTENSIONS = ['.xml', '.txt', '.json', '.webmanifest'];
+export const DIST_TEXT_EXTENSIONS = ['.xml', '.txt', '.md', '.json', '.webmanifest'];
 
 /**
  * Built files whose content is minified code or markup, by extension (any
