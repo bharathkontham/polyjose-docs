@@ -135,6 +135,9 @@ export default defineConfig({
         Footer: './src/components/site-nav/Footer.astro',
       },
       sidebar,
+      // Adds each page's JSON-LD structured data and its link to the page's
+      // Markdown form to the <head>.
+      routeMiddleware: './src/routeData.ts',
       plugins: [
         // Fails `astro build` on a broken internal link or #hash. Links to this
         // site must be written as internal paths (an absolute polyjose.dev URL is

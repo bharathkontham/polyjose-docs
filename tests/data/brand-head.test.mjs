@@ -304,3 +304,65 @@ for (const page of PAGES) {
 		});
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Structured data and the Markdown alternate link (src/routeData.ts).
+//
+// Sources: schema.org WebSite, SoftwareSourceCode, BreadcrumbList and
+// TechArticle; Google Search Central, "Breadcrumb (BreadcrumbList) structured
+// data": at least two ListItems, and the last may leave out `item`. Starlight
+// writes head entries with `set:html`, so a raw `<` in the JSON could end the
+// script element; the middleware escapes it as <.
+
+/** The text of every JSON-LD script element in a built page. */
+function jsonLdBlocks(page) {
+	const html = readFileSync(join(dist, page), 'utf8');
+	return [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+}
+
+/** The text of a built page's <h1>, tags removed and entities decoded. */
+function h1Text(page) {
+	const m = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(readFileSync(join(dist, page), 'utf8'));
+	assert.ok(m, `${page}: no <h1>`);
+	return decodeEntities(m[1].replace(/<[^>]*>/g, '')).trim();
+}
+
+describe('built JSON-LD and Markdown alternate links', () => {
+	test('home: one block, a WebSite and a SoftwareSourceCode with the registry pages', { skip }, () => {
+		const blocks = jsonLdBlocks('index.html');
+		assert.equal(blocks.length, 1);
+		const graph = JSON.parse(blocks[0])['@graph'];
+		assert.deepEqual(graph.map((n) => n['@type']), ['WebSite', 'SoftwareSourceCode']);
+		assert.deepEqual(graph[1].sameAs, [
+			'https://crates.io/crates/polyjose',
+			'https://www.npmjs.com/package/@polyjose/node',
+			'https://www.npmjs.com/package/@polyjose/wasm',
+			'https://central.sonatype.com/artifact/dev.polyjose/polyjose-jvm',
+			'https://central.sonatype.com/artifact/dev.polyjose/polyjose',
+			'https://javadoc.io/doc/dev.polyjose/polyjose-jvm',
+			'https://github.com/bharathkontham/polyjose',
+		]);
+		assert.doesNotMatch(blocks[0], /SoftwareApplication|aggregateRating|"review"|"offers"/);
+	});
+
+	test('a guide: Home → page breadcrumb and a TechArticle whose headline is the <h1>', { skip }, () => {
+		const page = 'guides/sign-and-verify/index.html';
+		const [block, ...rest] = jsonLdBlocks(page);
+		assert.equal(rest.length, 0, 'one JSON-LD block');
+		const [crumbs, article] = JSON.parse(block)['@graph'];
+		assert.deepEqual(
+			crumbs.itemListElement.map((i) => [i.position, i.name, i.item]),
+			[[1, 'polyjose', `${SITE}/`], [2, article.headline, undefined]],
+		);
+		assert.equal(article.headline, h1Text(page));
+		assert.equal(article.url, links(headTags(page), 'canonical')[0]?.attrs.get('href'));
+	});
+
+	test('no raw < in any block, and each page links its Markdown form', { skip }, () => {
+		for (const [page, md] of [['index.html', '/index.md'], ['guides/sign-and-verify/index.html', '/guides/sign-and-verify.md']]) {
+			assert.ok(jsonLdBlocks(page).every((b) => !b.includes('<')), `${page}: a raw < in JSON-LD`);
+			const alt = headTags(page).filter((t) => t.attrs.get('rel') === 'alternate' && t.attrs.get('type') === 'text/markdown');
+			assert.deepEqual(alt.map((t) => t.attrs.get('href')), [`${SITE}${md}`], page);
+		}
+	});
+});
