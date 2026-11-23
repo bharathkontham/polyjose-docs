@@ -1,6 +1,9 @@
 ---
 title: polyjose
 description: One JOSE implementation, every platform. Pure-Rust JWS, JWE, JWK and JWT for Rust, Node.js, the web, Android (Kotlin) and Swift (iOS).
+head:
+  - tag: title
+    content: "polyjose: JOSE and JWT for Rust, Node.js, web, Kotlin, Swift"
 template: splash
 hero:
   tagline: One JOSE implementation, every platform.
@@ -17,6 +20,8 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 import PlatformSetup from '../../components/PlatformSetup.astro';
 
 polyjose is a pure-Rust implementation of JWS, JWE, JWK and JWT. One core, with bindings for Node.js, WebAssembly, Kotlin and Swift, gives the same results, the same defaults and the same errors on every platform. Every binding passes the same conformance tests.
+
+Use it wherever you need a JWT, JWS, JWE or JWK library: in Rust, in Node.js, in browsers and Cloudflare Workers through WebAssembly, on Android and the JVM in Kotlin, and on iOS and macOS in Swift, with one API.
 
 ## Pick your platform
 
