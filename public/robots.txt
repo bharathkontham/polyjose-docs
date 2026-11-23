@@ -1,0 +1,13 @@
+# robots.txt for https://polyjose.dev (RFC 9309, Robots Exclusion Protocol).
+#
+# Every crawler may read every page: search engines, AI search and AI training
+# crawlers alike. The docs are MIT-licensed, and tools that learn the current
+# API help the people who use it.
+#
+# /pagefind/ holds the fragments of the site search index, not pages. /_astro/
+# (the CSS and JavaScript that pages need to render) stays open.
+User-agent: *
+Allow: /
+Disallow: /pagefind/
+
+Sitemap: https://polyjose.dev/sitemap-index.xml
